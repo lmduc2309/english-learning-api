@@ -5,7 +5,7 @@ import { GenerateSentencesDto, GenerateSentencesResponseDto } from './dto/genera
 import { ChatDto, ChatResponseDto } from './dto/chat.dto';
 
 @ApiTags('LLM')
-@Controller('api/llm')
+@Controller('serious/llm')
 export class LlmController {
   constructor(private readonly llmService: LlmService) {}
 

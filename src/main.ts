@@ -27,12 +27,12 @@ async function bootstrap() {
     .build();
   
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  SwaggerModule.setup('serious/docs', app, document);
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
   
   console.log(`Application is running on: http://localhost:${port}`);
-  console.log(`Swagger documentation: http://localhost:${port}/api/docs`);
+  console.log(`Swagger documentation: http://localhost:${port}/serious/docs`);
 }
 bootstrap();
