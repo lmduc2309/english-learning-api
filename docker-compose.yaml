@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "7474:7474"
+    environment:
+      - VLLM_URL=${VLLM_URL}
+      - VLLM_MODEL=${VLLM_MODEL}
+      - PORT=7474
+    env_file:
+      - .env
+    restart: unless-stopped

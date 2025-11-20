@@ -1,7 +1,7 @@
 import { Controller, Post, Get, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { LlmService } from './llm.service';
-import { GenerateSentencesDto, GenerateSentencesResponseDto } from './dto/generate-sentences.dto';
+import { GenerateSentencesDto, GenerateSentencesResponseDto } from './dto/generate-setences.dto';
 import { ChatDto, ChatResponseDto } from './dto/chat.dto';
 
 @ApiTags('LLM')
