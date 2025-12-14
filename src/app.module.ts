@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { LlmModule } from './llm/llm.module';
+import { DictionaryModule } from './dictionary/dictionary.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -10,6 +11,7 @@ import configuration from './config/configuration';
       load: [configuration],
     }),
     LlmModule,
+    DictionaryModule,
   ],
 })
 export class AppModule {}

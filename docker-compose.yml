@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: dictionary-postgres
+    environment:
+      POSTGRES_USER: dictionary_user
+      POSTGRES_PASSWORD: dictionary_pass
+      POSTGRES_DB: english_learning_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dictionary_user -d english_learning_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: dictionary-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - app-network
+
+  # NestJS API
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: english-learning-api
+    ports:
+      - "7474:80"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://dictionary_user:dictionary_pass@postgres:5432/english_learning_db
+      REDIS_URL: redis://redis:6379
+      VLLM_URL: ${VLLM_URL}
+      VLLM_MODEL: ${VLLM_MODEL}
+      PORT: 80
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/app/uploads
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # pgAdmin (Optional - for database management)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: dictionary-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@dictionary.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_LISTEN_PORT: 5050
+    ports:
+      - "5050:5050"
+    depends_on:
+      - postgres
+    networks:
+      - app-network
+    profiles:
+      - tools
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  app-network:
+    driver: bridge
