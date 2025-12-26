@@ -67,4 +67,32 @@ export class DictionaryController {
   async translate(@Body() dto: TranslateDto): Promise<TranslateResponseDto> {
     return this.dictionaryService.translate(dto);
   }
+
+  @Post('admin/import')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Import word data into database (Admin only)' })
+  @ApiResponse({
+    status: 201,
+    description: 'Word imported successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  async importWord(@Body() wordData: any): Promise<{ success: boolean; word: string }> {
+    return this.dictionaryService.importWordData(wordData);
+  }
+
+  @Get('word/:word/audio/:accent')
+  @ApiOperation({ summary: 'Get audio URL for word pronunciation' })
+  @ApiParam({ name: 'word', example: 'hello' })
+  @ApiParam({ name: 'accent', example: 'US', enum: ['US', 'UK'] })
+  @ApiResponse({
+    status: 200,
+    description: 'Audio URL retrieved',
+  })
+  async getAudio(
+    @Param('word') word: string,
+    @Param('accent') accent: 'US' | 'UK',
+  ): Promise<{ audio_url: string | null }> {
+    return this.dictionaryService.getWordAudio(word, accent);
+  }
 }

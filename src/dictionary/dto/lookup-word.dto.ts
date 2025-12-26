@@ -7,7 +7,11 @@ export class PronunciationDto {
   @ApiProperty({ example: '/həˈloʊ/' })
   ipa: string;
 
-  @ApiProperty({ example: null, required: false })
+  @ApiProperty({ 
+    example: 'https://api.dictionaryapi.dev/media/pronunciations/en/hello-us.mp3', 
+    required: false,
+    description: 'Audio URL for pronunciation' 
+  })
   audio_url?: string;
 }
 
