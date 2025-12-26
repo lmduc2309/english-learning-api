@@ -221,7 +221,8 @@ export class DictionaryService {
   private async generateWordWithLLM(
     word: string,
   ): Promise<LookupWordResponseDto> {
-    const prompt = `<|system|>
+    try {
+      const prompt = `<|system|>
 You are an English-Vietnamese dictionary. Provide comprehensive dictionary information in JSON format.
 <|end|>
 <|user|>
@@ -289,7 +290,7 @@ Return ONLY valid JSON in this exact format:
       return dictionaryData;
     } catch (error) {
       this.logger.error(
-        `Error looking up word "${word}": ${error.message}`,
+        `Error generating word "${word}" with LLM: ${error.message}`,
         error.stack,
       );
 
@@ -298,7 +299,7 @@ Return ONLY valid JSON in this exact format:
       }
 
       throw new HttpException(
-        `Failed to lookup word: ${error.message}`,
+        `Failed to generate word data: ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
