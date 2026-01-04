@@ -15,7 +15,7 @@ import { LookupWordResponseDto } from './dto/lookup-word.dto';
 import { TranslateDto, TranslateResponseDto } from './dto/translate.dto';
 
 @ApiTags('Dictionary')
-@Controller('api/dictionary')
+@Controller('serious/dictionary')
 export class DictionaryController {
   constructor(private readonly dictionaryService: DictionaryService) {}
 

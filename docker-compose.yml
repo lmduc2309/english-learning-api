@@ -13,7 +13,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      # - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql  # Commented out - TypeORM manages schema
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U dictionary_user -d english_learning_db"]
       interval: 10s
