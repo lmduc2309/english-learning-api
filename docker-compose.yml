@@ -45,14 +45,14 @@ services:
       dockerfile: Dockerfile
     container_name: english-learning-api
     ports:
-      - "7474:80"
+      - "7474:7474"
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://dictionary_user:dictionary_pass@postgres:5432/english_learning_db
       REDIS_URL: redis://redis:6379
       VLLM_URL: ${VLLM_URL}
       VLLM_MODEL: ${VLLM_MODEL}
-      PORT: 80
+      PORT: 7474
     depends_on:
       postgres:
         condition: service_healthy
