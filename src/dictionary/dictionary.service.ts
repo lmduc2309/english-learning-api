@@ -21,26 +21,9 @@ import { SearchIndexService } from '../common/search/search-index.service';
 import { RedisCacheService } from '../common/cache/redis-cache.service';
 import { LlmService } from '../llm/llm.service';
 
-interface VLLMCompletionRequest {
-  model: string;
-  prompt: string;
-  temperature: number;
-  max_tokens: number;
-  stop?: string[];
-}
-
-interface VLLMCompletionResponse {
-  choices: Array<{
-    text: string;
-    finish_reason: string;
-  }>;
-}
-
 @Injectable()
 export class DictionaryService {
   private readonly logger = new Logger(DictionaryService.name);
-  private readonly vllmUrl: string;
-  private readonly vllmModel: string;
   private readonly llmFallbackEnabled: boolean;
 
   // Common English words for autocomplete (can be expanded)
@@ -73,12 +56,7 @@ export class DictionaryService {
     private synonymRepository: Repository<Synonym>,
     private llmService: LlmService,
   ) {
-    this.vllmUrl = this.configService.get<string>('llm.url');
-    this.vllmModel = this.configService.get<string>('llm.model');
     this.llmFallbackEnabled = this.configService.get<boolean>('llm.enableFallback');
-    this.logger.log(
-      `Dictionary Service initialized with vLLM URL: ${this.vllmUrl}`,
-    );
     this.logger.log(
       `LLM fallback ${this.llmFallbackEnabled ? 'enabled' : 'disabled'}`,
     );
