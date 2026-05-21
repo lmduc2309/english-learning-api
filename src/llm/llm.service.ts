@@ -82,7 +82,49 @@ export class LlmService {
     return { status: 'healthy', model: this.model, url: this.baseUrl };
   }
 
-  private async chat(_messages: ChatMessage[], _opts: ChatOpts = {}): Promise<string> {
-    throw new Error('not yet implemented');
+  private async chat(messages: ChatMessage[], opts: ChatOpts = {}): Promise<string> {
+    const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+    const preview =
+      typeof lastUser?.content === 'string' ? lastUser.content.slice(0, 200) : '';
+    try {
+      const response = await this.openai.chat.completions.create(
+        {
+          model: this.model,
+          messages,
+          ...(opts.temperature !== undefined ? { temperature: opts.temperature } : {}),
+          ...(opts.maxTokens !== undefined ? { max_tokens: opts.maxTokens } : {}),
+          ...(opts.responseFormat ? { response_format: opts.responseFormat } : {}),
+        },
+        opts.timeoutMs !== undefined ? { timeout: opts.timeoutMs } : undefined,
+      );
+      return response.choices[0]?.message?.content?.trim() ?? '';
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `LLM call failed (model=${this.model}, messages=${messages.length}, preview=${preview}): ${message}`,
+      );
+      if (err instanceof APIConnectionTimeoutError || err instanceof APIConnectionError) {
+        throw new HttpException(
+          'LLM provider unreachable',
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
+      if (err instanceof RateLimitError) {
+        throw new HttpException(
+          'LLM rate limit exceeded',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+      if (err instanceof AuthenticationError) {
+        throw new HttpException(
+          'LLM provider misconfigured',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+      throw new HttpException(
+        'LLM request failed',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 }
