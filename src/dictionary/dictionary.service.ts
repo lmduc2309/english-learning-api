@@ -19,6 +19,7 @@ import { Synonym } from './entities/synonym.entity';
 import { AudioService } from './audio.service';
 import { SearchIndexService } from '../common/search/search-index.service';
 import { RedisCacheService } from '../common/cache/redis-cache.service';
+import { LlmService } from '../llm/llm.service';
 
 interface VLLMCompletionRequest {
   model: string;
@@ -70,6 +71,7 @@ export class DictionaryService {
     private wordFormRepository: Repository<WordForm>,
     @InjectRepository(Synonym)
     private synonymRepository: Repository<Synonym>,
+    private llmService: LlmService,
   ) {
     this.vllmUrl = this.configService.get<string>('llm.url');
     this.vllmModel = this.configService.get<string>('llm.model');
@@ -295,88 +297,7 @@ export class DictionaryService {
   private async generateWordWithLLM(
     word: string,
   ): Promise<LookupWordResponseDto> {
-    try {
-      const prompt = `<|system|>
-You are an English-Vietnamese dictionary. Provide comprehensive dictionary information in JSON format.
-<|end|>
-<|user|>
-Provide a complete dictionary entry for the English word "${word}" with Vietnamese translations.
-
-Return ONLY valid JSON in this exact format:
-{
-  "word": "${word}",
-  "pronunciations": [
-    {"accent": "US", "ipa": "/pronunciation/"},
-    {"accent": "UK", "ipa": "/pronunciation/"}
-  ],
-  "definitions": [
-    {
-      "pos": "part of speech",
-      "definition_en": "English definition",
-      "definition_vi": "Vietnamese translation",
-      "level": "beginner/intermediate/advanced",
-      "examples": [
-        {"en": "English example", "vi": "Vietnamese example"}
-      ]
-    }
-  ],
-  "word_forms": {"plural": "...", "past": "...", "present": "..."},
-  "synonyms": ["synonym1", "synonym2"]
-}
-<|end|>
-<|assistant|>
-`;
-
-      const vllmRequest: VLLMCompletionRequest = {
-        model: this.vllmModel,
-        prompt,
-        temperature: 0.3,
-        max_tokens: 1500,
-        stop: ['<|end|>', '<|user|>'],
-      };
-
-      this.logger.debug(`Looking up word: ${word}`);
-
-      const response = await firstValueFrom(
-        this.httpService.post<VLLMCompletionResponse>(
-          this.vllmUrl,
-          vllmRequest,
-          {
-            timeout: 30000,
-          },
-        ),
-      );
-
-      const generatedText = response.data.choices[0].text.trim();
-      this.logger.debug(`LLM Response: ${generatedText}`);
-
-      // Parse JSON from response
-      const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new HttpException(
-          'Failed to parse dictionary data',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
-      }
-
-      const dictionaryData: LookupWordResponseDto = JSON.parse(jsonMatch[0]);
-
-      return dictionaryData;
-    } catch (error) {
-      this.logger.error(
-        `Error generating word "${word}" with LLM: ${error.message}`,
-        error.stack,
-      );
-
-      if (error instanceof HttpException) {
-        throw error;
-      }
-
-      throw new HttpException(
-        `Failed to generate word data: ${error.message}`,
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
+    return this.llmService.lookupDictionaryWord(word);
   }
 
   async translate(dto: TranslateDto): Promise<TranslateResponseDto> {
