@@ -61,9 +61,51 @@ export class LlmService {
   }
 
   async generateSentences(
-    _dto: GenerateSentencesDto,
+    dto: GenerateSentencesDto,
   ): Promise<GenerateSentencesResponseDto> {
-    throw new Error('not yet implemented');
+    const wordsStr = dto.words.join(', ');
+    const difficultyInstructions: Record<string, string> = {
+      beginner: 'Use simple grammar and common words.',
+      intermediate: 'Use natural everyday English.',
+      advanced: 'Use sophisticated vocabulary and complex grammar.',
+    };
+    const difficultyText =
+      difficultyInstructions[dto.difficulty] ?? difficultyInstructions.intermediate;
+    const messages: ChatMessage[] = [
+      {
+        role: 'system',
+        content: 'You are an English teacher helping students learn new vocabulary.',
+      },
+      {
+        role: 'user',
+        content: `Create ${dto.numSentences} clear example sentences that use these words: ${wordsStr}
+
+Requirements:
+- Each sentence must use at least one of the words
+- Make sentences natural and practical
+- ${difficultyText}
+- Show the word in context
+- Keep sentences concise and clear
+
+Format: Return only the sentences, one per line, without numbering.`,
+      },
+    ];
+    const text = await this.chat(messages, {
+      temperature: dto.temperature,
+      maxTokens: 500,
+    });
+    const sentences = text
+      .split('\n')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 10)
+      .slice(0, dto.numSentences);
+    if (sentences.length === 0) {
+      throw new HttpException(
+        'Failed to generate sentences',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    return { sentences, wordsUsed: dto.words };
   }
 
   async chatWithUser(_dto: ChatDto): Promise<ChatResponseDto> {

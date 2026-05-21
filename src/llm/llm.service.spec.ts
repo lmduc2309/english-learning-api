@@ -158,3 +158,62 @@ describe('LlmService.chat() helper', () => {
     });
   });
 });
+
+describe('LlmService.generateSentences', () => {
+  let mockCreate: jest.Mock;
+  let svc: LlmService;
+
+  beforeEach(() => {
+    mockCreate = jest.fn();
+    svc = makeServiceWithMock(mockCreate);
+  });
+
+  it('builds system + user messages and parses N non-short sentences', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content:
+              'Sentence one is here.\nShort.\nSentence two is here too.\nA third good sentence.\n',
+          },
+        },
+      ],
+    });
+    const result = await svc.generateSentences({
+      words: ['ephemeral', 'ubiquitous'],
+      numSentences: 3,
+      difficulty: 'intermediate',
+      temperature: 0.7,
+    });
+    expect(result.sentences).toEqual([
+      'Sentence one is here.',
+      'Sentence two is here too.',
+      'A third good sentence.',
+    ]);
+    expect(result.wordsUsed).toEqual(['ephemeral', 'ubiquitous']);
+    const [call] = mockCreate.mock.calls;
+    expect(call[0].messages[0]).toMatchObject({ role: 'system' });
+    expect(call[0].messages[0].content).toMatch(/English teacher/i);
+    expect(call[0].messages[1]).toMatchObject({ role: 'user' });
+    expect(call[0].messages[1].content).toContain('ephemeral, ubiquitous');
+    expect(call[0].temperature).toBe(0.7);
+    expect(call[0].max_tokens).toBe(500);
+  });
+
+  it('throws 500 when no sentences could be parsed', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [{ message: { content: '   \n  \n' } }],
+    });
+    await expect(
+      svc.generateSentences({
+        words: ['a'],
+        numSentences: 1,
+        difficulty: 'intermediate',
+        temperature: 0.7,
+      }),
+    ).rejects.toMatchObject({
+      status: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: 'Failed to generate sentences',
+    });
+  });
+});
