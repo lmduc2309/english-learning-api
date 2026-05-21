@@ -124,8 +124,53 @@ Format: Return only the sentences, one per line, without numbering.`,
     return { response: text };
   }
 
-  async lookupDictionaryWord(_word: string): Promise<LookupWordResponseDto> {
-    throw new Error('not yet implemented');
+  async lookupDictionaryWord(word: string): Promise<LookupWordResponseDto> {
+    const messages: ChatMessage[] = [
+      {
+        role: 'system',
+        content:
+          'You are an English-Vietnamese dictionary. Provide comprehensive dictionary information in JSON format.',
+      },
+      {
+        role: 'user',
+        content: `Provide a complete dictionary entry for the English word "${word}" with Vietnamese translations.
+
+Return ONLY valid JSON in this exact format:
+{
+  "word": "${word}",
+  "pronunciations": [
+    {"accent": "US", "ipa": "/pronunciation/"},
+    {"accent": "UK", "ipa": "/pronunciation/"}
+  ],
+  "definitions": [
+    {
+      "pos": "part of speech",
+      "definition_en": "English definition",
+      "definition_vi": "Vietnamese translation",
+      "level": "beginner/intermediate/advanced",
+      "examples": [
+        {"en": "English example", "vi": "Vietnamese example"}
+      ]
+    }
+  ],
+  "word_forms": {"plural": "...", "past": "...", "present": "..."},
+  "synonyms": ["synonym1", "synonym2"]
+}`,
+      },
+    ];
+    const text = await this.chat(messages, {
+      temperature: 0.3,
+      maxTokens: 1500,
+      responseFormat: { type: 'json_object' },
+    });
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new HttpException(
+        'Failed to parse dictionary data',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    return JSON.parse(jsonMatch[0]) as LookupWordResponseDto;
   }
 
   async translate(_dto: TranslateDto): Promise<TranslateResponseDto> {

@@ -248,3 +248,66 @@ describe('LlmService.chatWithUser', () => {
     expect(call[0].max_tokens).toBe(300);
   });
 });
+
+describe('LlmService.lookupDictionaryWord', () => {
+  let mockCreate: jest.Mock;
+  let svc: LlmService;
+
+  beforeEach(() => {
+    mockCreate = jest.fn();
+    svc = makeServiceWithMock(mockCreate);
+  });
+
+  it('requests JSON response_format and parses the returned JSON', async () => {
+    const fakeEntry = {
+      word: 'cat',
+      pronunciations: [{ accent: 'US', ipa: '/kæt/' }],
+      definitions: [
+        {
+          pos: 'noun',
+          definition_en: 'A small domesticated carnivorous mammal.',
+          definition_vi: 'Mèo',
+          level: 'beginner',
+          examples: [{ en: 'The cat sleeps.', vi: 'Con mèo ngủ.' }],
+        },
+      ],
+      word_forms: { plural: 'cats', past: '', present: '' },
+      synonyms: ['feline'],
+    };
+    mockCreate.mockResolvedValue({
+      choices: [{ message: { content: JSON.stringify(fakeEntry) } }],
+    });
+    const result = await svc.lookupDictionaryWord('cat');
+    expect(result).toEqual(fakeEntry);
+    const [call] = mockCreate.mock.calls;
+    expect(call[0].response_format).toEqual({ type: 'json_object' });
+    expect(call[0].temperature).toBe(0.3);
+    expect(call[0].max_tokens).toBe(1500);
+    expect(call[0].messages[0].content).toMatch(/English-Vietnamese dictionary/i);
+    expect(call[0].messages[1].content).toContain('"cat"');
+  });
+
+  it('tolerates JSON wrapped in prose by extracting the first {...} block', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: 'Here is the entry: {"word":"x","pronunciations":[],"definitions":[],"word_forms":{},"synonyms":[]}',
+          },
+        },
+      ],
+    });
+    const result = await svc.lookupDictionaryWord('x');
+    expect(result.word).toBe('x');
+  });
+
+  it('throws 500 when response contains no JSON object', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [{ message: { content: 'no json here' } }],
+    });
+    await expect(svc.lookupDictionaryWord('x')).rejects.toMatchObject({
+      status: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: 'Failed to parse dictionary data',
+    });
+  });
+});
