@@ -260,7 +260,7 @@ npm run start:dev
 **Solution:** The parser uses streaming to minimize memory usage, but still needs ~4GB RAM. Close other applications or upgrade machine.
 
 ### LLM fallback not working
-**Solution:** Check that `LLM_FALLBACK_ENABLED=true` in .env and that the vLLM service is running at the configured URL.
+**Solution:** Check that `LLM_FALLBACK_ENABLED=true` in `.env`, and that `LLM_API_KEY` / `LLM_BASE_URL` point at a reachable OpenAI-compatible provider (see `.env.example`).
 
 ### Word lookup returns 404 after import
 **Solution:** Check that the word is actually in the database. Try enabling LLM fallback temporarily or verify the import completed successfully.
