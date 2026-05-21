@@ -217,3 +217,34 @@ describe('LlmService.generateSentences', () => {
     });
   });
 });
+
+describe('LlmService.chatWithUser', () => {
+  let mockCreate: jest.Mock;
+  let svc: LlmService;
+
+  beforeEach(() => {
+    mockCreate = jest.fn();
+    svc = makeServiceWithMock(mockCreate);
+  });
+
+  it('sends system + user messages and returns the response text', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [{ message: { content: 'A coherent reply.' } }],
+    });
+    const result = await svc.chatWithUser({
+      message: 'What is a gerund?',
+      temperature: 0.7,
+      maxTokens: 300,
+    });
+    expect(result).toEqual({ response: 'A coherent reply.' });
+    const [call] = mockCreate.mock.calls;
+    expect(call[0].messages[0]).toMatchObject({ role: 'system' });
+    expect(call[0].messages[0].content).toMatch(/English teacher assistant/i);
+    expect(call[0].messages[1]).toEqual({
+      role: 'user',
+      content: 'What is a gerund?',
+    });
+    expect(call[0].temperature).toBe(0.7);
+    expect(call[0].max_tokens).toBe(300);
+  });
+});

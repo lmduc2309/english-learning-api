@@ -108,8 +108,20 @@ Format: Return only the sentences, one per line, without numbering.`,
     return { sentences, wordsUsed: dto.words };
   }
 
-  async chatWithUser(_dto: ChatDto): Promise<ChatResponseDto> {
-    throw new Error('not yet implemented');
+  async chatWithUser(dto: ChatDto): Promise<ChatResponseDto> {
+    const messages: ChatMessage[] = [
+      {
+        role: 'system',
+        content:
+          'You are a helpful English teacher assistant. Answer questions about English grammar, vocabulary, and usage.',
+      },
+      { role: 'user', content: dto.message },
+    ];
+    const text = await this.chat(messages, {
+      temperature: dto.temperature,
+      maxTokens: dto.maxTokens,
+    });
+    return { response: text };
   }
 
   async lookupDictionaryWord(_word: string): Promise<LookupWordResponseDto> {
