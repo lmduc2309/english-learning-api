@@ -311,3 +311,47 @@ describe('LlmService.lookupDictionaryWord', () => {
     });
   });
 });
+
+describe('LlmService.translate', () => {
+  let mockCreate: jest.Mock;
+  let svc: LlmService;
+
+  beforeEach(() => {
+    mockCreate = jest.fn();
+    svc = makeServiceWithMock(mockCreate);
+  });
+
+  it('sends translator system prompt with 5s timeout, returns translated text', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [{ message: { content: 'Xin chào' } }],
+    });
+    const result = await svc.translate({
+      text: 'Hello',
+      source_lang: 'en',
+      target_lang: 'vi',
+    });
+    expect(result).toEqual({
+      original_text: 'Hello',
+      translated_text: 'Xin chào',
+      source_lang: 'en',
+      target_lang: 'vi',
+    });
+    const [args, opts] = mockCreate.mock.calls[0];
+    expect(args.messages[0].content).toMatch(/professional translator/i);
+    expect(args.messages[1].content).toContain('English');
+    expect(args.messages[1].content).toContain('Vietnamese');
+    expect(args.messages[1].content).toContain('Hello');
+    expect(args.temperature).toBe(0.3);
+    expect(args.max_tokens).toBe(500);
+    expect(opts).toEqual({ timeout: 5000 });
+  });
+
+  it('propagates errors so DictionaryService can fall back', async () => {
+    mockCreate.mockRejectedValue(makeSdkError(APIConnectionTimeoutError, 'timeout'));
+    await expect(
+      svc.translate({ text: 'x', source_lang: 'en', target_lang: 'vi' }),
+    ).rejects.toMatchObject({
+      status: HttpStatus.SERVICE_UNAVAILABLE,
+    });
+  });
+});

@@ -173,8 +173,47 @@ Return ONLY valid JSON in this exact format:
     return JSON.parse(jsonMatch[0]) as LookupWordResponseDto;
   }
 
-  async translate(_dto: TranslateDto): Promise<TranslateResponseDto> {
-    throw new Error('not yet implemented');
+  async translate(dto: TranslateDto): Promise<TranslateResponseDto> {
+    const languageNames: Record<string, string> = {
+      en: 'English',
+      vi: 'Vietnamese',
+      'zh-cn': 'Chinese',
+      es: 'Spanish',
+      hi: 'Hindi',
+      bn: 'Bengali',
+      pt: 'Portuguese',
+      ru: 'Russian',
+      ja: 'Japanese',
+      ko: 'Korean',
+      fr: 'French',
+    };
+    const sourceLangName = languageNames[dto.source_lang] ?? dto.source_lang;
+    const targetLangName = languageNames[dto.target_lang] ?? dto.target_lang;
+    const messages: ChatMessage[] = [
+      {
+        role: 'system',
+        content:
+          'You are a professional translator. Translate accurately and naturally.',
+      },
+      {
+        role: 'user',
+        content: `Translate the following text from ${sourceLangName} to ${targetLangName}.
+Output ONLY the translation, nothing else.
+
+Text: ${dto.text}`,
+      },
+    ];
+    const translatedText = await this.chat(messages, {
+      temperature: 0.3,
+      maxTokens: 500,
+      timeoutMs: 5000,
+    });
+    return {
+      original_text: dto.text,
+      translated_text: translatedText,
+      source_lang: dto.source_lang,
+      target_lang: dto.target_lang,
+    };
   }
 
   async healthCheck() {
