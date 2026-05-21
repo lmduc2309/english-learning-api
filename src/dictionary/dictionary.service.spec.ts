@@ -89,3 +89,48 @@ describe('DictionaryService.lookupWord — LLM path', () => {
     expect(result).toEqual(fakeEntry);
   });
 });
+
+describe('DictionaryService.translate', () => {
+  it('returns LlmService.translate result on success', async () => {
+    const llmService = {
+      translate: jest.fn().mockResolvedValue({
+        original_text: 'Hello',
+        translated_text: 'Xin chào',
+        source_lang: 'en',
+        target_lang: 'vi',
+      }),
+    };
+    const svc = await buildModule({ llmService });
+    const result = await svc.translate({
+      text: 'Hello',
+      source_lang: 'en',
+      target_lang: 'vi',
+    });
+    expect(result.translated_text).toBe('Xin chào');
+    expect(llmService.translate).toHaveBeenCalled();
+  });
+
+  it('falls back to MyMemory when LlmService.translate throws', async () => {
+    const llmService = {
+      translate: jest.fn().mockRejectedValue(new Error('boom')),
+    };
+    const httpService = {
+      get: jest.fn().mockReturnValue(
+        of({
+          data: { responseData: { translatedText: 'Xin chào (mm)' } },
+        }),
+      ),
+    };
+    const svc = await buildModule({ llmService, httpService });
+    const result = await svc.translate({
+      text: 'Hello',
+      source_lang: 'en',
+      target_lang: 'vi',
+    });
+    expect(result.translated_text).toBe('Xin chào (mm)');
+    expect(httpService.get).toHaveBeenCalledWith(
+      expect.stringContaining('api.mymemory.translated.net'),
+      expect.any(Object),
+    );
+  });
+});

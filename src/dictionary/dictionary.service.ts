@@ -302,79 +302,26 @@ export class DictionaryService {
 
   async translate(dto: TranslateDto): Promise<TranslateResponseDto> {
     try {
-      const languageNames = {
-        en: 'English',
-        vi: 'Vietnamese',
-        'zh-cn': 'Chinese',
-        es: 'Spanish',
-        hi: 'Hindi',
-        bn: 'Bengali',
-        pt: 'Portuguese',
-        ru: 'Russian',
-        ja: 'Japanese',
-        ko: 'Korean',
-        fr: 'French',
-      };
-
-      const sourceLangName =
-        languageNames[dto.source_lang] || dto.source_lang;
-      const targetLangName =
-        languageNames[dto.target_lang] || dto.target_lang;
-
-      const prompt = `<|system|>
-You are a professional translator. Translate accurately and naturally.
-<|end|>
-<|user|>
-Translate the following text from ${sourceLangName} to ${targetLangName}.
-Output ONLY the translation, nothing else.
-
-Text: ${dto.text}
-<|end|>
-<|assistant|>
-`;
-
-      const vllmRequest: VLLMCompletionRequest = {
-        model: this.vllmModel,
-        prompt,
-        temperature: 0.3,
-        max_tokens: 500,
-        stop: ['<|end|>', '<|user|>'],
-      };
-
-      this.logger.debug(
-        `Translating from ${dto.source_lang} to ${dto.target_lang}`,
+      return await this.llmService.translate(dto);
+    } catch (llmError) {
+      this.logger.warn(
+        `LLM translation failed, using MyMemory fallback: ${(llmError as Error).message}`,
       );
-
-      const response = await firstValueFrom(
-        this.httpService.post<VLLMCompletionResponse>(
-          this.vllmUrl,
-          vllmRequest,
-          {
-            timeout: 30000,
-          },
-        ),
+      const langPair = `${dto.source_lang}|${dto.target_lang}`;
+      const myMemoryUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(dto.text)}&langpair=${langPair}`;
+      const fallbackResponse = await firstValueFrom(
+        this.httpService.get(myMemoryUrl, { timeout: 10000 }),
       );
-
-      const translatedText = response.data.choices[0].text.trim();
-
-      return {
-        original_text: dto.text,
-        translated_text: translatedText,
-        source_lang: dto.source_lang,
-        target_lang: dto.target_lang,
-      };
-    } catch (error) {
-      this.logger.error(
-        `Error translating text: ${error.message}`,
-        error.stack,
-      );
-
-      if (error instanceof HttpException) {
-        throw error;
+      if (fallbackResponse.data && fallbackResponse.data.responseData) {
+        return {
+          original_text: dto.text,
+          translated_text: fallbackResponse.data.responseData.translatedText,
+          source_lang: dto.source_lang,
+          target_lang: dto.target_lang,
+        };
       }
-
       throw new HttpException(
-        `Failed to translate text: ${error.message}`,
+        'Translation failed',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
