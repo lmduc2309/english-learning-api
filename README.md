@@ -1,10 +1,10 @@
 # English Learning API
 
-A NestJS-based REST API for an English learning application, powered by local LLM using vLLM.
+A NestJS-based REST API for an English learning application, powered by OpenRouter or any OpenAI-compatible LLM provider.
 
 ## Features
 
-- 🤖 **LLM Integration**: Connect to local vLLM server for AI-powered sentence generation
+- 🤖 **LLM Integration**: Connect to OpenRouter or any OpenAI-compatible provider for AI-powered sentence generation
 - 📝 **Generate Sentences**: Create example sentences using specific vocabulary words
 - 💬 **Chat Assistant**: English teacher assistant for grammar and vocabulary questions
 - 🎯 **Difficulty Levels**: Support for beginner, intermediate, and advanced levels
@@ -16,22 +16,7 @@ A NestJS-based REST API for an English learning application, powered by local LL
 
 - Node.js 18+ 
 - npm or yarn
-- vLLM server running (see setup below)
-
-## vLLM Server Setup
-
-First, start your vLLM server:
-
-```bash
-python -m vllm.entrypoints.openai.api_server \
-    --model microsoft/Phi-3-mini-4k-instruct \
-    --dtype float16 \
-    --max-model-len 512 \
-    --gpu-memory-utilization 0.6 \
-    --host 0.0.0.0 \
-    --port 8000 \
-    --trust-remote-code
-```
+- OpenRouter API key (or any OpenAI-compatible LLM provider)
 
 ## Installation
 
@@ -52,14 +37,17 @@ nano .env
 
 ## Configuration
 
-Update `.env` file with your settings:
+Update `.env` file with your LLM provider credentials:
 
 ```env
-VLLM_URL=http://localhost:8000/v1/completions
-VLLM_MODEL=microsoft/Phi-3-mini-4k-instruct
+LLM_API_KEY=sk-your-api-key-here
+LLM_BASE_URL=https://openrouter.ai/api/v1
+LLM_MODEL=openai/gpt-4o-mini
 PORT=3000
 NODE_ENV=development
 ```
+
+See `.env.example` for the full list of LLM_* environment variables.
 
 ## Running the Application
 
@@ -134,19 +122,14 @@ english-learning-api/
 └── package.json                   # Dependencies
 ```
 
-## Hardware Requirements
+## LLM Provider
 
-For running the vLLM server:
-- **GPU**: 6GB+ VRAM (GTX 1060, RTX 3060, or better)
-- **RAM**: 16GB+ recommended
-- **Storage**: 10GB+ for model files
-- **OS**: Ubuntu 20.04+ or similar Linux distribution
+The API talks to any OpenAI-compatible `/v1/chat/completions` endpoint. The default target is [OpenRouter](https://openrouter.ai), which proxies many models behind one API key. Set `LLM_BASE_URL` and `LLM_MODEL` to point at a different provider or model.
 
-## Recommended Models
-
-- **Phi-3-mini-4k-instruct** (3.8B) - Best for 6GB VRAM
-- **Qwen2.5-3B-Instruct** (3B) - Fast and multilingual
-- **Llama-3.2-3B-Instruct** (3B) - Good English capabilities
+Suggested defaults for getting started:
+- `openai/gpt-4o-mini` — cheap, fast, JSON-friendly (used by the dictionary lookup)
+- `anthropic/claude-haiku-4.5` — comparable price/quality
+- Any local OpenAI-compatible server (e.g., LM Studio, vLLM with `--api-key`)
 
 ## Contributing
 

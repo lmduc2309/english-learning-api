@@ -315,7 +315,7 @@ Response: {
    - English-Vietnamese dictionary datasets
 
 3. **LLM-Generated**:
-   - Use vLLM to generate Vietnamese translations
+   - Use the configured LLM provider (OpenRouter by default) to generate Vietnamese translations
    - Generate example sentences
    - Create usage notes
 

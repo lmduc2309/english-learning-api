@@ -12,12 +12,14 @@ import { WordForm } from './entities/word-form.entity';
 import { Synonym } from './entities/synonym.entity';
 import { SearchModule } from '../common/search/search.module';
 import { CacheModule } from '../common/cache/cache.module';
+import { LlmModule } from '../llm/llm.module';
 
 @Module({
   imports: [
     HttpModule,
     SearchModule,
     CacheModule,
+    LlmModule,
     TypeOrmModule.forFeature([
       Word,
       Pronunciation,

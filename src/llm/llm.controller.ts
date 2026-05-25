@@ -43,6 +43,6 @@ export class LlmController {
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
   async chat(@Body() chatDto: ChatDto): Promise<ChatResponseDto> {
-    return this.llmService.chat(chatDto);
+    return this.llmService.chatWithUser(chatDto);
   }
 }

@@ -137,13 +137,13 @@ export class DictionaryService {
   }
 
   async translateText(text: string, sourceLang: string, targetLang: string): Promise<string> {
-    const vllmUrl = this.configService.get<string>('VLLM_URL');
+    const llmBaseUrl = this.configService.get<string>('LLM_BASE_URL');
 
     const prompt = `Translate from ${sourceLang} to ${targetLang}. Only output the translation:\n\n${text}`;
 
     try {
       const response = await firstValueFrom(
-        this.httpService.post(`${vllmUrl}/v1/chat/completions`, {
+        this.httpService.post(`${llmBaseUrl}/chat/completions`, {
           model: 'default',
           messages: [{ role: 'user', content: prompt }],
           temperature: 0.3,
@@ -158,7 +158,7 @@ export class DictionaryService {
   }
 
   async lookupWordWithLLM(word: string): Promise<any> {
-    const vllmUrl = this.configService.get<string>('VLLM_URL');
+    const llmBaseUrl = this.configService.get<string>('LLM_BASE_URL');
 
     const prompt = `Provide dictionary entry for "${word}" in JSON:
 {
@@ -176,7 +176,7 @@ export class DictionaryService {
 }`;
 
     const response = await firstValueFrom(
-      this.httpService.post(`${vllmUrl}/v1/chat/completions`, {
+      this.httpService.post(`${llmBaseUrl}/chat/completions`, {
         model: 'default',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.5,

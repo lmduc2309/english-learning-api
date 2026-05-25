@@ -1,195 +1,268 @@
-import { Injectable, HttpException, HttpStatus, Logger } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
-import { HttpService } from "@nestjs/axios";
-import { firstValueFrom } from "rxjs";
+import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import OpenAI, {
+  APIConnectionTimeoutError,
+  APIConnectionError,
+  RateLimitError,
+  AuthenticationError,
+} from 'openai';
 import {
   GenerateSentencesDto,
   GenerateSentencesResponseDto,
-} from "./dto/generate-setences.dto";
-import { ChatDto, ChatResponseDto } from "./dto/chat.dto";
+} from './dto/generate-setences.dto';
+import { ChatDto, ChatResponseDto } from './dto/chat.dto';
+import { LookupWordResponseDto } from '../dictionary/dto/lookup-word.dto';
+import {
+  TranslateDto,
+  TranslateResponseDto,
+} from '../dictionary/dto/translate.dto';
 
-interface VLLMCompletionRequest {
-  model: string;
-  prompt: string;
-  temperature: number;
-  max_tokens: number;
-  stop?: string[];
-}
+type ChatMessage = OpenAI.Chat.Completions.ChatCompletionMessageParam;
 
-interface VLLMCompletionResponse {
-  choices: Array<{
-    text: string;
-    finish_reason: string;
-  }>;
+interface ChatOpts {
+  temperature?: number;
+  maxTokens?: number;
+  responseFormat?: { type: 'json_object' };
+  timeoutMs?: number;
 }
 
 @Injectable()
 export class LlmService {
   private readonly logger = new Logger(LlmService.name);
-  private readonly vllmUrl: string;
-  private readonly vllmModel: string;
+  private readonly openai: OpenAI;
+  private readonly model: string;
+  private readonly baseUrl: string;
 
   constructor(
     private configService: ConfigService,
-    private httpService: HttpService
+    openaiOverride?: OpenAI,
   ) {
-    this.vllmUrl = this.configService.get<string>("llm.url");
-    this.vllmModel = this.configService.get<string>("llm.model");
+    const apiKey = configService.get<string>('llm.apiKey');
+    if (!apiKey) {
+      throw new Error('LLM_API_KEY is required but not set');
+    }
+    this.baseUrl = configService.get<string>('llm.baseUrl') ?? '';
+    this.model = configService.get<string>('llm.model') ?? '';
+    const appTitle = configService.get<string>('llm.appTitle') ?? 'english-learning-api';
+    const httpReferer = configService.get<string>('llm.httpReferer');
+    this.openai =
+      openaiOverride ??
+      new OpenAI({
+        apiKey,
+        baseURL: this.baseUrl,
+        defaultHeaders: {
+          'X-Title': appTitle,
+          ...(httpReferer ? { 'HTTP-Referer': httpReferer } : {}),
+        },
+      });
     this.logger.log(
-      `LLM Service initialized with URL: ${this.vllmUrl}, Model: ${this.vllmModel}`
+      `LLM Service initialized (baseURL=${this.baseUrl}, model=${this.model})`,
     );
   }
 
   async generateSentences(
-    dto: GenerateSentencesDto
+    dto: GenerateSentencesDto,
   ): Promise<GenerateSentencesResponseDto> {
-    try {
-      const wordsStr = dto.words.join(", ");
-
-      const difficultyInstructions = {
-        beginner: "Use simple grammar and common words.",
-        intermediate: "Use natural everyday English.",
-        advanced: "Use sophisticated vocabulary and complex grammar.",
-      };
-
-      const prompt = `<|system|>
-You are an English teacher helping students learn new vocabulary.
-<|end|>
-<|user|>
-Create ${
-        dto.numSentences
-      } clear example sentences that use these words: ${wordsStr}
+    const wordsStr = dto.words.join(', ');
+    const difficultyInstructions: Record<string, string> = {
+      beginner: 'Use simple grammar and common words.',
+      intermediate: 'Use natural everyday English.',
+      advanced: 'Use sophisticated vocabulary and complex grammar.',
+    };
+    const difficultyText =
+      difficultyInstructions[dto.difficulty] ?? difficultyInstructions.intermediate;
+    const messages: ChatMessage[] = [
+      {
+        role: 'system',
+        content: 'You are an English teacher helping students learn new vocabulary.',
+      },
+      {
+        role: 'user',
+        content: `Create ${dto.numSentences} clear example sentences that use these words: ${wordsStr}
 
 Requirements:
 - Each sentence must use at least one of the words
 - Make sentences natural and practical
-- ${
-        difficultyInstructions[dto.difficulty] ||
-        difficultyInstructions.intermediate
-      }
+- ${difficultyText}
 - Show the word in context
 - Keep sentences concise and clear
 
-Format: Return only the sentences, one per line, without numbering.
-<|end|>
-<|assistant|>
-`;
-
-      const vllmRequest: VLLMCompletionRequest = {
-        model: this.vllmModel,
-        prompt,
-        temperature: dto.temperature,
-        max_tokens: 500,
-        stop: ["<|end|>", "<|user|>"],
-      };
-
-      this.logger.debug(
-        `Sending request to vLLM: ${JSON.stringify(vllmRequest)}`
+Format: Return only the sentences, one per line, without numbering.`,
+      },
+    ];
+    const text = await this.chat(messages, {
+      temperature: dto.temperature,
+      maxTokens: 500,
+    });
+    const sentences = text
+      .split('\n')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 10)
+      .slice(0, dto.numSentences);
+    if (sentences.length === 0) {
+      throw new HttpException(
+        'Failed to generate sentences',
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    }
+    return { sentences, wordsUsed: dto.words };
+  }
 
-      const response = await firstValueFrom(
-        this.httpService.post<VLLMCompletionResponse>(
-          this.vllmUrl,
-          vllmRequest,
-          {
-            timeout: 30000,
-          }
-        )
+  async chatWithUser(dto: ChatDto): Promise<ChatResponseDto> {
+    const messages: ChatMessage[] = [
+      {
+        role: 'system',
+        content:
+          'You are a helpful English teacher assistant. Answer questions about English grammar, vocabulary, and usage.',
+      },
+      { role: 'user', content: dto.message },
+    ];
+    const text = await this.chat(messages, {
+      temperature: dto.temperature,
+      maxTokens: dto.maxTokens,
+    });
+    return { response: text };
+  }
+
+  async lookupDictionaryWord(word: string): Promise<LookupWordResponseDto> {
+    const messages: ChatMessage[] = [
+      {
+        role: 'system',
+        content:
+          'You are an English-Vietnamese dictionary. Provide comprehensive dictionary information in JSON format.',
+      },
+      {
+        role: 'user',
+        content: `Provide a complete dictionary entry for the English word "${word}" with Vietnamese translations.
+
+Return ONLY valid JSON in this exact format:
+{
+  "word": "${word}",
+  "pronunciations": [
+    {"accent": "US", "ipa": "/pronunciation/"},
+    {"accent": "UK", "ipa": "/pronunciation/"}
+  ],
+  "definitions": [
+    {
+      "pos": "part of speech",
+      "definition_en": "English definition",
+      "definition_vi": "Vietnamese translation",
+      "level": "beginner/intermediate/advanced",
+      "examples": [
+        {"en": "English example", "vi": "Vietnamese example"}
+      ]
+    }
+  ],
+  "word_forms": {"plural": "...", "past": "...", "present": "..."},
+  "synonyms": ["synonym1", "synonym2"]
+}`,
+      },
+    ];
+    const text = await this.chat(messages, {
+      temperature: 0.3,
+      maxTokens: 1500,
+      responseFormat: { type: 'json_object' },
+    });
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new HttpException(
+        'Failed to parse dictionary data',
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    }
+    return JSON.parse(jsonMatch[0]) as LookupWordResponseDto;
+  }
 
-      const generatedText = response.data.choices[0].text.trim();
-      this.logger.debug(`Generated text: ${generatedText}`);
+  async translate(dto: TranslateDto): Promise<TranslateResponseDto> {
+    const languageNames: Record<string, string> = {
+      en: 'English',
+      vi: 'Vietnamese',
+      'zh-cn': 'Chinese',
+      es: 'Spanish',
+      hi: 'Hindi',
+      bn: 'Bengali',
+      pt: 'Portuguese',
+      ru: 'Russian',
+      ja: 'Japanese',
+      ko: 'Korean',
+      fr: 'French',
+    };
+    const sourceLangName = languageNames[dto.source_lang] ?? dto.source_lang;
+    const targetLangName = languageNames[dto.target_lang] ?? dto.target_lang;
+    const messages: ChatMessage[] = [
+      {
+        role: 'system',
+        content:
+          'You are a professional translator. Translate accurately and naturally.',
+      },
+      {
+        role: 'user',
+        content: `Translate the following text from ${sourceLangName} to ${targetLangName}.
+Output ONLY the translation, nothing else.
 
-      // Parse sentences
-      const sentences = generatedText
-        .split("\n")
-        .map((s) => s.trim())
-        .filter((s) => s.length > 10)
-        .slice(0, dto.numSentences);
+Text: ${dto.text}`,
+      },
+    ];
+    const translatedText = await this.chat(messages, {
+      temperature: 0.3,
+      maxTokens: 500,
+      timeoutMs: 5000,
+    });
+    return {
+      original_text: dto.text,
+      translated_text: translatedText,
+      source_lang: dto.source_lang,
+      target_lang: dto.target_lang,
+    };
+  }
 
-      if (sentences.length === 0) {
+  async healthCheck() {
+    return { status: 'healthy', model: this.model, url: this.baseUrl };
+  }
+
+  private async chat(messages: ChatMessage[], opts: ChatOpts = {}): Promise<string> {
+    const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+    const preview =
+      typeof lastUser?.content === 'string' ? lastUser.content.slice(0, 200) : '';
+    try {
+      const response = await this.openai.chat.completions.create(
+        {
+          model: this.model,
+          messages,
+          ...(opts.temperature !== undefined ? { temperature: opts.temperature } : {}),
+          ...(opts.maxTokens !== undefined ? { max_tokens: opts.maxTokens } : {}),
+          ...(opts.responseFormat ? { response_format: opts.responseFormat } : {}),
+        },
+        opts.timeoutMs !== undefined ? { timeout: opts.timeoutMs } : undefined,
+      );
+      return response.choices[0]?.message?.content?.trim() ?? '';
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `LLM call failed (model=${this.model}, messages=${messages.length}, preview=${preview}): ${message}`,
+      );
+      if (err instanceof APIConnectionTimeoutError || err instanceof APIConnectionError) {
         throw new HttpException(
-          "Failed to generate sentences",
-          HttpStatus.INTERNAL_SERVER_ERROR
+          'LLM provider unreachable',
+          HttpStatus.SERVICE_UNAVAILABLE,
         );
       }
-
-      return {
-        sentences,
-        wordsUsed: dto.words,
-      };
-    } catch (error) {
-      this.logger.error(
-        `Error generating sentences: ${error.message}`,
-        error.stack
-      );
-
-      if (error instanceof HttpException) {
-        throw error;
+      if (err instanceof RateLimitError) {
+        throw new HttpException(
+          'LLM rate limit exceeded',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
       }
-
+      if (err instanceof AuthenticationError) {
+        throw new HttpException(
+          'LLM provider misconfigured',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
       throw new HttpException(
-        `Failed to generate sentences: ${error.message}`,
-        HttpStatus.INTERNAL_SERVER_ERROR
+        'LLM request failed',
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
-  }
-
-  async chat(dto: ChatDto): Promise<ChatResponseDto> {
-    try {
-      const prompt = `<|system|>
-You are a helpful English teacher assistant. Answer questions about English grammar, vocabulary, and usage.
-<|end|>
-<|user|>
-${dto.message}
-<|end|>
-<|assistant|>
-`;
-
-      const vllmRequest: VLLMCompletionRequest = {
-        model: this.vllmModel,
-        prompt,
-        temperature: dto.temperature,
-        max_tokens: dto.maxTokens,
-        stop: ["<|end|>", "<|user|>"],
-      };
-
-      this.logger.debug(`Sending chat request to vLLM`);
-
-      const response = await firstValueFrom(
-        this.httpService.post<VLLMCompletionResponse>(
-          this.vllmUrl,
-          vllmRequest,
-          {
-            timeout: 30000,
-          }
-        )
-      );
-
-      const responseText = response.data.choices[0].text.trim();
-
-      return {
-        response: responseText,
-      };
-    } catch (error) {
-      this.logger.error(`Error in chat: ${error.message}`, error.stack);
-
-      if (error instanceof HttpException) {
-        throw error;
-      }
-
-      throw new HttpException(
-        `Failed to process chat: ${error.message}`,
-        HttpStatus.INTERNAL_SERVER_ERROR
-      );
-    }
-  }
-
-  async healthCheck(): Promise<{ status: string; model: string; url: string }> {
-    return {
-      status: "healthy",
-      model: this.vllmModel,
-      url: this.vllmUrl,
-    };
   }
 }
