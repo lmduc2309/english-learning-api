@@ -216,6 +216,60 @@ Text: ${dto.text}`,
     };
   }
 
+  async generateVietnameseSentences(
+    words: string[],
+    numSentences: number,
+    difficulty: 'beginner' | 'intermediate' | 'advanced',
+  ): Promise<Array<{ vi: string; words: string[] }>> {
+    const wordsStr = words.join(', ');
+    const messages: ChatMessage[] = [
+      {
+        role: 'system',
+        content:
+          'You are a Vietnamese teacher creating natural Vietnamese sentences for English learners.',
+      },
+      {
+        role: 'user',
+        content: `Generate ${numSentences} Vietnamese sentences. Each must use the English meaning of at least one of these English words: ${wordsStr}.
+Match difficulty: ${difficulty}.
+Return ONLY valid JSON in this exact format:
+{
+  "sentences": [
+    { "vi": "<Vietnamese sentence>", "words": ["<english word it uses>"] }
+  ]
+}`,
+      },
+    ];
+    const text = await this.chat(messages, {
+      temperature: 0.7,
+      maxTokens: 80 * numSentences,
+      responseFormat: { type: 'json_object' },
+    });
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new HttpException(
+        'Failed to generate Vietnamese sentences',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    let parsed: { sentences?: Array<{ vi: string; words: string[] }> };
+    try {
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch {
+      throw new HttpException(
+        'Failed to generate Vietnamese sentences',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    if (!parsed.sentences || !Array.isArray(parsed.sentences) || parsed.sentences.length === 0) {
+      throw new HttpException(
+        'Failed to generate Vietnamese sentences',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    return parsed.sentences;
+  }
+
   async healthCheck() {
     return { status: 'healthy', model: this.model, url: this.baseUrl };
   }

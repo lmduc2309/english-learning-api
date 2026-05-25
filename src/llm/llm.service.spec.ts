@@ -355,3 +355,71 @@ describe('LlmService.translate', () => {
     });
   });
 });
+
+describe('LlmService.generateVietnameseSentences', () => {
+  let mockCreate: jest.Mock;
+  let svc: LlmService;
+
+  beforeEach(() => {
+    mockCreate = jest.fn();
+    svc = makeServiceWithMock(mockCreate);
+  });
+
+  it('returns parsed sentences from the LLM JSON response', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              sentences: [
+                { vi: 'Tôi đang đi bộ trong công viên.', words: ['walk'] },
+                { vi: 'Anh ấy rất thông minh.', words: ['intelligent'] },
+              ],
+            }),
+          },
+        },
+      ],
+    });
+    const result = await svc.generateVietnameseSentences(
+      ['walk', 'intelligent'],
+      2,
+      'intermediate',
+    );
+    expect(result).toEqual([
+      { vi: 'Tôi đang đi bộ trong công viên.', words: ['walk'] },
+      { vi: 'Anh ấy rất thông minh.', words: ['intelligent'] },
+    ]);
+    const [args] = mockCreate.mock.calls[0];
+    expect(args.response_format).toEqual({ type: 'json_object' });
+    expect(args.temperature).toBe(0.7);
+    expect(args.max_tokens).toBe(160); // 80 * 2
+    expect(args.messages[0].content).toMatch(/Vietnamese teacher/i);
+    expect(args.messages[1].content).toContain('walk');
+    expect(args.messages[1].content).toContain('intelligent');
+    expect(args.messages[1].content).toContain('intermediate');
+  });
+
+  it('throws 500 when the LLM response cannot be parsed as JSON', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [{ message: { content: 'not json' } }],
+    });
+    await expect(
+      svc.generateVietnameseSentences(['x'], 1, 'intermediate'),
+    ).rejects.toMatchObject({
+      status: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: 'Failed to generate Vietnamese sentences',
+    });
+  });
+
+  it('throws 500 when JSON parses but has no sentences array', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [{ message: { content: JSON.stringify({ foo: 'bar' }) } }],
+    });
+    await expect(
+      svc.generateVietnameseSentences(['x'], 1, 'intermediate'),
+    ).rejects.toMatchObject({
+      status: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: 'Failed to generate Vietnamese sentences',
+    });
+  });
+});
