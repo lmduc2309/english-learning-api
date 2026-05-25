@@ -1,4 +1,4 @@
-import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI, {
   APIConnectionTimeoutError,
@@ -35,7 +35,7 @@ export class LlmService {
 
   constructor(
     private configService: ConfigService,
-    openaiOverride?: OpenAI,
+    @Optional() openaiOverride?: OpenAI,
   ) {
     const apiKey = configService.get<string>('llm.apiKey');
     if (!apiKey) {
