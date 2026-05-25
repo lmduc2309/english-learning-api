@@ -423,3 +423,73 @@ describe('LlmService.generateVietnameseSentences', () => {
     });
   });
 });
+
+describe('LlmService.gradeSpokenAnswer', () => {
+  let mockCreate: jest.Mock;
+  let svc: LlmService;
+
+  beforeEach(() => {
+    mockCreate = jest.fn();
+    svc = makeServiceWithMock(mockCreate);
+  });
+
+  it('returns verdict + score + feedback + suggestedAnswer from the LLM JSON', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              verdict: 'correct',
+              score: 92,
+              feedback: 'Great pronunciation and word choice.',
+              suggestedAnswer: 'I am walking in the park.',
+            }),
+          },
+        },
+      ],
+    });
+    const result = await svc.gradeSpokenAnswer({
+      vietnamese: 'Tôi đang đi bộ trong công viên.',
+      userTranscript: 'I am walking in the park',
+      words: ['walk'],
+    });
+    expect(result).toEqual({
+      verdict: 'correct',
+      score: 92,
+      feedback: 'Great pronunciation and word choice.',
+      suggestedAnswer: 'I am walking in the park.',
+    });
+    const [args] = mockCreate.mock.calls[0];
+    expect(args.response_format).toEqual({ type: 'json_object' });
+    expect(args.temperature).toBe(0.2);
+    expect(args.max_tokens).toBe(300);
+    expect(args.messages[0].content).toMatch(/English teacher/i);
+    expect(args.messages[1].content).toContain('Tôi đang đi bộ trong công viên.');
+    expect(args.messages[1].content).toContain('I am walking in the park');
+    expect(args.messages[1].content).toContain('walk');
+  });
+
+  it('throws 500 when the LLM response cannot be parsed', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [{ message: { content: 'not json' } }],
+    });
+    await expect(
+      svc.gradeSpokenAnswer({ vietnamese: 'x', userTranscript: 'y', words: ['z'] }),
+    ).rejects.toMatchObject({
+      status: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: 'Failed to grade answer',
+    });
+  });
+
+  it('throws 500 when JSON parses but verdict is missing', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [{ message: { content: JSON.stringify({ score: 100 }) } }],
+    });
+    await expect(
+      svc.gradeSpokenAnswer({ vietnamese: 'x', userTranscript: 'y', words: ['z'] }),
+    ).rejects.toMatchObject({
+      status: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: 'Failed to grade answer',
+    });
+  });
+});

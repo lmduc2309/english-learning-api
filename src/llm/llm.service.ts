@@ -270,6 +270,83 @@ Return ONLY valid JSON in this exact format:
     return parsed.sentences;
   }
 
+  async gradeSpokenAnswer(input: {
+    vietnamese: string;
+    userTranscript: string;
+    words: string[];
+  }): Promise<{
+    verdict: 'correct' | 'partial' | 'incorrect';
+    score: number;
+    feedback: string;
+    suggestedAnswer: string;
+  }> {
+    const messages: ChatMessage[] = [
+      {
+        role: 'system',
+        content:
+          'You are an English teacher grading a learner\'s spoken English translation of a Vietnamese sentence. Be encouraging but honest.',
+      },
+      {
+        role: 'user',
+        content: `Vietnamese sentence: "${input.vietnamese}"
+Target English words to demonstrate: ${input.words.join(', ')}
+Learner's spoken English: "${input.userTranscript}"
+
+Grade the learner. Return ONLY valid JSON in this exact format:
+{
+  "verdict": "correct" | "partial" | "incorrect",
+  "score": <integer 0-100>,
+  "feedback": "<one short sentence of feedback>",
+  "suggestedAnswer": "<one good English sentence that translates the Vietnamese>"
+}`,
+      },
+    ];
+    const text = await this.chat(messages, {
+      temperature: 0.2,
+      maxTokens: 300,
+      responseFormat: { type: 'json_object' },
+    });
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new HttpException(
+        'Failed to grade answer',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    let parsed: {
+      verdict?: 'correct' | 'partial' | 'incorrect';
+      score?: number;
+      feedback?: string;
+      suggestedAnswer?: string;
+    };
+    try {
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch {
+      throw new HttpException(
+        'Failed to grade answer',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    if (
+      !parsed.verdict ||
+      !['correct', 'partial', 'incorrect'].includes(parsed.verdict) ||
+      typeof parsed.score !== 'number' ||
+      typeof parsed.feedback !== 'string' ||
+      typeof parsed.suggestedAnswer !== 'string'
+    ) {
+      throw new HttpException(
+        'Failed to grade answer',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    return {
+      verdict: parsed.verdict,
+      score: Math.max(0, Math.min(100, Math.round(parsed.score))),
+      feedback: parsed.feedback,
+      suggestedAnswer: parsed.suggestedAnswer,
+    };
+  }
+
   async healthCheck() {
     return { status: 'healthy', model: this.model, url: this.baseUrl };
   }
