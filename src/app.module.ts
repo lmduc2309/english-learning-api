@@ -6,6 +6,7 @@ import { DictionaryModule } from './dictionary/dictionary.module';
 import { AuthModule } from './auth/auth.module';
 import { WordListModule } from './word-list/word-list.module';
 import { CategoryModule } from './category/category.module';
+import { VerbalMappingModule } from './verbal-mapping/verbal-mapping.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -30,6 +31,7 @@ import configuration from './config/configuration';
     AuthModule,
     WordListModule,
     CategoryModule,
+    VerbalMappingModule,
   ],
 })
 export class AppModule {}
