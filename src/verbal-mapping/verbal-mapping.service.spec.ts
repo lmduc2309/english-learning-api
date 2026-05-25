@@ -147,3 +147,118 @@ describe('VerbalMappingService.startSession', () => {
     );
   });
 });
+
+describe('VerbalMappingService.submitAttempt', () => {
+  const sampleSession = {
+    id: 'sess-1',
+    userId: 'user-1',
+    finishedAt: null,
+    sentences: [
+      { index: 0, vi: 'Tôi đi bộ.', words: ['walk'] },
+      { index: 1, vi: 'Anh ấy thông minh.', words: ['intelligent'] },
+    ],
+  };
+
+  it('grades a transcript and upserts an attempt row', async () => {
+    const sessionRepo = makeSessionRepo();
+    sessionRepo.findOne.mockResolvedValue(sampleSession);
+    const attemptRepo = makeAttemptRepo();
+    const llmService = {
+      gradeSpokenAnswer: jest.fn().mockResolvedValue({
+        verdict: 'correct',
+        score: 90,
+        feedback: 'Great job!',
+        suggestedAnswer: 'I walk.',
+      }),
+    };
+    const { svc } = await buildService({ sessionRepo, attemptRepo, llmService });
+    const result = await svc.submitAttempt('user-1', 'sess-1', {
+      sentenceIndex: 0,
+      transcript: 'I walked',
+    });
+    expect(llmService.gradeSpokenAnswer).toHaveBeenCalledWith({
+      vietnamese: 'Tôi đi bộ.',
+      userTranscript: 'I walked',
+      words: ['walk'],
+    });
+    expect(attemptRepo.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: 'sess-1',
+        userId: 'user-1',
+        sentenceIndex: 0,
+        viSentence: 'Tôi đi bộ.',
+        targetWords: ['walk'],
+        transcript: 'I walked',
+        verdict: 'correct',
+        score: 90,
+        feedback: 'Great job!',
+        suggestedAnswer: 'I walk.',
+      }),
+      ['sessionId', 'sentenceIndex'],
+    );
+    expect(result).toEqual({
+      verdict: 'correct',
+      score: 90,
+      feedback: 'Great job!',
+      suggestedAnswer: 'I walk.',
+    });
+  });
+
+  it('returns 404 when the session does not exist or belongs to another user', async () => {
+    const sessionRepo = makeSessionRepo();
+    sessionRepo.findOne.mockResolvedValue(null);
+    const { svc } = await buildService({ sessionRepo });
+    await expect(
+      svc.submitAttempt('user-1', 'sess-1', {
+        sentenceIndex: 0,
+        transcript: 'x',
+      }),
+    ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
+  });
+
+  it('returns 409 when the session is already finished', async () => {
+    const sessionRepo = makeSessionRepo();
+    sessionRepo.findOne.mockResolvedValue({
+      ...sampleSession,
+      finishedAt: new Date(),
+    });
+    const { svc } = await buildService({ sessionRepo });
+    await expect(
+      svc.submitAttempt('user-1', 'sess-1', {
+        sentenceIndex: 0,
+        transcript: 'x',
+      }),
+    ).rejects.toMatchObject({ status: HttpStatus.CONFLICT });
+  });
+
+  it('returns 404 when sentenceIndex is out of range', async () => {
+    const sessionRepo = makeSessionRepo();
+    sessionRepo.findOne.mockResolvedValue(sampleSession);
+    const { svc } = await buildService({ sessionRepo });
+    await expect(
+      svc.submitAttempt('user-1', 'sess-1', {
+        sentenceIndex: 99,
+        transcript: 'x',
+      }),
+    ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
+  });
+
+  it('persists a safe fallback grade when LlmService.gradeSpokenAnswer throws', async () => {
+    const sessionRepo = makeSessionRepo();
+    sessionRepo.findOne.mockResolvedValue(sampleSession);
+    const attemptRepo = makeAttemptRepo();
+    const llmService = {
+      gradeSpokenAnswer: jest.fn().mockRejectedValue(new Error('boom')),
+    };
+    const { svc } = await buildService({ sessionRepo, attemptRepo, llmService });
+    const result = await svc.submitAttempt('user-1', 'sess-1', {
+      sentenceIndex: 0,
+      transcript: 'I walked',
+    });
+    expect(result.verdict).toBe('partial');
+    expect(result.score).toBe(50);
+    expect(result.feedback).toMatch(/could not grade/i);
+    expect(result.suggestedAnswer).toBe('Tôi đi bộ.');
+    expect(attemptRepo.upsert).toHaveBeenCalled();
+  });
+});

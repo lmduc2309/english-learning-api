@@ -79,11 +79,63 @@ export class VerbalMappingService {
   }
 
   async submitAttempt(
-    _userId: string,
-    _sessionId: string,
-    _dto: SubmitAttemptDto,
+    userId: string,
+    sessionId: string,
+    dto: SubmitAttemptDto,
   ): Promise<SubmitAttemptResponseDto> {
-    throw new Error('not yet implemented');
+    const session = await this.sessionRepo.findOne({ where: { id: sessionId } });
+    if (!session || session.userId !== userId) {
+      throw new HttpException('Session not found', HttpStatus.NOT_FOUND);
+    }
+    if (session.finishedAt) {
+      throw new HttpException(
+        'Session already finished',
+        HttpStatus.CONFLICT,
+      );
+    }
+    const sentence = session.sentences.find(
+      (s) => s.index === dto.sentenceIndex,
+    );
+    if (!sentence) {
+      throw new HttpException('Sentence not found', HttpStatus.NOT_FOUND);
+    }
+
+    let grade: SubmitAttemptResponseDto;
+    try {
+      grade = await this.llmService.gradeSpokenAnswer({
+        vietnamese: sentence.vi,
+        userTranscript: dto.transcript,
+        words: sentence.words,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Grading failed for session=${sessionId} index=${dto.sentenceIndex}: ${(err as Error).message}`,
+      );
+      grade = {
+        verdict: 'partial',
+        score: 50,
+        feedback: 'Could not grade that attempt; please try again.',
+        suggestedAnswer: sentence.vi,
+      };
+    }
+
+    await this.attemptRepo.upsert(
+      {
+        sessionId,
+        userId,
+        sentenceIndex: dto.sentenceIndex,
+        viSentence: sentence.vi,
+        targetWords: sentence.words,
+        transcript: dto.transcript,
+        verdict: grade.verdict,
+        score: grade.score,
+        feedback: grade.feedback,
+        suggestedAnswer: grade.suggestedAnswer,
+      },
+      ['sessionId', 'sentenceIndex'],
+    );
+
+    return grade;
   }
 
   async finish(
