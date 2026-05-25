@@ -139,16 +139,65 @@ export class VerbalMappingService {
   }
 
   async finish(
-    _userId: string,
-    _sessionId: string,
+    userId: string,
+    sessionId: string,
   ): Promise<FinishSessionResponseDto> {
-    throw new Error('not yet implemented');
+    const session = await this.sessionRepo.findOne({ where: { id: sessionId } });
+    if (!session || session.userId !== userId) {
+      throw new HttpException('Session not found', HttpStatus.NOT_FOUND);
+    }
+    if (session.finishedAt) {
+      throw new HttpException('Session already finished', HttpStatus.CONFLICT);
+    }
+    const summary = await this.buildSummary(userId, sessionId);
+    await this.sessionRepo.update(
+      { id: sessionId },
+      {
+        finishedAt: new Date(),
+        totalScore: summary.totalScore.toFixed(2),
+      },
+    );
+    return summary;
   }
 
   async getSummary(
-    _userId: string,
-    _sessionId: string,
+    userId: string,
+    sessionId: string,
   ): Promise<FinishSessionResponseDto> {
-    throw new Error('not yet implemented');
+    const session = await this.sessionRepo.findOne({ where: { id: sessionId } });
+    if (!session || session.userId !== userId) {
+      throw new HttpException('Session not found', HttpStatus.NOT_FOUND);
+    }
+    return this.buildSummary(userId, sessionId);
+  }
+
+  private async buildSummary(
+    _userId: string,
+    sessionId: string,
+  ): Promise<FinishSessionResponseDto> {
+    const attempts = await this.attemptRepo.find({
+      where: { sessionId },
+    });
+    if (attempts.length === 0) {
+      return { totalScore: 0, rounds: 0, perWord: [] };
+    }
+    const totalScore = Math.round(
+      attempts.reduce((acc, a: any) => acc + (a.score ?? 0), 0) / attempts.length,
+    );
+    const perWordMap = new Map<string, { sum: number; count: number }>();
+    for (const a of attempts as any[]) {
+      for (const w of a.targetWords ?? []) {
+        const cur = perWordMap.get(w) ?? { sum: 0, count: 0 };
+        cur.sum += a.score ?? 0;
+        cur.count += 1;
+        perWordMap.set(w, cur);
+      }
+    }
+    const perWord = Array.from(perWordMap.entries()).map(([word, v]) => ({
+      word,
+      attempts: v.count,
+      avgScore: Math.round(v.sum / v.count),
+    }));
+    return { totalScore, rounds: attempts.length, perWord };
   }
 }

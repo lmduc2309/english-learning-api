@@ -262,3 +262,108 @@ describe('VerbalMappingService.submitAttempt', () => {
     expect(attemptRepo.upsert).toHaveBeenCalled();
   });
 });
+
+describe('VerbalMappingService.finish', () => {
+  const sampleSession = {
+    id: 'sess-1',
+    userId: 'user-1',
+    finishedAt: null,
+    sentences: [
+      { index: 0, vi: 'A', words: ['x'] },
+      { index: 1, vi: 'B', words: ['y'] },
+    ],
+  };
+
+  it('computes total score, sets finishedAt, and returns summary', async () => {
+    const sessionRepo = makeSessionRepo();
+    sessionRepo.findOne.mockResolvedValue(sampleSession);
+    const attemptRepo = makeAttemptRepo();
+    attemptRepo.find.mockResolvedValue([
+      { score: 80, verdict: 'correct', targetWords: ['x'] },
+      { score: 60, verdict: 'partial', targetWords: ['y'] },
+    ]);
+    const { svc } = await buildService({ sessionRepo, attemptRepo });
+    const result = await svc.finish('user-1', 'sess-1');
+    expect(result.totalScore).toBe(70);
+    expect(result.rounds).toBe(2);
+    expect(result.perWord).toEqual(
+      expect.arrayContaining([
+        { word: 'x', attempts: 1, avgScore: 80 },
+        { word: 'y', attempts: 1, avgScore: 60 },
+      ]),
+    );
+    expect(sessionRepo.update).toHaveBeenCalledWith(
+      { id: 'sess-1' },
+      expect.objectContaining({ finishedAt: expect.any(Date), totalScore: '70.00' }),
+    );
+  });
+
+  it('returns 404 when session is missing or owned by someone else', async () => {
+    const sessionRepo = makeSessionRepo();
+    sessionRepo.findOne.mockResolvedValue(null);
+    const { svc } = await buildService({ sessionRepo });
+    await expect(svc.finish('user-1', 'sess-1')).rejects.toMatchObject({
+      status: HttpStatus.NOT_FOUND,
+    });
+  });
+
+  it('returns 409 when session is already finished', async () => {
+    const sessionRepo = makeSessionRepo();
+    sessionRepo.findOne.mockResolvedValue({
+      ...sampleSession,
+      finishedAt: new Date(),
+    });
+    const { svc } = await buildService({ sessionRepo });
+    await expect(svc.finish('user-1', 'sess-1')).rejects.toMatchObject({
+      status: HttpStatus.CONFLICT,
+    });
+  });
+
+  it('totalScore is 0 when there are no attempts', async () => {
+    const sessionRepo = makeSessionRepo();
+    sessionRepo.findOne.mockResolvedValue(sampleSession);
+    const attemptRepo = makeAttemptRepo();
+    attemptRepo.find.mockResolvedValue([]);
+    const { svc } = await buildService({ sessionRepo, attemptRepo });
+    const result = await svc.finish('user-1', 'sess-1');
+    expect(result.totalScore).toBe(0);
+    expect(result.rounds).toBe(0);
+    expect(result.perWord).toEqual([]);
+  });
+});
+
+describe('VerbalMappingService.getSummary', () => {
+  it('returns the summary of a previously-finished session', async () => {
+    const sessionRepo = makeSessionRepo();
+    sessionRepo.findOne.mockResolvedValue({
+      id: 'sess-1',
+      userId: 'user-1',
+      finishedAt: new Date(),
+      sentences: [],
+    });
+    const attemptRepo = makeAttemptRepo();
+    attemptRepo.find.mockResolvedValue([
+      { score: 100, verdict: 'correct', targetWords: ['a'] },
+    ]);
+    const { svc } = await buildService({ sessionRepo, attemptRepo });
+    const result = await svc.getSummary('user-1', 'sess-1');
+    expect(result.totalScore).toBe(100);
+    expect(result.rounds).toBe(1);
+  });
+
+  it('returns 404 when the session is owned by another user', async () => {
+    const sessionRepo = makeSessionRepo();
+    sessionRepo.findOne.mockResolvedValue({
+      id: 'sess-1',
+      userId: 'other-user',
+      finishedAt: new Date(),
+      sentences: [],
+    });
+    const { svc } = await buildService({ sessionRepo });
+    await expect(
+      svc.getSummary('user-1', 'sess-1'),
+    ).rejects.toMatchObject({
+      status: HttpStatus.NOT_FOUND,
+    });
+  });
+});
