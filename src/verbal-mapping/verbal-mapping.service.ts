@@ -51,12 +51,25 @@ export class VerbalMappingService {
       throw new HttpException('No words provided', HttpStatus.BAD_REQUEST);
     }
 
-    // 2. Generate sentences via LLM
-    const generated = await this.llmService.generateVietnameseSentences(
-      normalized,
-      dto.numSentences,
-      dto.difficulty,
-    );
+    // 2. Generate sentences via LLM. Wrap any failure (parse / network / model)
+    //    as 502 per the spec so the client sees a "try again" signal rather
+    //    than a generic 500.
+    let generated: Array<{ vi: string; words: string[] }>;
+    try {
+      generated = await this.llmService.generateVietnameseSentences(
+        normalized,
+        dto.numSentences,
+        dto.difficulty,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Sentence generation failed for user=${userId}: ${(err as Error).message}`,
+      );
+      throw new HttpException(
+        'Failed to generate sentences, please try again',
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
     const sentences = generated.map((s, idx) => ({
       index: idx,
       vi: s.vi,
@@ -182,10 +195,10 @@ export class VerbalMappingService {
       return { totalScore: 0, rounds: 0, perWord: [] };
     }
     const totalScore = Math.round(
-      attempts.reduce((acc, a: any) => acc + (a.score ?? 0), 0) / attempts.length,
+      attempts.reduce((acc, a) => acc + (a.score ?? 0), 0) / attempts.length,
     );
     const perWordMap = new Map<string, { sum: number; count: number }>();
-    for (const a of attempts as any[]) {
+    for (const a of attempts) {
       for (const w of a.targetWords ?? []) {
         const cur = perWordMap.get(w) ?? { sum: 0, count: 0 };
         cur.sum += a.score ?? 0;
