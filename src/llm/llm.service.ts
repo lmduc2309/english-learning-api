@@ -226,16 +226,26 @@ Text: ${dto.text}`,
       {
         role: 'system',
         content:
-          'You are a Vietnamese teacher creating natural Vietnamese sentences for English learners.',
+          'You are a Vietnamese teacher creating natural Vietnamese sentences for English learners. You write ONLY in Vietnamese — never mix English words into the Vietnamese sentence.',
       },
       {
         role: 'user',
-        content: `Generate ${numSentences} Vietnamese sentences. Each must use the English meaning of at least one of these English words: ${wordsStr}.
-Match difficulty: ${difficulty}.
-Return ONLY valid JSON in this exact format:
+        content: `Generate ${numSentences} natural, fully Vietnamese sentences that a learner will translate back to English.
+
+CRITICAL RULES:
+- Each sentence MUST be 100% Vietnamese. Do NOT include any English words in the "vi" field.
+- The Vietnamese sentence should express the MEANING (translation) of the target English words, so the learner is prompted to recall and speak those English words when translating.
+- Naturally combine MULTIPLE target words into the same sentence whenever it reads well.
+- Vary which words appear in each sentence so the full session covers all the target words.
+- Match difficulty: ${difficulty} (beginner=simple grammar, intermediate=natural everyday, advanced=sophisticated).
+
+Target English words (use their Vietnamese meanings in the sentences, NOT the English words themselves):
+${wordsStr}
+
+Return ONLY valid JSON in this exact format. The "words" array lists which English target words this sentence is testing:
 {
   "sentences": [
-    { "vi": "<Vietnamese sentence>", "words": ["<english word it uses>"] }
+    { "vi": "<sentence written only in Vietnamese>", "words": ["<english target word(s) this sentence tests>"] }
   ]
 }`,
       },

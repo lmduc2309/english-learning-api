@@ -2,7 +2,6 @@ import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { LlmService } from '../llm/llm.service';
-import { WordListService } from '../word-list/word-list.service';
 import { VerbalMappingSession } from './entities/verbal-mapping-session.entity';
 import { VerbalMappingAttempt } from './entities/verbal-mapping-attempt.entity';
 import { StartSessionDto } from './dto/start-session.dto';
@@ -21,25 +20,16 @@ export class VerbalMappingService {
     @InjectRepository(VerbalMappingAttempt)
     private attemptRepo: Repository<VerbalMappingAttempt>,
     private llmService: LlmService,
-    private wordListService: WordListService,
   ) {}
 
   async startSession(
     userId: string,
     dto: StartSessionDto,
   ): Promise<StartSessionResponseDto> {
-    // 1. Resolve words: prefer wordListId, else typed
-    let words: string[];
-    if (dto.wordListId) {
-      const items = await this.wordListService.findAll(userId);
-      words = items.map((i: { word: string }) => i.word);
-    } else {
-      words = dto.words;
-    }
     // Normalize: lowercase + trim + dedupe; preserve first-seen order; cap at 30
     const seen = new Set<string>();
     const normalized: string[] = [];
-    for (const w of words) {
+    for (const w of dto.words) {
       const cleaned = w.trim().toLowerCase();
       if (cleaned.length > 0 && !seen.has(cleaned)) {
         seen.add(cleaned);
@@ -79,7 +69,7 @@ export class VerbalMappingService {
     // 3. Persist session
     const entity = this.sessionRepo.create({
       userId,
-      wordListId: dto.wordListId ?? null,
+      wordListId: null,
       sourceWords: normalized,
       numSentences: dto.numSentences,
       difficulty: dto.difficulty,

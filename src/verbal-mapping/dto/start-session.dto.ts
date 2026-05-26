@@ -4,21 +4,15 @@ import {
   IsArray,
   IsIn,
   IsInt,
-  IsOptional,
   IsString,
-  IsUUID,
 } from 'class-validator';
 
 export class StartSessionDto {
   @IsArray()
-  @ArrayMinSize(0)
+  @ArrayMinSize(1)
   @ArrayMaxSize(30)
   @IsString({ each: true })
   words: string[];
-
-  @IsOptional()
-  @IsUUID()
-  wordListId?: string;
 
   @IsInt()
   @IsIn([5, 10, 15, 20])

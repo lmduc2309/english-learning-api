@@ -5,7 +5,6 @@ import { VerbalMappingService } from './verbal-mapping.service';
 import { VerbalMappingSession } from './entities/verbal-mapping-session.entity';
 import { VerbalMappingAttempt } from './entities/verbal-mapping-attempt.entity';
 import { LlmService } from '../llm/llm.service';
-import { WordListService } from '../word-list/word-list.service';
 
 function makeSessionRepo() {
   return {
@@ -29,7 +28,6 @@ function makeAttemptRepo() {
 
 async function buildService(overrides: {
   llmService?: Partial<LlmService>;
-  wordListService?: Partial<WordListService>;
   sessionRepo?: ReturnType<typeof makeSessionRepo>;
   attemptRepo?: ReturnType<typeof makeAttemptRepo>;
 } = {}) {
@@ -46,13 +44,6 @@ async function buildService(overrides: {
           generateVietnameseSentences: jest.fn(),
           gradeSpokenAnswer: jest.fn(),
           ...overrides.llmService,
-        },
-      },
-      {
-        provide: WordListService,
-        useValue: {
-          findAll: jest.fn(),
-          ...overrides.wordListService,
         },
       },
     ],
@@ -87,39 +78,12 @@ describe('VerbalMappingService.startSession', () => {
     ]);
   });
 
-  it('resolves words from wordListId when provided', async () => {
-    const wordListService = {
-      findAll: jest.fn().mockResolvedValue([
-        { word: 'apple' },
-        { word: 'banana' },
-      ]),
-    };
-    const llmService = {
-      generateVietnameseSentences: jest.fn().mockResolvedValue([
-        { vi: 'Tôi ăn táo.', words: ['apple'] },
-      ]),
-    };
-    const { svc } = await buildService({ llmService, wordListService });
-    await svc.startSession('user-1', {
-      words: [],
-      wordListId: '00000000-0000-0000-0000-000000000001',
-      numSentences: 1,
-      difficulty: 'beginner',
-    });
-    expect(wordListService.findAll).toHaveBeenCalledWith('user-1');
-    expect(llmService.generateVietnameseSentences).toHaveBeenCalledWith(
-      ['apple', 'banana'],
-      1,
-      'beginner',
-    );
-  });
-
-  it('throws 400 when no words and no wordListId resolve to anything', async () => {
+  it('throws 400 when words array is empty after normalization', async () => {
     const { svc } = await buildService({});
     await expect(
       svc.startSession('user-1', {
-        words: [],
-        numSentences: 1,
+        words: ['   ', ''],
+        numSentences: 5,
         difficulty: 'beginner',
       }),
     ).rejects.toMatchObject({
