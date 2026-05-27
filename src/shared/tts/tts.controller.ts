@@ -4,11 +4,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TtsService } from './tts.service';
 import { publicCatalog } from './voice-catalog';
 import { AzureTtsError } from './azure-tts.client';
-
-interface SynthBody {
-  text: string;
-  voiceId: string;
-}
+import { SynthDto } from './dto/synth.dto';
 
 @Controller('tts')
 @UseGuards(JwtAuthGuard)
@@ -21,7 +17,7 @@ export class TtsController {
   }
 
   @Post()
-  async synth(@Body() body: SynthBody, @Res() res: Response): Promise<void> {
+  async synth(@Body() body: SynthDto, @Res() res: Response): Promise<void> {
     try {
       const mp3 = await this.svc.synthesize(body?.text, body?.voiceId);
       res.setHeader('Content-Type', 'audio/mpeg');
