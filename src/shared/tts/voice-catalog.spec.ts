@@ -21,14 +21,23 @@ describe('voice-catalog', () => {
     expect(isVoiceId('en-aria')).toBe(true);
     expect(isVoiceId('nope')).toBe(false);
     expect(isVoiceId('')).toBe(false);
+    expect(isVoiceId(null)).toBe(false);
+    expect(isVoiceId(undefined)).toBe(false);
+    expect(isVoiceId(42)).toBe(false);
   });
 
   it('getVoice returns the entry for a valid id', () => {
     expect(getVoice('vi-hoaimi').azureName).toBe('vi-VN-HoaiMyNeural');
   });
 
+  it('getVoice throws on unknown id', () => {
+    expect(() => getVoice('nope' as never)).toThrow('Unknown voice id: nope');
+  });
+
   it('publicCatalog strips azureName', () => {
-    for (const entry of publicCatalog()) {
+    const entries = publicCatalog();
+    expect(entries).toHaveLength(VOICE_CATALOG.length);
+    for (const entry of entries) {
       expect(entry).not.toHaveProperty('azureName');
       expect(entry).toEqual(
         expect.objectContaining({ id: expect.any(String), label: expect.any(String), language: expect.any(String), gender: expect.any(String) }),
