@@ -74,4 +74,15 @@ describe('TtsService.synthesize', () => {
       expect.objectContaining({ ttl: 60 * 60 * 24 * 30 }),
     );
   });
+
+  it('throws BAD_REQUEST when text is whitespace only', async () => {
+    const { svc } = await buildService();
+    await expect(svc.synthesize('   ', 'vi-hoaimi')).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('passes text unchanged to AzureTtsClient (no implicit trim/normalize)', async () => {
+    const { svc, azureClient } = await buildService();
+    await svc.synthesize('hello world', 'vi-hoaimi');
+    expect(azureClient.synthesize).toHaveBeenCalledWith('hello world', expect.any(String), expect.any(String));
+  });
 });

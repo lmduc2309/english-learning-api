@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { RedisCacheService } from '../../common/cache/redis-cache.service';
 import { AzureTtsClient } from './azure-tts.client';
@@ -9,8 +9,6 @@ const TTL_SECONDS = 60 * 60 * 24 * 30;
 
 @Injectable()
 export class TtsService {
-  private readonly logger = new Logger(TtsService.name);
-
   constructor(
     private readonly cache: RedisCacheService,
     private readonly client: AzureTtsClient,
@@ -29,7 +27,7 @@ export class TtsService {
 
     const key = this.cacheKey(voiceId, text);
     const cached = await this.cache.get<string>(key);
-    if (cached) {
+    if (cached !== null) {
       return Buffer.from(cached, 'base64');
     }
 
