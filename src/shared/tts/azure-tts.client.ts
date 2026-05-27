@@ -34,7 +34,7 @@ export class AzureTtsClient {
     }
 
     const url = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`;
-    const ssml = `<speak version="1.0" xml:lang="${language}"><voice name="${azureName}">${escapeXml(text)}</voice></speak>`;
+    const ssml = `<speak version="1.0" xml:lang="${escapeXml(language)}"><voice name="${escapeXml(azureName)}">${escapeXml(text)}</voice></speak>`;
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -65,7 +65,8 @@ export class AzureTtsClient {
         throw new AzureTtsError(res.status, 'Azure authentication failed');
       }
       if (res.status === 429) {
-        const retryAfter = Number(res.headers.get('Retry-After')) || undefined;
+        const raw = res.headers.get('Retry-After');
+        const retryAfter = raw !== null && !Number.isNaN(Number(raw)) ? Number(raw) : undefined;
         throw new AzureTtsError(429, 'Azure rate limited', retryAfter);
       }
       throw new AzureTtsError(res.status, `Azure TTS failed: ${res.status}`);

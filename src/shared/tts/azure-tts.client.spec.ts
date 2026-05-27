@@ -83,4 +83,30 @@ describe('AzureTtsClient', () => {
       status: 503,
     });
   });
+
+  it('throws AzureTtsError 503 when fetch is aborted (timeout)', async () => {
+    global.fetch = jest.fn().mockImplementation(() => {
+      const err = new Error('aborted');
+      err.name = 'AbortError';
+      return Promise.reject(err);
+    }) as unknown as typeof fetch;
+    const client = new AzureTtsClient(fakeConfig());
+    await expect(client.synthesize('hi', 'en-US-AriaNeural', 'en-US')).rejects.toMatchObject({
+      name: 'AzureTtsError',
+      status: 503,
+      message: expect.stringMatching(/timeout/i),
+    });
+  });
+
+  it('throws AzureTtsError 503 when fetch rejects with a non-abort error', async () => {
+    global.fetch = jest.fn().mockRejectedValue(
+      Object.assign(new Error('ECONNREFUSED'), { name: 'TypeError' }),
+    ) as unknown as typeof fetch;
+    const client = new AzureTtsClient(fakeConfig());
+    await expect(client.synthesize('hi', 'en-US-AriaNeural', 'en-US')).rejects.toMatchObject({
+      name: 'AzureTtsError',
+      status: 503,
+      message: expect.stringMatching(/network|ECONNREFUSED/),
+    });
+  });
 });
