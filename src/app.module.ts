@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { WordListModule } from './word-list/word-list.module';
 import { CategoryModule } from './category/category.module';
 import { VerbalMappingModule } from './verbal-mapping/verbal-mapping.module';
+import { TtsModule } from './shared/tts/tts.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -32,6 +33,7 @@ import configuration from './config/configuration';
     WordListModule,
     CategoryModule,
     VerbalMappingModule,
+    TtsModule,
   ],
 })
 export class AppModule {}
