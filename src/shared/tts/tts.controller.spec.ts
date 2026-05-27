@@ -61,4 +61,14 @@ describe('TtsController', () => {
     expect(res._status).toBe(503);
     expect(res._headers['Retry-After']).toBe('7');
   });
+
+  it('POST /tts re-throws BadRequestException so Nest filter handles it', async () => {
+    const { BadRequestException } = await import('@nestjs/common');
+    const { ctrl } = await buildController({
+      synthesize: jest.fn().mockRejectedValue(new BadRequestException('text must not be empty')),
+    });
+    const res = fakeRes();
+    await expect(ctrl.synth({ text: '', voiceId: 'vi-hoaimi' }, res)).rejects.toBeInstanceOf(BadRequestException);
+    expect(res._status).toBeUndefined(); // controller didn't write a response
+  });
 });

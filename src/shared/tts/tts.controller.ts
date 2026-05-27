@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Logger, Post, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TtsService } from './tts.service';
@@ -13,8 +13,6 @@ interface SynthBody {
 @Controller('tts')
 @UseGuards(JwtAuthGuard)
 export class TtsController {
-  private readonly logger = new Logger(TtsController.name);
-
   constructor(private readonly svc: TtsService) {}
 
   @Get('voices')
@@ -31,7 +29,7 @@ export class TtsController {
       res.status(200).send(mp3);
     } catch (err: any) {
       if (err instanceof AzureTtsError) {
-        if (err.retryAfter) res.setHeader('Retry-After', String(err.retryAfter));
+        if (err.retryAfter !== undefined) res.setHeader('Retry-After', String(err.retryAfter));
         res.status(503).send({ message: err.message });
         return;
       }
