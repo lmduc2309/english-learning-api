@@ -20,8 +20,7 @@ export default () => ({
     password: process.env.DB_PASSWORD || 'postgres',
     database: process.env.DB_DATABASE || 'english_learning',
   },
-  azureTts: {
-    key: process.env.AZURE_SPEECH_KEY,
-    region: process.env.AZURE_SPEECH_REGION || 'southeastasia',
+  ttsService: {
+    url: process.env.TTS_SERVICE_URL || 'http://localhost:8001',
   },
 });
