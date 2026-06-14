@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { RedisCacheService } from '../../common/cache/redis-cache.service';
-import { AzureTtsClient } from './azure-tts.client';
+import { LocalTtsClient } from './local-tts.client';
 import { getVoice, isVoiceId, VoiceId } from './voice-catalog';
 
 const MAX_TEXT_LENGTH = 600;
@@ -11,7 +11,7 @@ const TTL_SECONDS = 60 * 60 * 24 * 30;
 export class TtsService {
   constructor(
     private readonly cache: RedisCacheService,
-    private readonly client: AzureTtsClient,
+    private readonly client: LocalTtsClient,
   ) {}
 
   async synthesize(text: string, voiceId: string): Promise<Buffer> {
@@ -19,7 +19,9 @@ export class TtsService {
       throw new BadRequestException('text must not be empty');
     }
     if (text.length > MAX_TEXT_LENGTH) {
-      throw new BadRequestException(`text must be <= ${MAX_TEXT_LENGTH} characters`);
+      throw new BadRequestException(
+        `text must be <= ${MAX_TEXT_LENGTH} characters`,
+      );
     }
     if (!isVoiceId(voiceId)) {
       throw new BadRequestException(`unknown voiceId: ${voiceId}`);
@@ -32,7 +34,11 @@ export class TtsService {
     }
 
     const voice = getVoice(voiceId);
-    const mp3 = await this.client.synthesize(text, voice.azureName, voice.language);
+    const mp3 = await this.client.synthesize({
+      engine: voice.engine,
+      voice: voice.engineVoice,
+      text,
+    });
     await this.cache.set(key, mp3.toString('base64'), { ttl: TTL_SECONDS });
     return mp3;
   }
