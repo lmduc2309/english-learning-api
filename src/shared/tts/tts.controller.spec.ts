@@ -1,7 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { TtsController } from './tts.controller';
 import { TtsService } from './tts.service';
-import { AzureTtsError } from './azure-tts.client';
+import { LocalTtsError } from './local-tts.client';
 import { Response } from 'express';
 
 function fakeRes(): Response & { _data?: Buffer; _status?: number; _headers: Record<string, string> } {
@@ -43,23 +43,13 @@ describe('TtsController', () => {
     expect(res._data?.equals(mp3)).toBe(true);
   });
 
-  it('POST /tts maps AzureTtsError 503 to 503 response', async () => {
+  it('POST /tts maps LocalTtsError 503 to 503 response', async () => {
     const { ctrl } = await buildController({
-      synthesize: jest.fn().mockRejectedValue(new AzureTtsError(503, 'Azure timeout')),
+      synthesize: jest.fn().mockRejectedValue(new LocalTtsError(503, 'TTS service timeout')),
     });
     const res = fakeRes();
     await ctrl.synth({ text: 'hi', voiceId: 'vi-hoaimi' }, res);
     expect(res._status).toBe(503);
-  });
-
-  it('POST /tts propagates Retry-After when AzureTtsError has retryAfter', async () => {
-    const { ctrl } = await buildController({
-      synthesize: jest.fn().mockRejectedValue(new AzureTtsError(429, 'rate limited', 7)),
-    });
-    const res = fakeRes();
-    await ctrl.synth({ text: 'hi', voiceId: 'vi-hoaimi' }, res);
-    expect(res._status).toBe(503);
-    expect(res._headers['Retry-After']).toBe('7');
   });
 
   it('POST /tts re-throws BadRequestException so Nest filter handles it', async () => {

@@ -3,7 +3,7 @@ import { Response } from 'express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TtsService } from './tts.service';
 import { publicCatalog } from './voice-catalog';
-import { AzureTtsError } from './azure-tts.client';
+import { LocalTtsError } from './local-tts.client';
 import { SynthDto } from './dto/synth.dto';
 
 @Controller('tts')
@@ -24,8 +24,7 @@ export class TtsController {
       res.setHeader('Content-Length', String(mp3.length));
       res.status(200).send(mp3);
     } catch (err: any) {
-      if (err instanceof AzureTtsError) {
-        if (err.retryAfter !== undefined) res.setHeader('Retry-After', String(err.retryAfter));
+      if (err instanceof LocalTtsError) {
         res.status(503).send({ message: err.message });
         return;
       }
