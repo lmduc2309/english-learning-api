@@ -24,9 +24,9 @@ describe('LocalTtsClient', () => {
     global.fetch = fetchMock as unknown as typeof fetch;
     const client = new LocalTtsClient(fakeConfig());
     const buf = await client.synthesize({
-      engine: 'vieneu',
-      voice: 'Gia Bảo',
-      text: 'Xin chào.',
+      engine: 'piper',
+      voice: 'en_US-ryan-medium',
+      text: 'Hello.',
     });
     expect(buf).toBeInstanceOf(Buffer);
     expect(buf.equals(Buffer.from(mp3))).toBe(true);
@@ -36,9 +36,9 @@ describe('LocalTtsClient', () => {
     expect(init.method).toBe('POST');
     expect(init.headers['Content-Type']).toBe('application/json');
     expect(JSON.parse(init.body)).toEqual({
-      engine: 'vieneu',
-      voice: 'Gia Bảo',
-      text: 'Xin chào.',
+      engine: 'piper',
+      voice: 'en_US-ryan-medium',
+      text: 'Hello.',
     });
   });
 
@@ -50,7 +50,7 @@ describe('LocalTtsClient', () => {
     ) as unknown as typeof fetch;
     const client = new LocalTtsClient(fakeConfig());
     await expect(
-      client.synthesize({ engine: 'vieneu', voice: 'Gia Bảo', text: 'hi' }),
+      client.synthesize({ engine: 'piper', voice: 'en_US-ryan-medium', text: 'hi' }),
     ).rejects.toMatchObject({ name: 'LocalTtsError', status: 503 });
   });
 
@@ -62,7 +62,7 @@ describe('LocalTtsClient', () => {
     }) as unknown as typeof fetch;
     const client = new LocalTtsClient(fakeConfig());
     await expect(
-      client.synthesize({ engine: 'vieneu', voice: 'Gia Bảo', text: 'hi' }),
+      client.synthesize({ engine: 'piper', voice: 'en_US-ryan-medium', text: 'hi' }),
     ).rejects.toMatchObject({
       name: 'LocalTtsError',
       status: 503,
@@ -76,7 +76,7 @@ describe('LocalTtsClient', () => {
     ) as unknown as typeof fetch;
     const client = new LocalTtsClient(fakeConfig());
     await expect(
-      client.synthesize({ engine: 'vieneu', voice: 'Gia Bảo', text: 'hi' }),
+      client.synthesize({ engine: 'piper', voice: 'en_US-ryan-medium', text: 'hi' }),
     ).rejects.toMatchObject({
       name: 'LocalTtsError',
       status: 503,

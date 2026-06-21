@@ -1,53 +1,43 @@
 import { VOICE_CATALOG, isVoiceId, getVoice, publicCatalog } from './voice-catalog';
 
 describe('voice-catalog', () => {
-  it('contains the four launch voices with the right engines', () => {
-    expect(VOICE_CATALOG.map((v) => v.id).sort()).toEqual([
-      'en-aria',
-      'en-guy',
-      'vi-hoaimi',
-      'vi-namminh',
-    ]);
-    expect(VOICE_CATALOG.find((v) => v.id === 'vi-hoaimi')!.engine).toBe('vieneu');
-    expect(VOICE_CATALOG.find((v) => v.id === 'vi-namminh')!.engine).toBe('vieneu');
-    expect(VOICE_CATALOG.find((v) => v.id === 'en-aria')!.engine).toBe('piper');
-    expect(VOICE_CATALOG.find((v) => v.id === 'en-guy')!.engine).toBe('piper');
+  it('contains only the two English voices', () => {
+    expect(VOICE_CATALOG.map((v) => v.id).sort()).toEqual(['en-aria', 'en-guy']);
   });
 
-  it('every entry has the required fields', () => {
+  it('every entry is engine=piper with a Piper voice id', () => {
     for (const v of VOICE_CATALOG) {
-      expect(typeof v.id).toBe('string');
-      expect(['vieneu', 'piper']).toContain(v.engine);
-      expect(typeof v.engineVoice).toBe('string');
-      expect(v.engineVoice.length).toBeGreaterThan(0);
-      expect(['vi-VN', 'en-US']).toContain(v.language);
+      expect(v.engine).toBe('piper');
+      expect(v.engineVoice).toMatch(/^en_US-(amy|ryan)-medium$/);
+      expect(v.language).toBe('en-US');
       expect(['male', 'female']).toContain(v.gender);
       expect(v.label.length).toBeGreaterThan(0);
     }
   });
 
-  it('isVoiceId narrows valid ids and rejects others', () => {
-    expect(isVoiceId('vi-hoaimi')).toBe(true);
+  it('isVoiceId accepts the two English ids, rejects others', () => {
     expect(isVoiceId('en-aria')).toBe(true);
+    expect(isVoiceId('en-guy')).toBe(true);
+    expect(isVoiceId('vi-hoaimi')).toBe(false);
+    expect(isVoiceId('vi-namminh')).toBe(false);
     expect(isVoiceId('nope')).toBe(false);
-    expect(isVoiceId('')).toBe(false);
     expect(isVoiceId(null)).toBe(false);
     expect(isVoiceId(undefined)).toBe(false);
     expect(isVoiceId(42)).toBe(false);
   });
 
-  it('getVoice returns the entry for a valid id', () => {
-    expect(getVoice('vi-namminh').engineVoice).toBe('Gia Bảo');
-    expect(getVoice('vi-hoaimi').engineVoice).toBe('Ngọc Linh');
+  it('getVoice resolves to the correct Piper voice', () => {
     expect(getVoice('en-aria').engineVoice).toBe('en_US-amy-medium');
+    expect(getVoice('en-aria').label).toBe('Amy');
     expect(getVoice('en-guy').engineVoice).toBe('en_US-ryan-medium');
+    expect(getVoice('en-guy').label).toBe('Ryan');
   });
 
   it('getVoice throws on unknown id', () => {
     expect(() => getVoice('nope' as never)).toThrow('Unknown voice id: nope');
   });
 
-  it('publicCatalog strips engine and engineVoice (server-only fields)', () => {
+  it('publicCatalog strips engine and engineVoice', () => {
     const entries = publicCatalog();
     expect(entries).toHaveLength(VOICE_CATALOG.length);
     for (const entry of entries) {

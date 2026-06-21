@@ -37,11 +37,11 @@ async function buildService(opts: {
 describe('TtsService.synthesize', () => {
   it('passes engine + engineVoice from the catalog to the client', async () => {
     const { svc, client } = await buildService();
-    await svc.synthesize('Xin chào.', 'vi-namminh');
+    await svc.synthesize('Hello.', 'en-guy');
     expect(client.synthesize).toHaveBeenCalledWith({
-      engine: 'vieneu',
-      voice: 'Gia Bảo',
-      text: 'Xin chào.',
+      engine: 'piper',
+      voice: 'en_US-ryan-medium',
+      text: 'Hello.',
     });
   });
 
@@ -57,10 +57,10 @@ describe('TtsService.synthesize', () => {
 
   it('returns MP3 bytes and stores them base64-encoded on cache miss', async () => {
     const { svc, cache } = await buildService();
-    const buf = await svc.synthesize('Xin chào.', 'vi-hoaimi');
+    const buf = await svc.synthesize('Hello.', 'en-aria');
     expect(buf).toEqual(Buffer.from([0xff, 0xe3, 0x18]));
     const [storedKey, storedValue] = Array.from(cache.store.entries())[0];
-    expect(storedKey).toMatch(/^tts:vi-hoaimi:[a-f0-9]{64}$/);
+    expect(storedKey).toMatch(/^tts:en-aria:[a-f0-9]{64}$/);
     expect(typeof storedValue).toBe('string');
     expect(Buffer.from(storedValue as string, 'base64').equals(buf)).toBe(true);
   });
@@ -68,9 +68,9 @@ describe('TtsService.synthesize', () => {
   it('returns cached bytes without calling the client on cache hit', async () => {
     const cache = makeCache();
     const { svc, client } = await buildService({ cache });
-    await svc.synthesize('Xin chào.', 'vi-hoaimi');
+    await svc.synthesize('Hello.', 'en-aria');
     client.synthesize.mockClear();
-    const buf = await svc.synthesize('Xin chào.', 'vi-hoaimi');
+    const buf = await svc.synthesize('Hello.', 'en-aria');
     expect(buf).toEqual(Buffer.from([0xff, 0xe3, 0x18]));
     expect(client.synthesize).not.toHaveBeenCalled();
   });
@@ -84,38 +84,38 @@ describe('TtsService.synthesize', () => {
 
   it('throws BAD_REQUEST when text is empty', async () => {
     const { svc } = await buildService();
-    await expect(svc.synthesize('', 'vi-hoaimi')).rejects.toMatchObject({
+    await expect(svc.synthesize('', 'en-aria')).rejects.toMatchObject({
       status: 400,
     });
   });
 
   it('throws BAD_REQUEST when text is whitespace only', async () => {
     const { svc } = await buildService();
-    await expect(svc.synthesize('   ', 'vi-hoaimi')).rejects.toMatchObject({
+    await expect(svc.synthesize('   ', 'en-aria')).rejects.toMatchObject({
       status: 400,
     });
   });
 
   it('throws BAD_REQUEST when text exceeds 600 characters', async () => {
     const { svc } = await buildService();
-    await expect(svc.synthesize('a'.repeat(601), 'vi-hoaimi')).rejects.toMatchObject(
+    await expect(svc.synthesize('a'.repeat(601), 'en-aria')).rejects.toMatchObject(
       { status: 400 },
     );
   });
 
   it('passes text unchanged (no implicit trim/normalize)', async () => {
     const { svc, client } = await buildService();
-    await svc.synthesize('hello world', 'vi-hoaimi');
+    await svc.synthesize('hello world', 'en-aria');
     expect(client.synthesize).toHaveBeenCalledWith({
-      engine: 'vieneu',
-      voice: 'Ngọc Linh',
+      engine: 'piper',
+      voice: 'en_US-amy-medium',
       text: 'hello world',
     });
   });
 
   it('uses 30-day TTL when storing cache entries', async () => {
     const { svc, cache } = await buildService();
-    await svc.synthesize('Xin chào.', 'vi-hoaimi');
+    await svc.synthesize('Hello.', 'en-aria');
     expect(cache.set).toHaveBeenCalledWith(
       expect.any(String),
       expect.any(String),

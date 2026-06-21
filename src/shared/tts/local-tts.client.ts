@@ -9,7 +9,7 @@ export class LocalTtsError extends Error {
 }
 
 export interface SynthesizeOptions {
-  engine: 'vieneu' | 'piper';
+  engine: 'piper';
   voice: string;
   text: string;
 }

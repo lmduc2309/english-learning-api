@@ -37,8 +37,8 @@ describe('TtsController', () => {
     const mp3 = Buffer.from([0xff, 0xe3, 0x18, 0x00]);
     const { ctrl, svc } = await buildController({ synthesize: jest.fn().mockResolvedValue(mp3) });
     const res = fakeRes();
-    await ctrl.synth({ text: 'Xin chào.', voiceId: 'vi-hoaimi' }, res);
-    expect(svc.synthesize).toHaveBeenCalledWith('Xin chào.', 'vi-hoaimi');
+    await ctrl.synth({ text: 'Hello.', voiceId: 'en-aria' }, res);
+    expect(svc.synthesize).toHaveBeenCalledWith('Hello.', 'en-aria');
     expect(res._headers['Content-Type']).toBe('audio/mpeg');
     expect(res._data?.equals(mp3)).toBe(true);
   });
@@ -48,7 +48,7 @@ describe('TtsController', () => {
       synthesize: jest.fn().mockRejectedValue(new LocalTtsError(503, 'TTS service timeout')),
     });
     const res = fakeRes();
-    await ctrl.synth({ text: 'hi', voiceId: 'vi-hoaimi' }, res);
+    await ctrl.synth({ text: 'hi', voiceId: 'en-aria' }, res);
     expect(res._status).toBe(503);
   });
 
@@ -58,7 +58,7 @@ describe('TtsController', () => {
       synthesize: jest.fn().mockRejectedValue(new BadRequestException('text must not be empty')),
     });
     const res = fakeRes();
-    await expect(ctrl.synth({ text: '', voiceId: 'vi-hoaimi' }, res)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(ctrl.synth({ text: '', voiceId: 'en-aria' }, res)).rejects.toBeInstanceOf(BadRequestException);
     expect(res._status).toBeUndefined(); // controller didn't write a response
   });
 });
