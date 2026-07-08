@@ -29,6 +29,8 @@
     "generate-subcategories": "ts-node scripts/generate-subcategories.ts",
     "import-vi": "ts-node scripts/import-vietnamese-meanings.ts",
     "import-vi:dry": "ts-node scripts/import-vietnamese-meanings.ts --dry-run",
+    "import-tudien": "ts-node scripts/import-tudien.ts",
+    "import-tudien:dry": "ts-node scripts/import-tudien.ts --dry-run",
     "ai-translate": "ts-node scripts/ai-translate/index.ts",
     "ai-translate:defs": "ts-node scripts/ai-translate/index.ts --type definitions",
     "ai-translate:examples": "ts-node scripts/ai-translate/index.ts --type examples",
