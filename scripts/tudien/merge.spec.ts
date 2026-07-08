@@ -69,6 +69,14 @@ describe('planDefinitionUpdates', () => {
     const e = entry([{ vnPos: 'danh từ', senses: ['x'], examples: [] }]);
     expect(planDefinitionUpdates([], e, { fillOnly: false })).toEqual([]);
   });
+
+  it('skips a POS block with an unmappable label instead of polluting the primary definition', () => {
+    const defs: DbDefinition[] = [
+      { id: 1, partOfSpeech: 'noun', definitionOrder: 1, definitionVi: null, examples: [] },
+    ];
+    const e = entry([{ vnPos: 'xyz', senses: ['nghĩa lạ'], examples: [] }]);
+    expect(planDefinitionUpdates(defs, e, { fillOnly: false })).toEqual([]);
+  });
 });
 
 describe('planExampleUpdates', () => {

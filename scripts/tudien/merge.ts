@@ -62,9 +62,10 @@ export function planDefinitionUpdates(
   for (const block of entry.posBlocks) {
     if (block.senses.length === 0) continue;
     const enPos = mapVnPos(block.vnPos);
-    const targets = enPos ? byPos.get(enPos) || [] : [];
+    if (enPos === null) continue; // unknown/unmappable label → skip, don't pollute primary
+    const targets = byPos.get(enPos) || [];
     if (targets.length === 0) {
-      push(primary, block.senses[0]); // fallback: first sense → primary
+      push(primary, block.senses[0]); // mapped POS not present in DB → primary fallback
       continue;
     }
     block.senses.forEach((sense, i) => {
