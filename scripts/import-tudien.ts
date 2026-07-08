@@ -98,7 +98,10 @@ async function main() {
   while (true) {
     let words: Word[];
     if (args.word) {
-      const w = await wordRepo.findOne({ where: { word: args.word.toLowerCase() } });
+      const w = await wordRepo
+        .createQueryBuilder('w')
+        .where('LOWER(w.word) = :word', { word: args.word.toLowerCase() })
+        .getOne();
       words = w ? [w] : [];
     } else {
       words = await wordRepo.find({ order: { id: 'ASC' }, skip: page * PAGE, take: PAGE });
