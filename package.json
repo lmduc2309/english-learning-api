@@ -32,6 +32,8 @@
     "import-vi:dry": "ts-node scripts/import-vietnamese-meanings.ts --dry-run",
     "import-tudien": "ts-node scripts/import-tudien.ts",
     "import-tudien:dry": "ts-node scripts/import-tudien.ts --dry-run",
+    "clean-cjk": "ts-node scripts/clean-cjk.ts",
+    "clean-cjk:dry": "ts-node scripts/clean-cjk.ts --dry-run",
     "ai-translate": "ts-node scripts/ai-translate/index.ts",
     "ai-translate:defs": "ts-node scripts/ai-translate/index.ts --type definitions",
     "ai-translate:examples": "ts-node scripts/ai-translate/index.ts --type examples",
