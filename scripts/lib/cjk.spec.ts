@@ -29,4 +29,13 @@ describe('containsCjk', () => {
     expect(containsCjk(undefined)).toBe(false);
     expect(containsCjk('')).toBe(false);
   });
+
+  it('does NOT flag Korean Hangul or other non-CJK scripts (confusable-range regression)', () => {
+    expect(containsCjk('한글')).toBe(false); // Korean, U+AC00 block
+    expect(containsCjk('ꀀ')).toBe(false); // Yi syllable
+  });
+
+  it('flags a genuine CJK Compatibility Ideograph (U+F900)', () => {
+    expect(containsCjk('豈')).toBe(true);
+  });
 });
