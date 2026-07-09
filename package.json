@@ -30,6 +30,8 @@
     "generate-subcategories": "ts-node scripts/generate-subcategories.ts",
     "import-vi": "ts-node scripts/import-vietnamese-meanings.ts",
     "import-vi:dry": "ts-node scripts/import-vietnamese-meanings.ts --dry-run",
+    "audit-vi": "ts-node scripts/audit-vietnamese.ts",
+    "audit-vi:normalize": "ts-node scripts/audit-vietnamese.ts --normalize-empty",
     "import-tudien": "ts-node scripts/import-tudien.ts",
     "import-tudien:dry": "ts-node scripts/import-tudien.ts --dry-run",
     "clean-cjk": "ts-node scripts/clean-cjk.ts",
