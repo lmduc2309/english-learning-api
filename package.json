@@ -8,6 +8,7 @@
   "scripts": {
     "build": "nest build",
     "test": "jest",
+    "test:scripts": "jest --config jest.scripts.config.js",
     "test:tudien": "jest --config jest.scripts.config.js",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
