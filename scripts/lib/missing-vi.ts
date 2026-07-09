@@ -6,12 +6,12 @@ export function isMissingVi(value: string | null | undefined): boolean {
   return value == null || value.trim() === '';
 }
 
-// SQL predicate for "missing" on a controlled column identifier (NULL or blank).
+// SQL predicate for "missing" on a controlled column identifier (NULL or all-whitespace).
 export function missingViSql(col: string): string {
-  return `(${col} IS NULL OR btrim(${col}) = '')`;
+  return `(${col} IS NULL OR ${col} !~ '\\S')`;
 }
 
-// SQL predicate for "blank but not NULL" — the subset the fillers silently skip.
+// SQL predicate for "blank but not NULL" (all-whitespace) — the subset fillers skip.
 export function blankViSql(col: string): string {
-  return `(${col} IS NOT NULL AND btrim(${col}) = '')`;
+  return `(${col} IS NOT NULL AND ${col} !~ '\\S')`;
 }

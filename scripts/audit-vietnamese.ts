@@ -44,7 +44,7 @@ function parseArgs(argv: string[]): Args {
   const parsed = i !== -1 && i + 1 < argv.length ? parseInt(argv[i + 1], 10) : NaN;
   return {
     normalizeEmpty: argv.includes('--normalize-empty'),
-    limit: Number.isFinite(parsed) ? parsed : 20,
+    limit: Number.isFinite(parsed) && parsed >= 0 ? parsed : 20,
   };
 }
 
@@ -67,7 +67,7 @@ async function scalar(ds: DataSource, sql: string, params: unknown[] = []): Prom
 }
 
 function pct(part: number, total: number): string {
-  return total === 0 ? '100.0' : ((part / total) * 100).toFixed(1);
+  return total === 0 ? '0.0' : ((part / total) * 100).toFixed(1);
 }
 
 async function reportColumn(
@@ -109,9 +109,10 @@ async function reportFrequencyBands(ds: DataSource) {
 
 async function reportSamples(ds: DataSource, limit: number) {
   const rows: Array<{ word: string; pos: string }> = await ds.query(
-    `SELECT w.word, d.part_of_speech AS pos
+    `SELECT w.word, min(d.part_of_speech) AS pos
      FROM definitions d JOIN words w ON w.id = d.word_id
      WHERE d.definition_en IS NOT NULL AND ${missingViSql('d.definition_vi')}
+     GROUP BY w.word, w.frequency_rank
      ORDER BY w.frequency_rank ASC NULLS LAST
      LIMIT $1`,
     [limit],

@@ -17,15 +17,11 @@ describe('isMissingVi', () => {
 });
 
 describe('SQL fragment builders', () => {
-  it('missingViSql matches NULL or blank', () => {
-    expect(missingViSql('definition_vi')).toBe(
-      "(definition_vi IS NULL OR btrim(definition_vi) = '')",
-    );
+  it('missingViSql matches NULL or all-whitespace', () => {
+    expect(missingViSql('definition_vi')).toBe("(definition_vi IS NULL OR definition_vi !~ '\\S')");
   });
 
-  it('blankViSql matches non-NULL blank only', () => {
-    expect(blankViSql('example_vi')).toBe(
-      "(example_vi IS NOT NULL AND btrim(example_vi) = '')",
-    );
+  it('blankViSql matches non-NULL all-whitespace only', () => {
+    expect(blankViSql('example_vi')).toBe("(example_vi IS NOT NULL AND example_vi !~ '\\S')");
   });
 });
