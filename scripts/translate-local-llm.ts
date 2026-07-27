@@ -6,6 +6,7 @@
  * Options:
  *   --type definitions|examples|all   What to translate (default: definitions)
  *   --batch-size <n>                  Items per LLM request (default: 20)
+ *   --concurrency <n>                 Parallel LLM requests (default: 4)
  *   --limit <n>                       Max items to translate (0 = unlimited)
  *   --word <word>                     Only translate a specific word
  *   --stats                           Show current stats and exit
@@ -22,6 +23,7 @@ import { DbConnector } from './ai-translate/db-connector';
 
 const DEFAULT_LLM_URL = process.env.LOCAL_LLM_URL || 'http://113.160.225.76:8558/serious/llm/chat';
 const DEFAULT_BATCH_SIZE = 20;
+const DEFAULT_CONCURRENCY = 4;
 
 // ─── CLI args ────────────────────────────────────────────────────────────────
 
@@ -30,6 +32,7 @@ function parseArgs() {
   const opts = {
     type: 'definitions' as 'definitions' | 'examples' | 'all',
     batchSize: DEFAULT_BATCH_SIZE,
+    concurrency: DEFAULT_CONCURRENCY,
     limit: 0,
     word: null as string | null,
     stats: false,
@@ -41,6 +44,7 @@ function parseArgs() {
     if (a === '--stats') opts.stats = true;
     else if (a === '--type' && args[i + 1]) opts.type = args[++i] as any;
     else if (a === '--batch-size' && args[i + 1]) opts.batchSize = parseInt(args[++i]);
+    else if (a === '--concurrency' && args[i + 1]) opts.concurrency = parseInt(args[++i]);
     else if (a === '--limit' && args[i + 1]) opts.limit = parseInt(args[++i]);
     else if (a === '--word' && args[i + 1]) opts.word = args[++i];
     else if (a === '--llm-url' && args[i + 1]) opts.llmUrl = args[++i];
@@ -160,26 +164,12 @@ async function runTranslation(
 
   let aborted = false;
   process.on('SIGINT', () => {
-    console.log('\n\n🛑 Stopping... finishing current batch.');
+    console.log('\n\n🛑 Stopping... finishing in-flight batches.');
     aborted = true;
   });
 
-  for (let i = 0; i < batches.length; i++) {
-    if (aborted) {
-      console.log('   ⏹️  Stopped. Run again to resume (already-translated items are saved).\n');
-      break;
-    }
-
-    const batch = batches[i];
-    const done = stats.translated + stats.failed;
-    const pct = items.length > 0 ? ((done / items.length) * 100).toFixed(1) : '0.0';
-    const eta = calcETA(stats, done, items.length);
-
-    process.stdout.write(
-      `   [${i + 1}/${batches.length}] ${done.toLocaleString()}/${items.length.toLocaleString()} (${pct}%) | ` +
-        `${stats.translated} ✅ ${stats.failed} ❌ | ETA: ${eta} `,
-    );
-
+  // Process one batch: translate, parse, (mini-retry on total failure), persist.
+  async function processBatch(batch: typeof items, batchNo: number): Promise<void> {
     try {
       const prompt =
         type === 'definitions'
@@ -224,11 +214,35 @@ async function runTranslation(
         }
       }
 
-      process.stdout.write(`→ ${results.length} ✅\n`);
+      const done = stats.translated + stats.failed;
+      const pct = items.length > 0 ? ((done / items.length) * 100).toFixed(1) : '0.0';
+      const eta = calcETA(stats, done, items.length);
+      process.stdout.write(
+        `   [batch ${batchNo}/${batches.length}] ${done.toLocaleString()}/${items.length.toLocaleString()} (${pct}%) | ` +
+          `${stats.translated} ✅ ${stats.failed} ❌ | ETA: ${eta} → +${results.length}\n`,
+      );
     } catch (error: any) {
       stats.failed += batch.length;
-      process.stdout.write(`→ ❌ ${error.message}\n`);
+      process.stdout.write(`   [batch ${batchNo}/${batches.length}] → ❌ ${error.message}\n`);
     }
+  }
+
+  // Worker pool: run up to `concurrency` batches in parallel, pulling from a
+  // shared cursor. In-flight batches finish on SIGINT; unstarted ones are left
+  // for the next resumable run.
+  let cursor = 0;
+  const worker = async (): Promise<void> => {
+    while (!aborted) {
+      const idx = cursor++;
+      if (idx >= batches.length) break;
+      await processBatch(batches[idx], idx + 1);
+    }
+  };
+  const poolSize = Math.max(1, Math.min(opts.concurrency, batches.length));
+  await Promise.all(Array.from({ length: poolSize }, () => worker()));
+
+  if (aborted) {
+    console.log('   ⏹️  Stopped. Run again to resume (already-translated items are saved).\n');
   }
 
   return stats;
@@ -257,6 +271,7 @@ async function main() {
   console.log(`   LLM URL:    ${opts.llmUrl}`);
   console.log(`   Type:       ${opts.type}`);
   console.log(`   Batch size: ${opts.batchSize}`);
+  console.log(`   Concurrency:${opts.concurrency}`);
   if (opts.limit) console.log(`   Limit:      ${opts.limit}`);
   if (opts.word) console.log(`   Word:       ${opts.word}`);
 

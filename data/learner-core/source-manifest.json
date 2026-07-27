@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "reviewed_on": "2026-07-20",
+  "policy": {
+    "raw_sources_are_never_learner_visible_by_themselves": true,
+    "automated_cefr_is_a_review_hint_only": true,
+    "public_senses_require_human_review": true,
+    "public_vietnamese_requires_independent_approval": true,
+    "public_examples_require_independent_approval": true
+  },
+  "bundleable_sources": [
+    {
+      "id": "ngsl-1.2",
+      "name": "New General Service List",
+      "version": "1.2",
+      "purpose": "learner rank and core vocabulary candidate selection",
+      "url": "https://www.newgeneralservicelist.com/new-general-service-list",
+      "license": "CC BY-SA 4.0",
+      "publication_rule": "Rank is learning priority, never a CEFR level. Preserve source URL, version, license, and any source-specific learner band on learner_entries."
+    },
+    {
+      "id": "ngsl-gr-1.0",
+      "name": "NGSL Graded Reader List",
+      "version": "1.0",
+      "purpose": "secondary frequency bands for staged reading vocabulary",
+      "url": "https://www.newgeneralservicelist.com/ngsl-graded-reader",
+      "license": "CC BY-SA 4.0",
+      "publication_rule": "Treat bands as source-specific bands; do not relabel them as CEFR."
+    },
+    {
+      "id": "oewn-2025",
+      "name": "Open English WordNet",
+      "version": "2025",
+      "purpose": "stable sense keys and English sense-definition backbone",
+      "url": "https://github.com/globalwordnet/english-wordnet/releases/tag/2025-edition",
+      "release_tag": "2025-edition",
+      "release_commit": "dc343f2683279ecbb13fab4e2fd778d7b162d287",
+      "artifact_url": "https://github.com/globalwordnet/english-wordnet/releases/download/2025-edition/english-wordnet-2025.xml.gz",
+      "artifact_sha256": "9ca6d1dcb75f822fdd66617f7d9da48142ace38dd544d6ad5e2feca1674ad3fe",
+      "format": "WN-LMF 1.3 XML (gzip)",
+      "license": "CC BY 4.0",
+      "derived_from": "Princeton WordNet under the WordNet License",
+      "bundled_license_files": [
+        "licenses/oewn-2025/LICENSE.md",
+        "licenses/oewn-2025/WNDB_License.txt"
+      ],
+      "publication_rule": "Use only as source evidence. Keep the source sense key, version, artifact checksum, source URL, and license on every derived learner sense. OEWN lemma matches and source order require human semantic selection; they are never automatic publication or learner order."
+    },
+    {
+      "id": "cefr-annotated-wordnet",
+      "name": "CEFR-Annotated WordNet",
+      "version": "repository snapshot recorded at ingestion",
+      "purpose": "provisional CEFR candidate labels for exact WordNet senses",
+      "url": "https://huggingface.co/datasets/star092304/CEFR-Annotated-WordNet",
+      "license": "CC BY 4.0",
+      "publication_rule": "Automated labels remain staging hints. Record source URL, snapshot version, license, confidence, and evidence basis, then require human sense-level review before publication."
+    }
+  ],
+  "reference_only_sources": [
+    {
+      "id": "cambridge-evp",
+      "name": "English Vocabulary Profile",
+      "purpose": "manual comparison benchmark",
+      "url": "https://www.coe.int/en/web/common-european-framework-reference-languages/reference-level-descriptions-rlds-developed-so-far",
+      "storage_rule": "Do not scrape, bulk-copy, or persist entries without a separate license or API agreement."
+    },
+    {
+      "id": "oxford-learners-word-lists",
+      "name": "Oxford learner word lists",
+      "purpose": "manual coverage benchmark",
+      "url": "https://www.oxfordlearnersdictionaries.com/wordlists/",
+      "storage_rule": "Do not bundle copied definitions, examples, pronunciations, or level labels without permission."
+    }
+  ]
+}

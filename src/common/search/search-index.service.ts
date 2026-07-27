@@ -12,6 +12,8 @@ export interface SearchResult {
   displayName?: string;
   type: 'word' | 'category';
   frequencyRank?: number;
+  learnerRank?: number;
+  isLearnerEntry?: boolean;
   topic?: string;
   wordCount?: number;
 }
@@ -22,6 +24,7 @@ export class SearchIndexService implements OnModuleInit {
 
   // Separate indexes for different search types
   private wordIndex: BPlusTree<SearchResult>;
+  private learnerWordIndex: BPlusTree<SearchResult>;
   private categoryIndex: BPlusTree<SearchResult>;
   private topicIndex: BPlusTree<SearchResult>;
 
@@ -34,6 +37,7 @@ export class SearchIndexService implements OnModuleInit {
     private categoryRepository: Repository<Category>,
   ) {
     this.wordIndex = new BPlusTree<SearchResult>(100);
+    this.learnerWordIndex = new BPlusTree<SearchResult>(100);
     this.categoryIndex = new BPlusTree<SearchResult>(50);
     this.topicIndex = new BPlusTree<SearchResult>(50);
   }
@@ -72,12 +76,27 @@ export class SearchIndexService implements OnModuleInit {
 
   private async rebuildWordIndex(): Promise<void> {
     this.wordIndex.clear();
+    this.learnerWordIndex.clear();
 
-    // Fetch all words with their frequency ranks
+    // Keep the comprehensive corpus searchable, but maintain a small, separate
+    // published learner index so reviewed words always rank ahead of raw rows.
     const words = await this.wordRepository
       .createQueryBuilder('word')
-      .select(['word.id', 'word.word', 'word.frequency_rank'])
-      .orderBy('word.frequency_rank', 'ASC', 'NULLS LAST')
+      .leftJoinAndSelect(
+        'word.learnerEntry',
+        'learnerEntry',
+        'learnerEntry.status = :learnerStatus',
+        { learnerStatus: 'published' },
+      )
+      .select([
+        'word.id',
+        'word.word',
+        'word.frequencyRank',
+        'learnerEntry.id',
+        'learnerEntry.learnerRank',
+      ])
+      .orderBy('learnerEntry.learner_rank', 'ASC', 'NULLS LAST')
+      .addOrderBy('word.frequency_rank', 'ASC', 'NULLS LAST')
       .addOrderBy('word.word', 'ASC')
       .getMany();
 
@@ -87,13 +106,20 @@ export class SearchIndexService implements OnModuleInit {
         id: word.id,
         word: word.word,
         type: 'word' as const,
-        frequencyRank: word.frequencyRank,
+        frequencyRank: word.learnerEntry?.learnerRank ?? word.frequencyRank,
+        learnerRank: word.learnerEntry?.learnerRank,
+        isLearnerEntry: Boolean(word.learnerEntry),
       },
     }));
 
     this.wordIndex.bulkInsert(items);
+    this.learnerWordIndex.bulkInsert(
+      items.filter((item) => item.value.isLearnerEntry),
+    );
 
-    this.logger.log(`Indexed ${words.length} words`);
+    this.logger.log(
+      `Indexed ${words.length} words (${this.learnerWordIndex.getStats().totalKeys} published learner entries)`,
+    );
   }
 
   private async rebuildCategoryIndex(): Promise<void> {
@@ -171,16 +197,39 @@ export class SearchIndexService implements OnModuleInit {
       return this.fallbackSearchWords(query, limit);
     }
 
-    const results = this.wordIndex.searchPrefix(query, limit);
+    const learnerIndexSize = this.learnerWordIndex.getStats().totalKeys;
+    const reviewed = this.sortWordResults(
+      this.learnerWordIndex.searchPrefix(query, Math.max(limit, learnerIndexSize)),
+      query,
+    );
+    const rawCandidates = this.sortWordResults(
+      this.wordIndex.searchPrefix(query, Math.max(limit * 20, 250)),
+      query,
+    );
+    const unique = new Map<number, SearchResult>();
+    for (const result of this.sortWordResults([...reviewed, ...rawCandidates], query)) {
+      if (!unique.has(result.id)) unique.set(result.id, result);
+      if (unique.size >= limit) break;
+    }
+    return Array.from(unique.values());
+  }
 
-    // Sort by frequency rank (lower is more common)
-    return results
-      .sort((a, b) => {
-        const rankA = a.frequencyRank ?? Number.MAX_SAFE_INTEGER;
-        const rankB = b.frequencyRank ?? Number.MAX_SAFE_INTEGER;
-        return rankA - rankB;
-      })
-      .slice(0, limit);
+  private sortWordResults(results: SearchResult[], query: string): SearchResult[] {
+    const normalizedQuery = query.toLowerCase().trim();
+    return [...results].sort((a, b) => {
+      const exactA = a.word?.toLowerCase() === normalizedQuery ? 0 : 1;
+      const exactB = b.word?.toLowerCase() === normalizedQuery ? 0 : 1;
+      if (exactA !== exactB) return exactA - exactB;
+
+      const learnerA = a.isLearnerEntry ? 0 : 1;
+      const learnerB = b.isLearnerEntry ? 0 : 1;
+      if (learnerA !== learnerB) return learnerA - learnerB;
+
+      const rankA = a.learnerRank ?? a.frequencyRank ?? Number.MAX_SAFE_INTEGER;
+      const rankB = b.learnerRank ?? b.frequencyRank ?? Number.MAX_SAFE_INTEGER;
+      if (rankA !== rankB) return rankA - rankB;
+      return (a.word || '').localeCompare(b.word || '');
+    });
   }
 
   /**
@@ -290,6 +339,7 @@ export class SearchIndexService implements OnModuleInit {
 
     return {
       words: wordStats.totalKeys,
+      learnerWords: this.learnerWordIndex.getStats().totalKeys,
       categories: categoryStats.totalKeys,
       topics: topicStats.totalKeys,
       wordIndexHeight: wordStats.height,
@@ -307,9 +357,18 @@ export class SearchIndexService implements OnModuleInit {
   ): Promise<SearchResult[]> {
     const words = await this.wordRepository
       .createQueryBuilder('word')
+      .leftJoinAndSelect(
+        'word.learnerEntry',
+        'learnerEntry',
+        'learnerEntry.status = :learnerStatus',
+        { learnerStatus: 'published' },
+      )
       .where('word.word LIKE :query', { query: `${query.toLowerCase()}%` })
       .orWhere('word.word_normalized LIKE :query', { query: `${query.toLowerCase()}%` })
-      .orderBy('word.frequency_rank', 'ASC', 'NULLS LAST')
+      .orderBy('CASE WHEN learnerEntry.id IS NULL THEN 1 ELSE 0 END', 'ASC')
+      .addOrderBy('learnerEntry.learner_rank', 'ASC', 'NULLS LAST')
+      .addOrderBy('word.frequency_rank', 'ASC', 'NULLS LAST')
+      .addOrderBy('word.word', 'ASC')
       .limit(limit)
       .getMany();
 
@@ -317,7 +376,9 @@ export class SearchIndexService implements OnModuleInit {
       id: word.id,
       word: word.word,
       type: 'word' as const,
-      frequencyRank: word.frequencyRank,
+      frequencyRank: word.learnerEntry?.learnerRank ?? word.frequencyRank,
+      learnerRank: word.learnerEntry?.learnerRank,
+      isLearnerEntry: Boolean(word.learnerEntry),
     }));
   }
 

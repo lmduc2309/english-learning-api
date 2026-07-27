@@ -6,8 +6,32 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Enable CORS
-  app.enableCors();
+  const configuredOrigins = (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  // Same-origin web requests and native mobile requests do not need a CORS
+  // header. In production, only explicitly configured browser origins receive
+  // one; development remains permissive for local ports and Expo tooling.
+  app.enableCors({
+    origin: (
+      origin: string | undefined,
+      callback: (error: Error | null, allow?: boolean) => void,
+    ) => {
+      if (!origin || !isProduction || configuredOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(null, false);
+    },
+  });
+
+  if (isProduction) {
+    app.getHttpAdapter().getInstance().set('trust proxy', 1);
+  }
 
   // Global validation pipe
   app.useGlobalPipes(

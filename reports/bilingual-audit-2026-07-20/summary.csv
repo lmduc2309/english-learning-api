@@ -1,0 +1,35 @@
+metric,value,note
+words_total,475153,All headwords in the audited database snapshot
+definitions_total,704121,All English senses
+examples_total,361167,All bilingual example rows
+pronunciations_total,106021,All pronunciation rows
+words_without_definitions,0,Unusable dictionary entries
+words_without_pronunciation,405385,No IPA/accent row
+words_without_frequency_rank,475153,Cannot reliably order learning priority
+definitions_missing_vi,0,Missing or blank Vietnamese
+examples_missing_vi,380,Missing or blank Vietnamese
+definitions_vi_contains_cjk,9015,CJK script/punctuation/full-width contamination in the Vietnamese field
+examples_vi_contains_cjk,13892,CJK script/punctuation/full-width contamination in the Vietnamese field
+definitions_vi_equals_en,3181,Likely untranslated fallback
+examples_vi_equals_en,672,Likely untranslated fallback
+duplicate_definitions,6371,Duplicate senses beyond first copy
+duplicate_examples,17,Duplicate examples beyond first copy
+definitions_raw_markup,94197,Raw Wiktionary/template/HTML markup
+definitions_over_400_chars,263,Too long for concise learner definitions
+examples_over_300_chars,32913,"Likely literary, noisy, or multi-sentence example"
+non_lexical_headwords,4878,"Symbols, markup, numbers, or non-Latin headwords"
+definitions_flagged,104740,Rows carrying one or more persisted quality flags
+legacy_definitions_reference_only,704121,Legacy raw rows correctly excluded from trusted learner content
+legacy_definitions_learner_visible,0,Critical invariant: expected zero; reviewed content belongs in learner_senses
+examples_flagged,45851,Rows carrying one or more persisted quality flags
+legacy_examples_reference_only,361167,Legacy raw examples correctly excluded from trusted learner content
+legacy_examples_learner_visible,0,Critical invariant: expected zero; reviewed content belongs in learner_examples
+learner_entries_total,0,Normalized learner-overlay headwords in any workflow state
+learner_entries_published,0,Headwords eligible for learner presentation when they contain publishable senses
+learner_senses_total,0,Normalized sense-level curation records in any workflow state
+learner_senses_published,0,Reviewed learner senses eligible for presentation
+learner_vi_translations_approved,0,Independently approved Vietnamese sense translations
+learner_examples_approved,0,Independently approved bilingual learner examples
+learner_pronunciations_approved,0,Reviewed learner pronunciations
+published_senses_missing_approved_vi,0,Critical publication invariant: expected zero
+published_entries_without_published_sense,0,Critical publication invariant: expected zero

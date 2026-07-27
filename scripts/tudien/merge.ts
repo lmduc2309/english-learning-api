@@ -15,6 +15,8 @@ export interface DbDefinition {
 }
 export interface MergeOptions {
   fillOnly: boolean;
+  /** Unsafe compatibility mode. POS + array position is not semantic sense alignment. */
+  allowPositionalDefinitionMatch?: boolean;
 }
 export interface DefinitionUpdate {
   definitionId: number | string;
@@ -40,7 +42,7 @@ export function planDefinitionUpdates(
   entry: ParsedEntry,
   opts: MergeOptions,
 ): DefinitionUpdate[] {
-  if (defs.length === 0) return [];
+  if (defs.length === 0 || !opts.allowPositionalDefinitionMatch) return [];
 
   const byPos = new Map<string, DbDefinition[]>();
   for (const d of defs) {

@@ -186,7 +186,10 @@ def flush_definitions(conn, updates):
     try:
         with conn.cursor() as cur:
             for u in updates:
-                cur.execute('UPDATE definitions SET definition_vi = %s WHERE id = %s', (u['vi'], u['id']))
+                cur.execute(
+                    "UPDATE definitions SET definition_vi = %s, review_status = 'raw', is_learner_visible = false WHERE id = %s",
+                    (u['vi'], u['id']),
+                )
         conn.commit()
     except Exception as e:
         conn.rollback()
@@ -201,7 +204,10 @@ def flush_examples(conn, updates):
     try:
         with conn.cursor() as cur:
             for u in updates:
-                cur.execute('UPDATE examples SET example_vi = %s WHERE id = %s', (u['vi'], u['id']))
+                cur.execute(
+                    "UPDATE examples SET example_vi = %s, review_status = 'raw', is_learner_visible = false WHERE id = %s",
+                    (u['vi'], u['id']),
+                )
         conn.commit()
     except Exception as e:
         conn.rollback()

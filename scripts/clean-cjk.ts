@@ -100,10 +100,16 @@ async function main() {
       const chunk = <T>(a: T[], n: number) =>
         Array.from({ length: Math.ceil(a.length / n) }, (_, k) => a.slice(k * n, k * n + n));
       for (const ids of chunk(defHits.map((r) => r.id), 500)) {
-        await m.query(`UPDATE definitions SET definition_vi = NULL WHERE id = ANY($1::bigint[])`, [ids]);
+        await m.query(
+          `UPDATE definitions SET definition_vi = NULL, review_status = 'raw', is_learner_visible = false WHERE id = ANY($1::bigint[])`,
+          [ids],
+        );
       }
       for (const ids of chunk(exHits.map((r) => r.id), 500)) {
-        await m.query(`UPDATE examples SET example_vi = NULL WHERE id = ANY($1::bigint[])`, [ids]);
+        await m.query(
+          `UPDATE examples SET example_vi = NULL, review_status = 'raw', is_learner_visible = false WHERE id = ANY($1::bigint[])`,
+          [ids],
+        );
       }
     });
     console.log(`\nCleaned: definition_vi=${defHits.length}, example_vi=${exHits.length}`);

@@ -1,3 +1,4 @@
+
 # tudien Vietnamese Enrichment — Design
 
 **Date:** 2026-07-08
@@ -25,12 +26,14 @@ The script is a new source in the existing data-build pipeline; no backend/runti
 ## 3. Scope
 
 **In scope (v1):**
+
 - Enrich `definition_vi` on **existing** definitions from tudien Vietnamese senses.
 - Enrich `example_vi` on **existing** examples from tudien EN↔VI example pairs.
 - **Overwrite by default** (tudien replaces existing Vietnamese); `--fill-only` restricts to `NULL`s.
 - Standalone script + npm alias, following existing pipeline conventions.
 
 **Out of scope (v1):**
+
 - Adding brand-new words not already in the DB (`definitions.definition_en` is NOT NULL; tudien has no English definition, so new rows would need a placeholder — deferred to a separate project).
 - IPA/pronunciation enrichment and CEFR `level` — deferred to a later phase.
 - Synonyms/word-forms from tudien.
@@ -43,19 +46,18 @@ A **focused sibling script** `scripts/import-tudien.ts` + npm aliases, rather th
 ## 5. Components
 
 1. **StarDict reader**
+
    - Parse `.ifo`; assert `sametypesequence=h` (fail fast otherwise).
    - Read `.idx` fully into memory (~4.7 MB) → list of `{ word, offset, size }`.
    - Decompress `.dict.dz` → `.dict` if the plain `.dict` is absent (gzip-compatible), then read definition HTML by offset via random-access `fs` reads (do not load the ~108 MB blob whole).
    - Build `Map<lowercasedHeadword, rawHtml>` (last-wins on duplicate keys).
-
 2. **HTML → structured parser** — `parseEntry(html) → { perPos: Array<{ vnPos, senses: string[], examples: Array<{ en, vi }> }> }`
+
    - Split into POS blocks on the `■ <vnPos>` markers.
    - Per block: extract ordered Vietnamese sense glosses (strip all tags, decode `&nbsp;`/`&bull;`/`&amp;` etc., trim), and example pairs from `‣ <i>EN</i> ↔ VI` lines.
    - Strip syllable dots from any headword text; drop the synonym block and footer.
-
 3. **VN→EN POS map** — a constant object:
    `danh từ`→`noun`, `động từ`→`verb`, `tính từ`→`adjective`, `trạng từ`→`adverb`, `giới từ`→`preposition`, `đại từ`→`pronoun`, `mạo từ`→`determiner`, `liên từ`→`conjunction`, `thán từ`→`interjection`, `số từ`→`numeral`. Unmapped VN POS → `null` (handled by the primary-definition fallback).
-
 4. **Enricher** — iterates DB words in batches (mirroring `import-vietnamese-meanings.ts`), looks each up in the tudien map, assigns senses/examples to existing rows per the merge rules, and applies updates in a transaction.
 
 ## 6. Data flow
@@ -89,16 +91,16 @@ Query definitions (join word, join examples), batched by LOWER(word) IN (...):
 
 ## 8. Error handling & edge cases
 
-| Situation | Behavior |
-|-----------|----------|
-| StarDict files missing/renamed | Fail fast with a message naming the expected path. |
-| `.ifo` `sametypesequence` ≠ `h` | Fail fast (parser assumes HTML). |
-| `.dict.dz` present, `.dict` absent | Decompress once, then proceed. |
-| tudien word not in DB | Skip; count logged (no inserts in v1). |
-| DB word not in tudien | Left unchanged. |
-| Malformed/unparseable entry HTML | Skip that entry, log, continue. |
-| tudien POS unmapped | First sense → primary definition (fallback). |
-| Encoding artifacts (ZWJ in IPA, `&nbsp;`, `&bull;`) | Stripped/decoded during HTML cleaning. |
+| Situation                                              | Behavior                                           |
+| ------------------------------------------------------ | -------------------------------------------------- |
+| StarDict files missing/renamed                         | Fail fast with a message naming the expected path. |
+| `.ifo` `sametypesequence` ≠ `h`                 | Fail fast (parser assumes HTML).                   |
+| `.dict.dz` present, `.dict` absent                 | Decompress once, then proceed.                     |
+| tudien word not in DB                                  | Skip; count logged (no inserts in v1).             |
+| DB word not in tudien                                  | Left unchanged.                                    |
+| Malformed/unparseable entry HTML                       | Skip that entry, log, continue.                    |
+| tudien POS unmapped                                    | First sense → primary definition (fallback).      |
+| Encoding artifacts (ZWJ in IPA,`&nbsp;`, `&bull;`) | Stripped/decoded during HTML cleaning.             |
 
 ## 9. Flags & configuration
 

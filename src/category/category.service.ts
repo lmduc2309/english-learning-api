@@ -1,11 +1,37 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Category } from './entities/category.entity';
 import { CategoryWord } from './entities/category-word.entity';
 import { Word } from '../dictionary/entities/word.entity';
 import { SearchIndexService } from '../common/search/search-index.service';
 import { RedisCacheService } from '../common/cache/redis-cache.service';
+import { LearnerEntry } from '../dictionary/entities/learner-entry.entity';
+import {
+  presentLearnerDefinitions,
+  presentLearnerPronunciations,
+  presentRawDefinitions,
+} from '../dictionary/dictionary-presenter';
+
+// Category packs are a learning surface. Active clients opt into this filter
+// so raw/reference-only dictionary rows cannot silently become lesson content.
+// Keep the default endpoint behavior for older clients until they migrate.
+const PUBLISHED_LEARNER_WORD_EXISTS = `EXISTS (
+  SELECT 1
+  FROM learner_entries learner_entry
+  INNER JOIN learner_senses learner_sense
+    ON learner_sense.learner_entry_id = learner_entry.id
+   AND learner_sense.status = 'published'
+  INNER JOIN learner_sense_translations learner_translation
+    ON learner_translation.learner_sense_id = learner_sense.id
+   AND (
+     lower(learner_translation.locale) = 'vi'
+     OR lower(learner_translation.locale) LIKE 'vi-%'
+   )
+   AND learner_translation.review_status = 'approved'
+  WHERE learner_entry.word_id = w.id
+    AND learner_entry.status = 'published'
+)`;
 
 @Injectable()
 export class CategoryService {
@@ -18,6 +44,8 @@ export class CategoryService {
     private categoryWordRepository: Repository<CategoryWord>,
     @InjectRepository(Word)
     private wordRepository: Repository<Word>,
+    @InjectRepository(LearnerEntry)
+    private learnerEntryRepository: Repository<LearnerEntry>,
     private searchIndexService: SearchIndexService,
     private cacheService: RedisCacheService,
   ) {}
@@ -25,18 +53,25 @@ export class CategoryService {
   /**
    * Get all distinct topics
    */
-  async getTopics(): Promise<{ topic: string; categoryCount: number }[]> {
-    const cacheKey = 'all';
+  async getTopics(learnerOnly = false): Promise<{ topic: string; categoryCount: number }[]> {
+    const cacheKey = `all:${learnerOnly ? 'learner' : 'reference'}`;
     return await this.cacheService.getOrSet(
       cacheKey,
       async () => {
-        const results = await this.categoryRepository
+        const qb = this.categoryRepository
           .createQueryBuilder('c')
           .select('c.topic', 'topic')
-          .addSelect('COUNT(c.id)', 'categoryCount')
+          .addSelect('COUNT(DISTINCT c.id)', 'categoryCount')
           .groupBy('c.topic')
-          .orderBy('c.topic', 'ASC')
-          .getRawMany();
+          .orderBy('c.topic', 'ASC');
+
+        if (learnerOnly) {
+          qb.innerJoin('c.categoryWords', 'cw')
+            .innerJoin('cw.word', 'w')
+            .where(PUBLISHED_LEARNER_WORD_EXISTS);
+        }
+
+        const results = await qb.getRawMany();
 
         return results.map((r) => ({
           topic: r.topic,
@@ -52,14 +87,15 @@ export class CategoryService {
    * Includes subcategory count and word count.
    * parentOnly=true returns only root categories (no parent).
    */
-  async getCategories(topic?: string, parentOnly?: boolean): Promise<any[]> {
-    const cacheKey = `${topic || 'all'}:${parentOnly ? 'parent' : 'all'}`;
+  async getCategories(topic?: string, parentOnly?: boolean, learnerOnly = false): Promise<any[]> {
+    const cacheKey = `${topic || 'all'}:${parentOnly ? 'parent' : 'all'}:${learnerOnly ? 'learner' : 'reference'}`;
     return await this.cacheService.getOrSet(
       cacheKey,
       async () => {
         const qb = this.categoryRepository
           .createQueryBuilder('c')
           .leftJoin('c.categoryWords', 'cw')
+          .leftJoin('cw.word', 'w')
           .leftJoin('c.children', 'sub')
           .select([
             'c.id AS id',
@@ -85,6 +121,10 @@ export class CategoryService {
           qb.andWhere('c.parentId IS NULL');
         }
 
+        if (learnerOnly) {
+          qb.andWhere(PUBLISHED_LEARNER_WORD_EXISTS);
+        }
+
         const results = await qb.getRawMany();
         return results.map((r) => ({
           ...r,
@@ -99,12 +139,13 @@ export class CategoryService {
   /**
    * Get subcategories of a parent category
    */
-  async getSubCategories(parentIdOrName: string): Promise<any[]> {
+  async getSubCategories(parentIdOrName: string, learnerOnly = false): Promise<any[]> {
     const parent = await this.getCategory(parentIdOrName);
 
     const qb = this.categoryRepository
       .createQueryBuilder('c')
       .leftJoin('c.categoryWords', 'cw')
+      .leftJoin('cw.word', 'w')
       .select([
         'c.id AS id',
         'c.name AS name',
@@ -120,6 +161,10 @@ export class CategoryService {
       .groupBy('c.id')
       .orderBy('c.displayOrder', 'ASC')
       .addOrderBy('c.displayName', 'ASC');
+
+    if (learnerOnly) {
+      qb.andWhere(PUBLISHED_LEARNER_WORD_EXISTS);
+    }
 
     const results = await qb.getRawMany();
     return results.map((r) => ({
@@ -151,10 +196,11 @@ export class CategoryService {
     page: number = 1,
     limit: number = 100,
     search?: string,
+    learnerOnly = false,
   ): Promise<any> {
     const category = await this.getCategory(idOrName);
     const searchTerm = search?.trim();
-    const cacheKey = `${category.id}:p${page}:l${limit}${searchTerm ? `:s${searchTerm}` : ''}`;
+    const cacheKey = `${category.id}:p${page}:l${limit}${searchTerm ? `:s${searchTerm}` : ''}:${learnerOnly ? 'learner' : 'reference'}`;
 
     return await this.cacheService.getOrSet(
       cacheKey,
@@ -164,10 +210,13 @@ export class CategoryService {
         // Get total count (with search filter if provided)
         const countQb = this.categoryWordRepository
           .createQueryBuilder('cw')
+          .leftJoin('cw.word', 'w')
           .where('cw.categoryId = :categoryId', { categoryId: category.id });
         if (searchTerm) {
-          countQb.leftJoin('cw.word', 'w');
           countQb.andWhere('w.word ILIKE :search', { search: `%${searchTerm}%` });
+        }
+        if (learnerOnly) {
+          countQb.andWhere(PUBLISHED_LEARNER_WORD_EXISTS);
         }
         const totalWords = await countQb.getCount();
 
@@ -182,6 +231,9 @@ export class CategoryService {
         if (searchTerm) {
           wordsQb.andWhere('w.word ILIKE :search', { search: `%${searchTerm}%` });
         }
+        if (learnerOnly) {
+          wordsQb.andWhere(PUBLISHED_LEARNER_WORD_EXISTS);
+        }
         const words = await wordsQb
           .orderBy('cw.displayOrder', 'ASC')
           .addOrderBy('w.word', 'ASC')
@@ -189,8 +241,24 @@ export class CategoryService {
           .take(limit)
           .getMany();
 
+        const wordIds = words.map((categoryWord) => categoryWord.word.id);
+        const learnerEntries = wordIds.length > 0
+          ? await this.learnerEntryRepository.find({
+              where: { wordId: In(wordIds), status: 'published' },
+              relations: [
+                'senses',
+                'senses.translations',
+                'senses.examples',
+                'pronunciations',
+              ],
+            })
+          : [];
+        const learnerEntriesByWordId = new Map(
+          learnerEntries.map((entry) => [String(entry.wordId), entry]),
+        );
+
         // Get subcategories info
-        const subCategories = await this.getSubCategories(String(category.id));
+        const subCategories = await this.getSubCategories(String(category.id), learnerOnly);
 
         return {
           category: {
@@ -203,7 +271,10 @@ export class CategoryService {
             parentId: category.parentId,
           },
           subCategories,
-          words: words.map((cw) => this.formatWord(cw.word)),
+          words: words.map((cw) => this.formatWord(
+            cw.word,
+            learnerEntriesByWordId.get(String(cw.word.id)),
+          )),
           totalWords,
           page,
           limit,
@@ -227,7 +298,12 @@ export class CategoryService {
     displayOrder?: number;
   }): Promise<Category> {
     const category = this.categoryRepository.create(data);
-    return this.categoryRepository.save(category);
+    const saved = await this.categoryRepository.save(category);
+    await Promise.all([
+      this.cacheService.invalidateCategoryCaches(),
+      this.cacheService.invalidateTopicCaches(),
+    ]);
+    return saved;
   }
 
   /**
@@ -269,8 +345,12 @@ export class CategoryService {
       added++;
     }
 
-    // Invalidate cache for this category
-    await this.cacheService.invalidateCategoryCaches(category.id);
+    // Membership changes can make a learner-only category/topic appear or
+    // disappear, so list caches must be invalidated with the word-page cache.
+    await Promise.all([
+      this.cacheService.invalidateCategoryCaches(),
+      this.cacheService.invalidateTopicCaches(),
+    ]);
 
     return { added, skipped, notFound };
   }
@@ -293,8 +373,10 @@ export class CategoryService {
       wordId: word.id,
     });
 
-    // Invalidate cache for this category
-    await this.cacheService.invalidateCategoryCaches(category.id);
+    await Promise.all([
+      this.cacheService.invalidateCategoryCaches(),
+      this.cacheService.invalidateTopicCaches(),
+    ]);
   }
 
   /**
@@ -338,6 +420,13 @@ export class CategoryService {
         await this.addWordsToCategory(String(category.id), catData.words);
       }
     }
+
+    // A newly seeded category may intentionally contain no words, but still
+    // changes the compatibility catalog and topic counts.
+    await Promise.all([
+      this.cacheService.invalidateCategoryCaches(),
+      this.cacheService.invalidateTopicCaches(),
+    ]);
 
     return { created, updated };
   }
@@ -391,31 +480,43 @@ export class CategoryService {
     );
   }
 
-  private formatWord(word: Word): any {
+  private formatWord(word: Word, learnerEntry?: LearnerEntry): any {
     if (!word) return null;
+
+    const rawPronunciations = word.pronunciations?.map((pronunciation) => ({
+      accent: pronunciation.accent,
+      ipa: pronunciation.ipa,
+      audio_url: pronunciation.audioUrl,
+    })) || [];
+    const curatedDefinitions = presentLearnerDefinitions(learnerEntry);
+    const hasCuratedDefinitions = curatedDefinitions.length > 0;
 
     return {
       word: word.word,
-      frequency_rank: word.frequencyRank,
-      pronunciations: word.pronunciations?.map((p) => ({
-        accent: p.accent,
-        ipa: p.ipa,
-        audio_url: p.audioUrl,
-      })) || [],
-      definitions: word.definitions?.map((d) => ({
-        pos: d.partOfSpeech,
-        definition_en: d.definitionEn,
-        definition_vi: d.definitionVi,
-        level: d.level,
-        examples: d.examples?.map((e) => ({
-          en: e.exampleEn,
-          vi: e.exampleVi,
-        })) || [],
-      })) || [],
-      word_forms: word.wordForms?.reduce((acc, wf) => {
-        acc[wf.formType] = wf.formWord;
-        return acc;
-      }, {} as Record<string, string>) || {},
+      frequency_rank: hasCuratedDefinitions
+        ? learnerEntry?.learnerRank ?? word.frequencyRank
+        : word.frequencyRank,
+      learner_band: hasCuratedDefinitions ? learnerEntry?.learnerBand : undefined,
+      rank_source: hasCuratedDefinitions ? learnerEntry?.rankSource : undefined,
+      rank_source_version: hasCuratedDefinitions
+        ? learnerEntry?.rankSourceVersion
+        : undefined,
+      rank_source_license: hasCuratedDefinitions
+        ? learnerEntry?.rankSourceLicense
+        : undefined,
+      pronunciations: hasCuratedDefinitions
+        ? presentLearnerPronunciations(learnerEntry)
+        : rawPronunciations,
+      definitions: hasCuratedDefinitions
+        ? curatedDefinitions
+        : presentRawDefinitions(word.definitions),
+      data_source: hasCuratedDefinitions ? 'curated' : 'raw_fallback',
+      word_forms: hasCuratedDefinitions
+        ? {}
+        : word.wordForms?.reduce((acc, wf) => {
+            acc[wf.formType] = wf.formWord;
+            return acc;
+          }, {} as Record<string, string>) || {},
     };
   }
 }

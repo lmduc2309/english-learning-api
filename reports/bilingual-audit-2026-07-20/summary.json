@@ -1,0 +1,175 @@
+{
+  "generatedAt": "2026-07-20T09:53:33.113Z",
+  "metrics": [
+    {
+      "metric": "words_total",
+      "value": 475153,
+      "note": "All headwords in the audited database snapshot"
+    },
+    {
+      "metric": "definitions_total",
+      "value": 704121,
+      "note": "All English senses"
+    },
+    {
+      "metric": "examples_total",
+      "value": 361167,
+      "note": "All bilingual example rows"
+    },
+    {
+      "metric": "pronunciations_total",
+      "value": 106021,
+      "note": "All pronunciation rows"
+    },
+    {
+      "metric": "words_without_definitions",
+      "value": 0,
+      "note": "Unusable dictionary entries"
+    },
+    {
+      "metric": "words_without_pronunciation",
+      "value": 405385,
+      "note": "No IPA/accent row"
+    },
+    {
+      "metric": "words_without_frequency_rank",
+      "value": 475153,
+      "note": "Cannot reliably order learning priority"
+    },
+    {
+      "metric": "definitions_missing_vi",
+      "value": 0,
+      "note": "Missing or blank Vietnamese"
+    },
+    {
+      "metric": "examples_missing_vi",
+      "value": 380,
+      "note": "Missing or blank Vietnamese"
+    },
+    {
+      "metric": "definitions_vi_contains_cjk",
+      "value": 9015,
+      "note": "CJK script/punctuation/full-width contamination in the Vietnamese field"
+    },
+    {
+      "metric": "examples_vi_contains_cjk",
+      "value": 13892,
+      "note": "CJK script/punctuation/full-width contamination in the Vietnamese field"
+    },
+    {
+      "metric": "definitions_vi_equals_en",
+      "value": 3181,
+      "note": "Likely untranslated fallback"
+    },
+    {
+      "metric": "examples_vi_equals_en",
+      "value": 672,
+      "note": "Likely untranslated fallback"
+    },
+    {
+      "metric": "duplicate_definitions",
+      "value": 6371,
+      "note": "Duplicate senses beyond first copy"
+    },
+    {
+      "metric": "duplicate_examples",
+      "value": 17,
+      "note": "Duplicate examples beyond first copy"
+    },
+    {
+      "metric": "definitions_raw_markup",
+      "value": 94197,
+      "note": "Raw Wiktionary/template/HTML markup"
+    },
+    {
+      "metric": "definitions_over_400_chars",
+      "value": 263,
+      "note": "Too long for concise learner definitions"
+    },
+    {
+      "metric": "examples_over_300_chars",
+      "value": 32913,
+      "note": "Likely literary, noisy, or multi-sentence example"
+    },
+    {
+      "metric": "non_lexical_headwords",
+      "value": 4878,
+      "note": "Symbols, markup, numbers, or non-Latin headwords"
+    },
+    {
+      "metric": "definitions_flagged",
+      "value": 104740,
+      "note": "Rows carrying one or more persisted quality flags"
+    },
+    {
+      "metric": "legacy_definitions_reference_only",
+      "value": 704121,
+      "note": "Legacy raw rows correctly excluded from trusted learner content"
+    },
+    {
+      "metric": "legacy_definitions_learner_visible",
+      "value": 0,
+      "note": "Critical invariant: expected zero; reviewed content belongs in learner_senses"
+    },
+    {
+      "metric": "examples_flagged",
+      "value": 45851,
+      "note": "Rows carrying one or more persisted quality flags"
+    },
+    {
+      "metric": "legacy_examples_reference_only",
+      "value": 361167,
+      "note": "Legacy raw examples correctly excluded from trusted learner content"
+    },
+    {
+      "metric": "legacy_examples_learner_visible",
+      "value": 0,
+      "note": "Critical invariant: expected zero; reviewed content belongs in learner_examples"
+    },
+    {
+      "metric": "learner_entries_total",
+      "value": 0,
+      "note": "Normalized learner-overlay headwords in any workflow state"
+    },
+    {
+      "metric": "learner_entries_published",
+      "value": 0,
+      "note": "Headwords eligible for learner presentation when they contain publishable senses"
+    },
+    {
+      "metric": "learner_senses_total",
+      "value": 0,
+      "note": "Normalized sense-level curation records in any workflow state"
+    },
+    {
+      "metric": "learner_senses_published",
+      "value": 0,
+      "note": "Reviewed learner senses eligible for presentation"
+    },
+    {
+      "metric": "learner_vi_translations_approved",
+      "value": 0,
+      "note": "Independently approved Vietnamese sense translations"
+    },
+    {
+      "metric": "learner_examples_approved",
+      "value": 0,
+      "note": "Independently approved bilingual learner examples"
+    },
+    {
+      "metric": "learner_pronunciations_approved",
+      "value": 0,
+      "note": "Reviewed learner pronunciations"
+    },
+    {
+      "metric": "published_senses_missing_approved_vi",
+      "value": 0,
+      "note": "Critical publication invariant: expected zero"
+    },
+    {
+      "metric": "published_entries_without_published_sense",
+      "value": 0,
+      "note": "Critical publication invariant: expected zero"
+    }
+  ]
+}

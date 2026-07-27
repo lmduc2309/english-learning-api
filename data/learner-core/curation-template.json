@@ -1,0 +1,67 @@
+[
+  {
+    "word": "example",
+    "entry_status": "draft",
+    "sense_order": 1,
+    "sense_key": "oewn:example-n-00000000-01",
+    "part_of_speech": "noun",
+    "definition_en": "A thing that shows what another thing is like.",
+    "definition_vi": "Một sự vật hoặc trường hợp minh họa cho một điều khác.",
+    "status": "draft",
+    "usage_labels": [],
+    "cefr_level": "A2",
+    "cefr_source": "CEFR-Annotated WordNet staging",
+    "cefr_source_url": "https://huggingface.co/datasets/star092304/CEFR-Annotated-WordNet",
+    "cefr_source_version": "replace-with-ingestion-snapshot",
+    "cefr_source_license": "CC BY 4.0",
+    "cefr_basis": "automated_candidate_pending_review",
+    "cefr_confidence": 0.8,
+    "learner_rank": 1000,
+    "learner_band": "replace-or-remove",
+    "rank_source": "NGSL Graded Reader List",
+    "rank_source_url": "https://www.newgeneralservicelist.com/ngsl-graded-reader",
+    "rank_source_version": "1.0",
+    "rank_source_license": "CC BY-SA 4.0",
+    "definition_source": "Open English WordNet",
+    "definition_source_url": "https://en-word.net/",
+    "definition_source_license": "CC BY 4.0",
+    "definition_source_version": "2025",
+    "definition_source_artifact_sha256": "9ca6d1dcb75f822fdd66617f7d9da48142ace38dd544d6ad5e2feca1674ad3fe",
+    "translation_method": "human_review",
+    "translation_source": "DuskStillDev learner curation",
+    "translation_source_license": "Project-owned",
+    "translation_confidence": 1,
+    "translation_review_status": "draft",
+    "examples": [
+      {
+        "example_order": 1,
+        "en": "This sentence is an example of the new pattern.",
+        "vi": "Câu này là một ví dụ về mẫu câu mới.",
+        "review_status": "draft",
+        "source": "DuskStillDev learner curation",
+        "source_license": "Project-owned"
+      }
+    ],
+    "pronunciations": [
+      {
+        "accent": "us",
+        "ipa": "/ɪɡˈzæmpəl/",
+        "priority": 1,
+        "review_status": "draft",
+        "source": "Open English WordNet",
+        "source_url": "https://en-word.net/",
+        "source_license": "CC BY 4.0"
+      },
+      {
+        "accent": "uk",
+        "ipa": "/ɪɡˈzɑːmpəl/",
+        "priority": 1,
+        "review_status": "draft",
+        "source": "Open English WordNet",
+        "source_url": "https://en-word.net/",
+        "source_license": "CC BY 4.0"
+      }
+    ],
+    "review_notes": "Automated rank and CEFR hints remain draft until a person verifies this exact sense."
+  }
+]

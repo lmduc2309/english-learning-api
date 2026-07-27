@@ -23,8 +23,9 @@ export class CategoryController {
   @Get('topics')
   @ApiOperation({ summary: 'Get all distinct topics' })
   @ApiResponse({ status: 200, description: 'List of topics with category counts' })
-  async getTopics() {
-    return this.categoryService.getTopics();
+  @ApiQuery({ name: 'learnerOnly', required: false, description: 'Only categories containing published, reviewed learner senses', type: Boolean })
+  async getTopics(@Query('learnerOnly') learnerOnly?: string) {
+    return this.categoryService.getTopics(learnerOnly === 'true');
   }
 
   @Get('search/categories')
@@ -57,12 +58,14 @@ export class CategoryController {
   @ApiOperation({ summary: 'Get all categories, optionally filtered by topic' })
   @ApiQuery({ name: 'topic', required: false, description: 'Filter by topic name' })
   @ApiQuery({ name: 'parentOnly', required: false, description: 'Only return root categories (no parent)', type: Boolean })
+  @ApiQuery({ name: 'learnerOnly', required: false, description: 'Only categories containing published, reviewed learner senses', type: Boolean })
   @ApiResponse({ status: 200, description: 'List of categories' })
   async getCategories(
     @Query('topic') topic?: string,
     @Query('parentOnly') parentOnly?: string,
+    @Query('learnerOnly') learnerOnly?: string,
   ) {
-    return this.categoryService.getCategories(topic, parentOnly === 'true');
+    return this.categoryService.getCategories(topic, parentOnly === 'true', learnerOnly === 'true');
   }
 
   @Get(':idOrName')
@@ -77,9 +80,13 @@ export class CategoryController {
   @Get(':idOrName/subcategories')
   @ApiOperation({ summary: 'Get subcategories of a parent category' })
   @ApiParam({ name: 'idOrName', description: 'Parent category ID or slug name' })
+  @ApiQuery({ name: 'learnerOnly', required: false, description: 'Only subcategories containing published, reviewed learner senses', type: Boolean })
   @ApiResponse({ status: 200, description: 'List of subcategories' })
-  async getSubCategories(@Param('idOrName') idOrName: string) {
-    return this.categoryService.getSubCategories(idOrName);
+  async getSubCategories(
+    @Param('idOrName') idOrName: string,
+    @Query('learnerOnly') learnerOnly?: string,
+  ) {
+    return this.categoryService.getSubCategories(idOrName, learnerOnly === 'true');
   }
 
   @Get(':idOrName/words')
@@ -88,6 +95,7 @@ export class CategoryController {
   @ApiQuery({ name: 'page', required: false, description: 'Page number (default: 1)' })
   @ApiQuery({ name: 'limit', required: false, description: 'Words per page (default: 100)' })
   @ApiQuery({ name: 'search', required: false, description: 'Search/filter words by name (case-insensitive)' })
+  @ApiQuery({ name: 'learnerOnly', required: false, description: 'Only return published, reviewed learner entries', type: Boolean })
   @ApiResponse({ status: 200, description: 'Category words with definitions (paginated)' })
   @ApiResponse({ status: 404, description: 'Category not found' })
   async getCategoryWords(
@@ -95,10 +103,17 @@ export class CategoryController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
+    @Query('learnerOnly') learnerOnly?: string,
   ) {
     const pageNum = page ? parseInt(page, 10) : 1;
     const limitNum = limit ? parseInt(limit, 10) : 100;
-    return this.categoryService.getCategoryWords(idOrName, pageNum, limitNum, search);
+    return this.categoryService.getCategoryWords(
+      idOrName,
+      pageNum,
+      limitNum,
+      search,
+      learnerOnly === 'true',
+    );
   }
 
   @Post()

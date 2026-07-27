@@ -45,6 +45,27 @@ describe('LlmService — constructor', () => {
     );
   });
 
+  it('starts disabled without a key when fallback is explicitly disabled', async () => {
+    const svc = new LlmService(
+      makeConfig({
+        'llm.enableFallback': false,
+        'llm.baseUrl': 'https://openrouter.ai/api/v1',
+        'llm.model': 'openai/gpt-4o-mini',
+      }),
+    );
+
+    await expect(
+      svc.chatWithUser({ message: 'hello' }),
+    ).rejects.toMatchObject({
+      status: HttpStatus.SERVICE_UNAVAILABLE,
+      message: 'LLM service is disabled',
+    });
+    await expect(svc.healthCheck()).resolves.toMatchObject({
+      status: 'disabled',
+      enabled: false,
+    });
+  });
+
   it('initializes when API key is set', () => {
     const svc = new LlmService(
       makeConfig({

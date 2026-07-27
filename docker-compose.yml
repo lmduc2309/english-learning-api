@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
@@ -48,7 +46,12 @@ services:
       - "7474:7474"
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://dictionary_user:dictionary_pass@postgres:5432/english_learning_db
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: dictionary_user
+      DB_PASSWORD: dictionary_pass
+      DB_DATABASE: english_learning_db
+      TYPEORM_SYNCHRONIZE: "false"
       REDIS_URL: redis://redis:6379
       VLLM_URL: ${VLLM_URL}
       VLLM_MODEL: ${VLLM_MODEL}

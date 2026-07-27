@@ -184,6 +184,8 @@ class DatabaseImporter {
           definitionVi: def.definition_vi || null,
           level: def.level || 'intermediate',
           definitionOrder: i + 1,
+          reviewStatus: 'raw',
+          isLearnerVisible: false,
         });
 
         const savedDef = await queryRunner.manager.save(Definition, defEntity);
@@ -195,6 +197,8 @@ class DatabaseImporter {
               definitionId: savedDef.id,
               exampleEn: ex.en,
               exampleVi: ex.vi || null,
+              reviewStatus: 'raw',
+              isLearnerVisible: false,
             });
             await queryRunner.manager.save(Example, exEntity);
           }

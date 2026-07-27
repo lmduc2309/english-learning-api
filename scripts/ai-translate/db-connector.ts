@@ -134,7 +134,11 @@ export class DbConnector {
     const repo = this.dataSource.getRepository(Definition);
     await this.dataSource.transaction(async (manager) => {
       for (const update of updates) {
-        await manager.getRepository(Definition).update(update.id, { definitionVi: update.vi });
+        await manager.getRepository(Definition).update(update.id, {
+          definitionVi: update.vi,
+          reviewStatus: 'raw',
+          isLearnerVisible: false,
+        });
       }
     });
   }
@@ -147,7 +151,11 @@ export class DbConnector {
 
     await this.dataSource.transaction(async (manager) => {
       for (const update of updates) {
-        await manager.getRepository(Example).update(update.id, { exampleVi: update.vi });
+        await manager.getRepository(Example).update(update.id, {
+          exampleVi: update.vi,
+          reviewStatus: 'raw',
+          isLearnerVisible: false,
+        });
       }
     });
   }

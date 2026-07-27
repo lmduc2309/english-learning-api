@@ -2,7 +2,7 @@ import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Like, Repository } from 'typeorm';
 import { firstValueFrom } from 'rxjs';
 import {
   SearchWordDto,
@@ -20,6 +20,18 @@ import { AudioService } from './audio.service';
 import { SearchIndexService } from '../common/search/search-index.service';
 import { RedisCacheService } from '../common/cache/redis-cache.service';
 import { LlmService } from '../llm/llm.service';
+import { LearnerEntry } from './entities/learner-entry.entity';
+import { LearnerSenseTranslation } from './entities/learner-sense-translation.entity';
+import {
+  rankVietnameseGlosses,
+  normalizeVietnameseSearch,
+  VietnameseGlossMatch,
+} from './vietnamese-gloss-search';
+import {
+  presentLearnerDefinitions,
+  presentLearnerPronunciations,
+  presentRawDefinitions,
+} from './dictionary-presenter';
 
 @Injectable()
 export class DictionaryService {
@@ -54,6 +66,10 @@ export class DictionaryService {
     private wordFormRepository: Repository<WordForm>,
     @InjectRepository(Synonym)
     private synonymRepository: Repository<Synonym>,
+    @InjectRepository(LearnerEntry)
+    private learnerEntryRepository: Repository<LearnerEntry>,
+    @InjectRepository(LearnerSenseTranslation)
+    private learnerTranslationRepository: Repository<LearnerSenseTranslation>,
     private llmService: LlmService,
   ) {
     this.llmFallbackEnabled = this.configService.get<boolean>('llm.enableFallback');
@@ -186,6 +202,103 @@ export class DictionaryService {
     }
   }
 
+  async resolve(query: string, direction: 'auto' | 'en-vi' | 'vi-en') {
+    const normalizedQuery = query?.trim();
+    if (!normalizedQuery) {
+      throw new HttpException('Query is required', HttpStatus.BAD_REQUEST);
+    }
+
+    const hasVietnameseMarks = /[ăâđêôơưàáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ]/i.test(normalizedQuery);
+    let detectedDirection: 'en-vi' | 'vi-en';
+    let matches: VietnameseGlossMatch[] = [];
+    if (direction === 'auto') {
+      if (hasVietnameseMarks) {
+        detectedDirection = 'vi-en';
+      } else {
+        const englishHeadword = await this.wordRepository.findOne({
+          where: [
+            { word: normalizedQuery.toLowerCase() },
+            { wordNormalized: normalizedQuery.toLowerCase() },
+          ],
+        });
+        if (englishHeadword) {
+          detectedDirection = 'en-vi';
+        } else {
+          matches = await this.searchVietnameseGlosses(normalizedQuery);
+          detectedDirection = matches.length ? 'vi-en' : 'en-vi';
+        }
+      }
+    } else {
+      detectedDirection = direction;
+    }
+
+    if (detectedDirection === 'en-vi') {
+      return {
+        kind: 'dictionary' as const,
+        direction: detectedDirection,
+        query: normalizedQuery,
+        entry: await this.lookupWord(normalizedQuery),
+      };
+    }
+
+    if (!matches.length) matches = await this.searchVietnameseGlosses(normalizedQuery);
+    const translation = matches.length
+      ? {
+          original_text: normalizedQuery,
+          translated_text: [...new Set(matches.map((match) => match.word))].join(', '),
+          source_lang: 'vi',
+          target_lang: 'en',
+        }
+      : await this.translate({
+          text: normalizedQuery,
+          source_lang: 'vi',
+          target_lang: 'en',
+        });
+    return {
+      kind: 'translation' as const,
+      direction: detectedDirection,
+      query: normalizedQuery,
+      translation,
+      matches,
+    };
+  }
+
+  private async searchVietnameseGlosses(query: string): Promise<VietnameseGlossMatch[]> {
+    const normalizedQuery = normalizeVietnameseSearch(query);
+    if (!normalizedQuery) return [];
+    const translations = await this.learnerTranslationRepository.find({
+      where: {
+        locale: 'vi',
+        reviewStatus: 'approved',
+        textNormalized: Like(`%${normalizedQuery}%`),
+        sense: {
+          status: 'published',
+          entry: { status: 'published' },
+        },
+      },
+      relations: {
+        sense: {
+          entry: { word: true },
+          examples: true,
+        },
+      },
+    });
+
+    return rankVietnameseGlosses(query, translations.map((translation) => ({
+      word: translation.sense.entry.word.word,
+      definitionVi: translation.text,
+      definitionEn: translation.sense.definitionEn,
+      partOfSpeech: translation.sense.partOfSpeech,
+      senseId: translation.sense.id,
+      senseOrder: translation.sense.senseOrder,
+      learnerRank: translation.sense.entry.learnerRank,
+      examples: (translation.sense.examples || [])
+        .filter((example) => example.reviewStatus === 'approved')
+        .sort((a, b) => a.exampleOrder - b.exampleOrder)
+        .map((example) => ({ en: example.exampleEn, vi: example.exampleVi })),
+    })));
+  }
+
   /**
    * Find word in database with all related data
    */
@@ -204,10 +317,20 @@ export class DictionaryService {
       return null;
     }
 
+    const learnerEntry = await this.learnerEntryRepository.findOne({
+      where: { wordId: wordEntity.id, status: 'published' },
+      relations: [
+        'senses',
+        'senses.translations',
+        'senses.examples',
+        'pronunciations',
+      ],
+    });
+
     // Filter to get only one US and one UK pronunciation
     const uniquePronunciations = [];
-    const usPronounciation = wordEntity.pronunciations.find(p => p.accent === 'US');
-    const ukPronounciation = wordEntity.pronunciations.find(p => p.accent === 'UK');
+    const usPronounciation = (wordEntity.pronunciations || []).find(p => p.accent === 'US');
+    const ukPronounciation = (wordEntity.pronunciations || []).find(p => p.accent === 'UK');
     
     if (usPronounciation) uniquePronunciations.push(usPronounciation);
     if (ukPronounciation) uniquePronunciations.push(ukPronounciation);
@@ -248,24 +371,35 @@ export class DictionaryService {
       wordFormsObj[form.formType] = form.formWord;
     }
 
+    const curatedDefinitions = presentLearnerDefinitions(learnerEntry);
+
+    if (learnerEntry && curatedDefinitions.length > 0) {
+      return {
+        word: wordEntity.word,
+        pronunciations: presentLearnerPronunciations(learnerEntry),
+        definitions: curatedDefinitions,
+        // Forms and synonyms currently exist only in the legacy corpus. Do not
+        // mix them into an otherwise curated response until they gain their own
+        // provenance/review model.
+        word_forms: undefined,
+        synonyms: undefined,
+        frequency_rank: learnerEntry.learnerRank ?? wordEntity.frequencyRank,
+        learner_band: learnerEntry.learnerBand || undefined,
+        rank_source: learnerEntry.rankSource || undefined,
+        rank_source_version: learnerEntry.rankSourceVersion || undefined,
+        rank_source_license: learnerEntry.rankSourceLicense || undefined,
+        data_source: 'curated',
+      };
+    }
+
     return {
       word: wordEntity.word,
       pronunciations: pronunciationsWithAudio,
-      definitions: wordEntity.definitions
-        .sort((a, b) => a.definitionOrder - b.definitionOrder)
-        .map((def) => ({
-          pos: def.partOfSpeech,
-          definition_en: def.definitionEn,
-          definition_vi: def.definitionVi,
-          level: def.level,
-          examples: def.examples.map((ex) => ({
-            en: ex.exampleEn,
-            vi: ex.exampleVi,
-          })),
-        })),
+      definitions: presentRawDefinitions(wordEntity.definitions),
       word_forms: Object.keys(wordFormsObj).length > 0 ? wordFormsObj : undefined,
       synonyms: synonyms.length > 0 ? synonyms.map((s) => s.synonymWord) : undefined,
       frequency_rank: wordEntity.frequencyRank,
+      data_source: 'raw_fallback',
     };
   }
 
@@ -275,7 +409,21 @@ export class DictionaryService {
   private async generateWordWithLLM(
     word: string,
   ): Promise<LookupWordResponseDto> {
-    return this.llmService.lookupDictionaryWord(word);
+    const generated = await this.llmService.lookupDictionaryWord(word);
+    return {
+      ...generated,
+      definitions: (generated.definitions || []).map((definition) => ({
+        ...definition,
+        data_status: 'generated',
+        quality_flags: Array.from(new Set([
+          ...(definition.quality_flags || []),
+          'generated_fallback',
+        ])),
+        is_learner_visible: false,
+        source: definition.source || 'LLM fallback',
+      })),
+      data_source: 'generated_fallback',
+    };
   }
 
   async translate(dto: TranslateDto): Promise<TranslateResponseDto> {
@@ -379,6 +527,8 @@ export class DictionaryService {
             definitionVi: def.definition_vi,
             level: def.level || 'intermediate',
             definitionOrder: i + 1,
+            reviewStatus: 'raw',
+            isLearnerVisible: false,
           });
           await this.definitionRepository.save(defEntity);
 
@@ -389,6 +539,8 @@ export class DictionaryService {
                 definitionId: defEntity.id,
                 exampleEn: ex.en,
                 exampleVi: ex.vi,
+                reviewStatus: 'raw',
+                isLearnerVisible: false,
               });
             }
           }
@@ -474,4 +626,3 @@ export class DictionaryService {
     }
   }
 }
-

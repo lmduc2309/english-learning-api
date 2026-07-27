@@ -29,7 +29,7 @@ interface ChatOpts {
 @Injectable()
 export class LlmService {
   private readonly logger = new Logger(LlmService.name);
-  private readonly openai: OpenAI;
+  private readonly openai: OpenAI | null;
   private readonly model: string;
   private readonly baseUrl: string;
 
@@ -38,17 +38,29 @@ export class LlmService {
     @Optional() openaiOverride?: OpenAI,
   ) {
     const apiKey = configService.get<string>('llm.apiKey');
-    if (!apiKey) {
-      throw new Error('LLM_API_KEY is required but not set');
-    }
+    const fallbackEnabled =
+      configService.get<boolean>('llm.enableFallback') !== false;
     this.baseUrl = configService.get<string>('llm.baseUrl') ?? '';
     this.model = configService.get<string>('llm.model') ?? '';
+
+    if (!apiKey && !openaiOverride && fallbackEnabled) {
+      throw new Error('LLM_API_KEY is required but not set');
+    }
+
+    if (!apiKey && !openaiOverride) {
+      this.openai = null;
+      this.logger.warn(
+        'LLM service disabled because LLM_FALLBACK_ENABLED=false and no API key is configured',
+      );
+      return;
+    }
+
     const appTitle = configService.get<string>('llm.appTitle') ?? 'english-learning-api';
     const httpReferer = configService.get<string>('llm.httpReferer');
     this.openai =
       openaiOverride ??
       new OpenAI({
-        apiKey,
+        apiKey: apiKey!,
         baseURL: this.baseUrl,
         defaultHeaders: {
           'X-Title': appTitle,
@@ -358,10 +370,22 @@ Grade the learner. Return ONLY valid JSON in this exact format:
   }
 
   async healthCheck() {
-    return { status: 'healthy', model: this.model, url: this.baseUrl };
+    return {
+      status: this.openai ? 'healthy' : 'disabled',
+      enabled: Boolean(this.openai),
+      model: this.model,
+      url: this.baseUrl,
+    };
   }
 
   private async chat(messages: ChatMessage[], opts: ChatOpts = {}): Promise<string> {
+    if (!this.openai) {
+      throw new HttpException(
+        'LLM service is disabled',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+
     const lastUser = [...messages].reverse().find((m) => m.role === 'user');
     const preview =
       typeof lastUser?.content === 'string' ? lastUser.content.slice(0, 200) : '';

@@ -16,7 +16,8 @@
  *   2. npm run audit-vi                  # baseline gap
  *   3. npm run audit-vi -- --normalize-empty   # blanks -> NULL (fillable)
  *   4. npm run import-vi                 # offline dict fill (free, exact)
- *   5. npm run ai-translate:defs && npm run ai-translate:examples   # OpenRouter LLM (needs OPENROUTER_API_KEY)
+ *   5. npm run translate-vi:defs && npm run translate-vi:examples   # local LLM (LOCAL_LLM_URL, fast, no API key)
+ *      (fallback: npm run ai-translate:defs / :examples — OpenRouter, needs OPENROUTER_API_KEY, slower)
  *   6. npm run audit-vi                  # confirm gap shrank; repeat step 5 as needed
  */
 import 'reflect-metadata';
@@ -126,8 +127,12 @@ async function normalizeEmpty(ds: DataSource) {
   const defBlank = await scalar(ds, `SELECT count(*)::int c FROM definitions WHERE ${blankViSql('definition_vi')}`);
   const exBlank = await scalar(ds, `SELECT count(*)::int c FROM examples WHERE ${blankViSql('example_vi')}`);
   await ds.transaction(async (m) => {
-    await m.query(`UPDATE definitions SET definition_vi = NULL WHERE ${blankViSql('definition_vi')}`);
-    await m.query(`UPDATE examples SET example_vi = NULL WHERE ${blankViSql('example_vi')}`);
+    await m.query(
+      `UPDATE definitions SET definition_vi = NULL, review_status = 'raw', is_learner_visible = false WHERE ${blankViSql('definition_vi')}`,
+    );
+    await m.query(
+      `UPDATE examples SET example_vi = NULL, review_status = 'raw', is_learner_visible = false WHERE ${blankViSql('example_vi')}`,
+    );
   });
   console.log(`\nNormalized blanks -> NULL: definition_vi=${defBlank}, example_vi=${exBlank}`);
 }

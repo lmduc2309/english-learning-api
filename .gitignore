@@ -21,6 +21,7 @@ lerna-debug.log*
 
 # IDEs and editors
 /.idea
+.claude/worktrees/
 .project
 .classpath
 .c9/
@@ -39,6 +40,7 @@ lerna-debug.log*
 .env
 .env.local
 .env.*.local
+deploy/.env.production
 
 # Dependency directories
 node_modules/
@@ -47,4 +49,28 @@ node_modules/
 build/
 dist/
 data/
-./.git/objects/pack/pack-50acdcc6834c3738d2bd25c5c0a42f041b12ea07.pack
+
+# Keep curation instructions and schemas versioned without tracking raw data dumps.
+!data/
+data/*
+!data/learner-core/
+data/learner-core/*
+!data/learner-core/README.md
+!data/learner-core/curation-template.json
+!data/learner-core/source-manifest.json
+!data/learner-core/NGSL-SOURCE.md
+!data/learner-core/NOTICE.md
+!data/learner-core/candidate-words.txt
+!data/learner-core/ngsl-candidates.csv
+!data/learner-core/ngsl-source-lock.json
+!data/learner-core/OEWN-SOURCE.md
+!data/learner-core/oewn-source-lock.json
+!data/learner-core/oewn-ngsl-first-100-candidates.json
+!data/learner-core/oewn-ngsl-first-100-headwords.csv
+!data/learner-core/oewn-ngsl-first-100-senses.csv
+!data/learner-core/pilot-ngsl-10-draft-2026-07-20.json
+!data/learner-core/pilot-ngsl-10-review-worksheet.csv
+!data/learner-core/licenses/
+!data/learner-core/licenses/**
+# Raw source bytes are checksum-locked but intentionally not committed.
+data/learner-core/vendor/

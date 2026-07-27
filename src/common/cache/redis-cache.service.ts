@@ -208,7 +208,7 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
    * Invalidate all search caches
    */
   async invalidateSearchCaches(): Promise<void> {
-    await this.delByPattern('search:*');
+    await this.delByPattern('dict:search:*');
     await this.delByPattern('category:search:*');
     await this.delByPattern('topic:search:*');
   }
@@ -241,10 +241,10 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
    */
   async invalidateWordCaches(word?: string): Promise<void> {
     if (word) {
-      await this.del(`word:${word}`);
-      await this.delByPattern(`search:${word}*`);
+      await this.del(`word:${word}`, { prefix: 'dict' });
+      await this.delByPattern(`dict:search:${word}*`);
     } else {
-      await this.delByPattern('word:*');
+      await this.delByPattern('dict:word:*');
     }
   }
 

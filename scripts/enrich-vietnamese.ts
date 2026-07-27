@@ -132,7 +132,11 @@ async function main() {
         console.log(translated);
 
         if (!dryRun) {
-          await definitionRepo.update(def.id, { definitionVi: translated });
+          await definitionRepo.update(def.id, {
+            definitionVi: translated,
+            reviewStatus: 'raw',
+            isLearnerVisible: false,
+          });
         }
         defSuccess++;
       } else {
@@ -182,7 +186,11 @@ async function main() {
         console.log(translated);
 
         if (!dryRun) {
-          await exampleRepo.update(ex.id, { exampleVi: translated });
+          await exampleRepo.update(ex.id, {
+            exampleVi: translated,
+            reviewStatus: 'raw',
+            isLearnerVisible: false,
+          });
         }
         exSuccess++;
       } else {

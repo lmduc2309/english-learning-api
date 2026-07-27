@@ -7,10 +7,11 @@ import { CategoryWord } from './entities/category-word.entity';
 import { Word } from '../dictionary/entities/word.entity';
 import { SearchModule } from '../common/search/search.module';
 import { CacheModule } from '../common/cache/cache.module';
+import { LearnerEntry } from '../dictionary/entities/learner-entry.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Category, CategoryWord, Word]),
+    TypeOrmModule.forFeature([Category, CategoryWord, Word, LearnerEntry]),
     SearchModule,
     CacheModule,
   ],

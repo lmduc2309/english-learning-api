@@ -10,13 +10,21 @@ describe('normalizeEn', () => {
 });
 
 describe('planDefinitionUpdates', () => {
+  it('does not align bilingual senses by position unless explicitly enabled', () => {
+    const defs: DbDefinition[] = [
+      { id: 1, partOfSpeech: 'noun', definitionOrder: 1, definitionVi: null, examples: [] },
+    ];
+    const e = entry([{ vnPos: 'danh từ', senses: ['nghĩa không được xác minh'], examples: [] }]);
+    expect(planDefinitionUpdates(defs, e, { fillOnly: false })).toEqual([]);
+  });
+
   it('assigns senses of a POS block to same-POS definitions by order', () => {
     const defs: DbDefinition[] = [
       { id: 1, partOfSpeech: 'noun', definitionOrder: 1, definitionVi: null, examples: [] },
       { id: 2, partOfSpeech: 'noun', definitionOrder: 2, definitionVi: null, examples: [] },
     ];
     const e = entry([{ vnPos: 'danh từ', senses: ['nghĩa 1', 'nghĩa 2'], examples: [] }]);
-    expect(planDefinitionUpdates(defs, e, { fillOnly: false })).toEqual([
+    expect(planDefinitionUpdates(defs, e, { fillOnly: false, allowPositionalDefinitionMatch: true })).toEqual([
       { definitionId: 1, definitionVi: 'nghĩa 1' },
       { definitionId: 2, definitionVi: 'nghĩa 2' },
     ]);
@@ -27,7 +35,7 @@ describe('planDefinitionUpdates', () => {
       { id: 1, partOfSpeech: 'noun', definitionOrder: 1, definitionVi: null, examples: [] },
     ];
     const e = entry([{ vnPos: 'danh từ', senses: ['a', 'b', 'c'], examples: [] }]);
-    expect(planDefinitionUpdates(defs, e, { fillOnly: false })).toEqual([
+    expect(planDefinitionUpdates(defs, e, { fillOnly: false, allowPositionalDefinitionMatch: true })).toEqual([
       { definitionId: 1, definitionVi: 'a; b; c' },
     ]);
   });
@@ -39,7 +47,7 @@ describe('planDefinitionUpdates', () => {
     ];
     const e = entry([{ vnPos: 'danh từ', senses: ['chỉ có danh từ'], examples: [] }]);
     // primary = lowest definitionOrder = id 4
-    expect(planDefinitionUpdates(defs, e, { fillOnly: false })).toEqual([
+    expect(planDefinitionUpdates(defs, e, { fillOnly: false, allowPositionalDefinitionMatch: true })).toEqual([
       { definitionId: 4, definitionVi: 'chỉ có danh từ' },
     ]);
   });
@@ -50,7 +58,7 @@ describe('planDefinitionUpdates', () => {
       { id: 2, partOfSpeech: 'noun', definitionOrder: 2, definitionVi: null, examples: [] },
     ];
     const e = entry([{ vnPos: 'danh từ', senses: ['x', 'y'], examples: [] }]);
-    expect(planDefinitionUpdates(defs, e, { fillOnly: true })).toEqual([
+    expect(planDefinitionUpdates(defs, e, { fillOnly: true, allowPositionalDefinitionMatch: true })).toEqual([
       { definitionId: 2, definitionVi: 'y' },
     ]);
   });
@@ -60,14 +68,14 @@ describe('planDefinitionUpdates', () => {
       { id: 1, partOfSpeech: 'noun', definitionOrder: 1, definitionVi: 'cũ', examples: [] },
     ];
     const e = entry([{ vnPos: 'danh từ', senses: ['mới'], examples: [] }]);
-    expect(planDefinitionUpdates(defs, e, { fillOnly: false })).toEqual([
+    expect(planDefinitionUpdates(defs, e, { fillOnly: false, allowPositionalDefinitionMatch: true })).toEqual([
       { definitionId: 1, definitionVi: 'mới' },
     ]);
   });
 
   it('returns nothing when the word has no definitions', () => {
     const e = entry([{ vnPos: 'danh từ', senses: ['x'], examples: [] }]);
-    expect(planDefinitionUpdates([], e, { fillOnly: false })).toEqual([]);
+    expect(planDefinitionUpdates([], e, { fillOnly: false, allowPositionalDefinitionMatch: true })).toEqual([]);
   });
 
   it('skips a POS block with an unmappable label instead of polluting the primary definition', () => {
@@ -75,7 +83,7 @@ describe('planDefinitionUpdates', () => {
       { id: 1, partOfSpeech: 'noun', definitionOrder: 1, definitionVi: null, examples: [] },
     ];
     const e = entry([{ vnPos: 'xyz', senses: ['nghĩa lạ'], examples: [] }]);
-    expect(planDefinitionUpdates(defs, e, { fillOnly: false })).toEqual([]);
+    expect(planDefinitionUpdates(defs, e, { fillOnly: false, allowPositionalDefinitionMatch: true })).toEqual([]);
   });
 });
 

@@ -14,6 +14,8 @@ import { SearchWordDto, SearchWordResponseDto } from './dto/search-word.dto';
 import { LookupWordResponseDto } from './dto/lookup-word.dto';
 import { TranslateDto, TranslateResponseDto } from './dto/translate.dto';
 
+type ResolveDirection = 'auto' | 'en-vi' | 'vi-en';
+
 @ApiTags('Dictionary')
 @Controller('serious/dictionary')
 export class DictionaryController {
@@ -68,17 +70,12 @@ export class DictionaryController {
     return this.dictionaryService.translate(dto);
   }
 
-  @Post('admin/import')
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Import word data into database (Admin only)' })
-  @ApiResponse({
-    status: 201,
-    description: 'Word imported successfully',
-  })
-  @ApiResponse({ status: 400, description: 'Bad request' })
-  @ApiResponse({ status: 500, description: 'Internal server error' })
-  async importWord(@Body() wordData: any): Promise<{ success: boolean; word: string }> {
-    return this.dictionaryService.importWordData(wordData);
+  @Post('resolve')
+  @HttpCode(HttpStatus.OK)
+  async resolve(
+    @Body() body: { query: string; direction?: ResolveDirection },
+  ) {
+    return this.dictionaryService.resolve(body.query, body.direction || 'auto');
   }
 
   @Get('word/:word/audio/:accent')

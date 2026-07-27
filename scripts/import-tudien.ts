@@ -1,18 +1,32 @@
 /**
- * tudien Vietnamese enrichment.
+ * Legacy tudien Vietnamese enrichment (quarantined source).
  *
- * DATA: download the StarDict release and unzip into data/vietnamese-sources/tudien/:
+ * SOURCE RISK: the archive does not state an explicit reusable license and
+ * aggregates content attributed to third-party dictionaries. Do not treat its
+ * output as reviewed learner content. Dry-run inspection is the default.
+ *
+ * DATA (for local forensic inspection only): download the StarDict release and
+ * unzip into data/vietnamese-sources/tudien/:
  *   curl -L -o /tmp/tudien.zip \
  *     https://github.com/redphx/tudien/releases/download/v20260411/tudien-stardict-en-vi-20260411.zip
  *   mkdir -p data/vietnamese-sources/tudien && unzip -o /tmp/tudien.zip -d data/vietnamese-sources/tudien
  * (produces *.ifo, *.idx, *.dict.dz — the script reads them directly.)
  *
  * USAGE:
- *   npm run import-tudien:dry            # counts only, no writes
- *   npm run import-tudien -- --word run  # inspect a single word
- *   npm run import-tudien                # full run (overwrites definition_vi/example_vi)
- *   npm run import-tudien -- --fill-only # only fill NULLs
- *   npm run import-tudien -- --limit 100 # cap words processed
+ *   npm run import-tudien                     # dry run; never writes by default
+ *   npm run import-tudien -- --word run       # inspect one word; still dry run
+ *   npm run import-tudien -- --limit 100      # inspect a bounded sample
+ *   npm run import-tudien:write -- \
+ *     --acknowledge-unlicensed-source-risk    # explicit, high-risk write
+ *   npm run import-tudien:write -- \
+ *     --acknowledge-unlicensed-source-risk \
+ *     --fill-only                             # write NULL fields only
+ *
+ * Definition updates are disabled by default because matching senses by POS +
+ * array position caused systematic bilingual misalignment. Exact English
+ * example matches avoid positional alignment, but their source provenance and
+ * reuse rights remain unverified. The legacy definition behavior is available
+ * only for forensic/recovery work via --unsafe-positional-definitions.
  */
 import 'reflect-metadata';
 import * as dotenv from 'dotenv';
@@ -27,32 +41,11 @@ import { Synonym } from '../src/dictionary/entities/synonym.entity';
 import { loadTudien } from './tudien/stardict';
 import { parseEntry } from './tudien/parse-entry';
 import { planDefinitionUpdates, planExampleUpdates, DbDefinition } from './tudien/merge';
+import { parseImportTudienArgs, shouldPersistTudienUpdates } from './tudien/import-policy';
 
 dotenv.config();
 
 const TUDIEN_DIR = path.resolve(__dirname, '../data/vietnamese-sources/tudien');
-
-interface Args {
-  dryRun: boolean;
-  fillOnly: boolean;
-  word: string | null;
-  limit: number | null;
-}
-
-function parseArgs(argv: string[]): Args {
-  const has = (f: string) => argv.includes(f);
-  const val = (f: string): string | null => {
-    const i = argv.indexOf(f);
-    return i !== -1 && i + 1 < argv.length ? argv[i + 1] : null;
-  };
-  const limitRaw = val('--limit');
-  return {
-    dryRun: has('--dry-run'),
-    fillOnly: has('--fill-only'),
-    word: val('--word'),
-    limit: limitRaw ? parseInt(limitRaw, 10) : null,
-  };
-}
 
 // DataSource config copied verbatim from scripts/import-vietnamese-meanings.ts
 // (lines 335-344) to stay consistent with the sibling script.
@@ -70,9 +63,14 @@ function createDataSource(): DataSource {
 }
 
 async function main() {
-  const args = parseArgs(process.argv.slice(2));
+  // Parse the write policy before loading source files or opening PostgreSQL.
+  const args = parseImportTudienArgs(process.argv.slice(2));
+  const persistUpdates = shouldPersistTudienUpdates(args);
+  console.warn(
+    'SOURCE WARNING: tudien has no explicit reusable license and aggregates third-party dictionary content.',
+  );
   console.log(
-    `tudien enrichment — ${args.dryRun ? 'DRY RUN' : 'WRITE'}, ` +
+    `tudien enrichment — ${persistUpdates ? 'WRITE (SOURCE RISK ACKNOWLEDGED)' : 'DRY RUN'}, ` +
       `${args.fillOnly ? 'fill-only' : 'overwrite'}` +
       `${args.word ? `, word=${args.word}` : ''}${args.limit ? `, limit=${args.limit}` : ''}`,
   );
@@ -122,14 +120,31 @@ async function main() {
         order: { definitionOrder: 'ASC' },
       })) as unknown as DbDefinition[];
 
-      const opts = { fillOnly: args.fillOnly };
+      const opts = {
+        fillOnly: args.fillOnly,
+        allowPositionalDefinitionMatch: args.unsafePositionalDefinitions,
+      };
       const defUpdates = planDefinitionUpdates(defs, entry, opts);
       const exUpdates = planExampleUpdates(defs, entry, opts);
 
-      if (!args.dryRun && (defUpdates.length || exUpdates.length)) {
+      // One shared gate covers both unsafe positional definitions and exact
+      // English-example matches. Neither path may write in the default mode.
+      if (persistUpdates && (defUpdates.length || exUpdates.length)) {
         await ds.transaction(async (m) => {
-          for (const u of defUpdates) await m.update(Definition, u.definitionId, { definitionVi: u.definitionVi });
-          for (const u of exUpdates) await m.update(Example, u.exampleId, { exampleVi: u.exampleVi });
+          for (const u of defUpdates) {
+            await m.update(Definition, u.definitionId, {
+              definitionVi: u.definitionVi,
+              reviewStatus: 'raw',
+              isLearnerVisible: false,
+            });
+          }
+          for (const u of exUpdates) {
+            await m.update(Example, u.exampleId, {
+              exampleVi: u.exampleVi,
+              reviewStatus: 'raw',
+              isLearnerVisible: false,
+            });
+          }
         });
       }
       defChanges += defUpdates.length;
@@ -147,8 +162,8 @@ async function main() {
 
   console.log(
     `Done. words scanned=${wordsProcessed}, matched in tudien=${wordsMatched}, ` +
-      `definition_vi ${args.dryRun ? 'would change' : 'changed'}=${defChanges}, ` +
-      `example_vi ${args.dryRun ? 'would change' : 'changed'}=${exChanges}.`,
+      `definition_vi ${persistUpdates ? 'changed' : 'would change'}=${defChanges}, ` +
+      `example_vi ${persistUpdates ? 'changed' : 'would change'}=${exChanges}.`,
   );
 
   await ds.destroy();

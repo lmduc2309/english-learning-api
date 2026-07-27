@@ -438,7 +438,11 @@ async function main() {
 
             if (matchedMeaning) {
               if (!dryRun) {
-                await defRepo.update(def.id, { definitionVi: matchedMeaning.vi });
+                await defRepo.update(def.id, {
+                  definitionVi: matchedMeaning.vi,
+                  reviewStatus: 'raw',
+                  isLearnerVisible: false,
+                });
               }
               defsUpdatedForWord++;
               totalDefsUpdated++;
@@ -458,6 +462,8 @@ async function main() {
             if (!dryRun) {
               await defRepo.update(unfilledDefs[j].id, {
                 definitionVi: vnedictMeanings[j],
+                reviewStatus: 'raw',
+                isLearnerVisible: false,
               });
             }
             totalDefsUpdated++;
@@ -490,7 +496,11 @@ async function main() {
 
             if (matchedSentence) {
               if (!dryRun) {
-                await exRepo.update(ex.id, { exampleVi: matchedSentence.vi });
+                await exRepo.update(ex.id, {
+                  exampleVi: matchedSentence.vi,
+                  reviewStatus: 'raw',
+                  isLearnerVisible: false,
+                });
               }
               totalExamplesUpdated++;
             }

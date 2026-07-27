@@ -1,0 +1,149 @@
+{
+  "schema_version": 1,
+  "source_id": "ngsl-1.2",
+  "version": "1.2",
+  "generated_by": "scripts/ngsl-source.ts",
+  "license": "CC BY-SA 4.0",
+  "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "attribution": "New General Service List by Browne, C., Culligan, B., and Phillips, J.",
+  "sources": [
+    {
+      "id": "ngsl-1.2-stats",
+      "requested_url": "https://www.newgeneralservicelist.com/s/NGSL_12_stats.csv",
+      "effective_url": "https://static1.squarespace.com/static/64336926d7c6bb38965fdf3b/t/644e0be4ad7bae3d45b9e62a/1682836452194/NGSL_1.2_stats.csv",
+      "retrieved_at_utc": "2026-07-20T09:28:43.051Z",
+      "vendor_path": "data/learner-core/vendor/ngsl/1.2/NGSL_12_stats.csv",
+      "sha256": "2098bab8955a120a9766c6282a51d7d578c6cb0a7d946600d2ffb73ba25a0b44",
+      "bytes": 62566,
+      "validation": {
+        "exact_header": [
+          "Lemma",
+          "SFI Rank",
+          "SFI",
+          "Adjusted Frequency per Million (U)"
+        ],
+        "unique_lemmas": 2809,
+        "contiguous_rank_min": 1,
+        "contiguous_rank_max": 2809
+      }
+    },
+    {
+      "id": "ngsl-1.2-supplement",
+      "requested_url": "https://www.newgeneralservicelist.com/s/SUP_lemmatized.csv",
+      "effective_url": "https://static1.squarespace.com/static/64336926d7c6bb38965fdf3b/t/645f54375ad0ae7a76ba160a/1683969079955/SUP_lemmatized.csv",
+      "retrieved_at_utc": "2026-07-20T09:28:43.035Z",
+      "vendor_path": "data/learner-core/vendor/ngsl/1.2/SUP_lemmatized.csv",
+      "sha256": "7bb4c76cbe43ae87240be4ac7ada370b9e1a0d9d631d8c4430138646965d03f6",
+      "bytes": 1631,
+      "validation": {
+        "format": "headerless lemma followed by inflected forms",
+        "unique_lemmas": 52,
+        "exact_lemma_disjoint_from_ranked_core": true,
+        "acknowledged_case_fold_collisions": [
+          {
+            "candidate_word": "march",
+            "source_memberships": [
+              {
+                "source_id": "ngsl-1.2-stats",
+                "source_lemma": "march",
+                "learner_rank": 2453
+              },
+              {
+                "source_id": "ngsl-1.2-supplement",
+                "source_lemma": "March",
+                "learner_rank": null
+              }
+            ]
+          },
+          {
+            "candidate_word": "may",
+            "source_memberships": [
+              {
+                "source_id": "ngsl-1.2-stats",
+                "source_lemma": "may",
+                "learner_rank": 97
+              },
+              {
+                "source_id": "ngsl-1.2-supplement",
+                "source_lemma": "May",
+                "learner_rank": null
+              }
+            ]
+          }
+        ],
+        "source_rank": 0,
+        "normalized_rank": null
+      }
+    }
+  ],
+  "derived": {
+    "candidate_words": {
+      "path": "data/learner-core/candidate-words.txt",
+      "sha256": "7c09f829de0b142fd90157fdb1103acbc40a7912dc251c015c613478463f1c78",
+      "bytes": 21110,
+      "total": 2859,
+      "source_rows_total": 2861,
+      "ranked_core": 2809,
+      "unranked_supplement": 52,
+      "case_fold_merges": [
+        {
+          "candidate_word": "march",
+          "source_memberships": [
+            {
+              "source_id": "ngsl-1.2-stats",
+              "source_lemma": "march",
+              "learner_rank": 2453
+            },
+            {
+              "source_id": "ngsl-1.2-supplement",
+              "source_lemma": "March",
+              "learner_rank": null
+            }
+          ]
+        },
+        {
+          "candidate_word": "may",
+          "source_memberships": [
+            {
+              "source_id": "ngsl-1.2-stats",
+              "source_lemma": "may",
+              "learner_rank": 97
+            },
+            {
+              "source_id": "ngsl-1.2-supplement",
+              "source_lemma": "May",
+              "learner_rank": null
+            }
+          ]
+        }
+      ],
+      "ordering": "NGSL core by ascending SFI Rank, then supplement source order",
+      "normalization": "Unicode NFC, trim, en-US lowercase",
+      "supplement_rank_policy": "Source rank 0 is normalized to null; null is never treated as highest frequency."
+    },
+    "candidate_table": {
+      "path": "data/learner-core/ngsl-candidates.csv",
+      "sha256": "adbee22c7a2cfb5045eb937cbf8e7dafe6a0f1cb0ca5826c8a707878fe33954e",
+      "bytes": 443437,
+      "rows": 2859,
+      "exact_header": [
+        "priority_order",
+        "normalized_word",
+        "learner_rank",
+        "source_memberships",
+        "original_source_lemmas",
+        "rank_source",
+        "rank_source_version",
+        "rank_source_url",
+        "rank_source_license"
+      ],
+      "rank_provenance": {
+        "source": "New General Service List",
+        "version": "1.2",
+        "url": "https://www.newgeneralservicelist.com/new-general-service-list",
+        "license": "CC BY-SA 4.0"
+      },
+      "rank_semantics": "learner_rank is explicit NGSL SFI Rank; blank means unranked and must never be inferred from priority_order."
+    }
+  }
+}
