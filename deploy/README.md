@@ -13,14 +13,21 @@ published by this Compose stack; only Nginx is published.
 
 ## Prepare the server
 
-Keep these sibling directories together:
+The existing portfolio deployment uses `/var/www/sites` on the VPS. Provision
+these sibling repositories under a dedicated directory:
 
 ```text
-games-and-tools/
+/var/www/sites/dsd-english/
   english-learning-api/
   english-learning-games/
   tts-service/
+  backups/
 ```
+
+`english-learning-games` and `tts-service` are private repositories. Confirm
+that the VPS Git credential can read both of them; access to the private
+portfolio repository does not prove that a repository-scoped deploy key can
+read other repositories.
 
 From `english-learning-api`, create the untracked production environment file:
 
@@ -92,3 +99,29 @@ For a Cloudflare Tunnel running on the same host:
 The `/serious` prefix separates API routes; it is not a security boundary.
 HTTPS, JWT checks, private container networking, secret management, backups,
 rate limiting, and Cloudflare policy provide the security controls.
+
+## GitHub Actions deployment
+
+`.github/workflows/deploy.yml` provides a manual-only production deployment. It
+uses the same secret names as `duskstilldev-portfolio`:
+
+- `VPS_HOST`
+- `VPS_PORT`
+- `VPS_USER`
+- `VPS_SSH_KEY`
+
+GitHub Actions secrets are repository- or organization-scoped and their values
+cannot be read back after creation. The portfolio repository currently has
+these names, but `english-learning-api` must receive them separately or inherit
+organization-level secrets. Prefer a protected `production` environment with
+required approval.
+
+The workflow deliberately does not clone repositories or create
+`deploy/.env.production`. Those are one-time server provisioning actions. On
+each manual run it:
+
+1. requires clean, already-provisioned sibling repositories;
+2. fast-forwards all three `main` branches;
+3. creates and verifies a PostgreSQL backup when a database already exists;
+4. builds the stack and runs compiled migrations;
+5. starts the services and runs local origin smoke checks.

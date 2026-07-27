@@ -7,9 +7,11 @@ clients referenced it.
 
 The checked-in production Compose and Nginx configuration under `deploy/`
 targets `https://eng.dsdtech.site`. It keeps web, API, PostgreSQL, Redis, and
-TTS internal and publishes only the reverse proxy. Follow `deploy/README.md`;
-the files prepare a release but do not replace host access, secrets, a verified
-database backup, DNS, TLS, or a Cloudflare configuration.
+TTS internal and publishes only the reverse proxy. A manual GitHub Actions
+workflow reuses the portfolio deployment's `VPS_HOST`, `VPS_PORT`, `VPS_USER`,
+and `VPS_SSH_KEY` secret names. Follow `deploy/README.md`; these files prepare a
+release but do not replace repository-scoped secret provisioning, server
+checkout access, production environment values, DNS, TLS, or Cloudflare.
 
 ## Required information
 
