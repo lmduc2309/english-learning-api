@@ -5,10 +5,12 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  OneToOne,
 } from 'typeorm';
 import { Definition } from './definition.entity';
 import { Pronunciation } from './pronunciation.entity';
 import { WordForm } from './word-form.entity';
+import { LearnerEntry } from './learner-entry.entity';
 
 @Entity('words')
 export class Word {
@@ -48,4 +50,7 @@ export class Word {
 
   @OneToMany(() => WordForm, (wordForm) => wordForm.word, { cascade: true })
   wordForms: WordForm[];
+
+  @OneToOne(() => LearnerEntry, (learnerEntry) => learnerEntry.word)
+  learnerEntry: LearnerEntry;
 }

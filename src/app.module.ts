@@ -6,6 +6,9 @@ import { DictionaryModule } from './dictionary/dictionary.module';
 import { AuthModule } from './auth/auth.module';
 import { WordListModule } from './word-list/word-list.module';
 import { CategoryModule } from './category/category.module';
+import { VerbalMappingModule } from './verbal-mapping/verbal-mapping.module';
+import { TtsModule } from './shared/tts/tts.module';
+import { LearningModule } from './learning/learning.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -18,11 +21,13 @@ import configuration from './config/configuration';
       type: 'postgres',
       host: process.env.DB_HOST || 'localhost',
       port: parseInt(process.env.DB_PORT, 10) || 5432,
-      username: process.env.DB_USERNAME || 'postgres',
-      password: process.env.DB_PASSWORD || 'postgres',
-      database: process.env.DB_DATABASE || 'english_learning',
+      username: process.env.DB_USERNAME || 'dictionary_user',
+      password: process.env.DB_PASSWORD || 'dictionary_pass',
+      database: process.env.DB_DATABASE || 'english_learning_db',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: process.env.NODE_ENV !== 'production',
+      // Migrations are the schema source of truth. Development schema sync must
+      // be an explicit, temporary opt-in so it cannot pre-create migration tables.
+      synchronize: process.env.TYPEORM_SYNCHRONIZE === 'true',
       logging: process.env.NODE_ENV === 'development',
     }),
     LlmModule,
@@ -30,6 +35,9 @@ import configuration from './config/configuration';
     AuthModule,
     WordListModule,
     CategoryModule,
+    VerbalMappingModule,
+    TtsModule,
+    LearningModule,
   ],
 })
 export class AppModule {}

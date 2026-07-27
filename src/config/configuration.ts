@@ -20,4 +20,7 @@ export default () => ({
     password: process.env.DB_PASSWORD || 'postgres',
     database: process.env.DB_DATABASE || 'english_learning',
   },
+  ttsService: {
+    url: process.env.TTS_SERVICE_URL || 'http://localhost:8001',
+  },
 });

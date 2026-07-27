@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE LexicalResource SYSTEM "http://globalwordnet.github.io/schemas/WN-LMF-1.3.dtd">
+<LexicalResource xmlns:dc="https://globalwordnet.github.io/schemas/dc/">
+  <Lexicon id="oewn"
+           label="Open English Wordnet"
+           language="en"
+           email="english-wordnet@googlegroups.com"
+           license="https://creativecommons.org/licenses/by/4.0"
+           version="2025"
+           url="https://github.com/globalwordnet/english-wordnet">
+    <LexicalEntry id="oewn-BE-n">
+      <Lemma writtenForm="BE" partOfSpeech="n"/>
+      <Sense id="oewn-be-upper__1.00.00.." synset="oewn-00000001-n"/>
+    </LexicalEntry>
+    <LexicalEntry id="oewn-May-n">
+      <Lemma writtenForm="May" partOfSpeech="n">
+        <Pronunciation variety="GB" phonemic="true">meɪ</Pronunciation>
+      </Lemma>
+      <Sense id="oewn-may-month__1.28.00.." synset="oewn-00000002-n"/>
+    </LexicalEntry>
+    <LexicalEntry id="oewn-bank-n">
+      <Lemma writtenForm="bank" partOfSpeech="n">
+        <Pronunciation variety="US" audio="https://example.test/bank.mp3">bæŋk</Pronunciation>
+        <Pronunciation>bæŋk</Pronunciation>
+      </Lemma>
+      <Form writtenForm="banks">
+        <Pronunciation notation="plural">bæŋks</Pronunciation>
+      </Form>
+      <Sense id="oewn-bank__1.14.00.." synset="oewn-00000003-n">
+        <SenseRelation relType="antonym" target="oewn-bank__1.17.00.."/>
+        <Example dc:source="Fixture corpus">She works at the bank.</Example>
+      </Sense>
+      <Sense id="oewn-bank__1.17.00.." synset="oewn-00000004-n"/>
+    </LexicalEntry>
+    <LexicalEntry id="oewn-bank-v">
+      <Lemma writtenForm="bank" partOfSpeech="v"/>
+      <Form writtenForm="banked"/>
+      <Sense id="oewn-bank__2.40.00.." synset="oewn-00000005-v"/>
+    </LexicalEntry>
+    <LexicalEntry id="oewn-bright-a">
+      <Lemma writtenForm="bright" partOfSpeech="a"/>
+      <Sense id="oewn-bright__5.00.00.." synset="oewn-00000006-s"/>
+    </LexicalEntry>
+    <LexicalEntry id="oewn-may-n">
+      <Lemma writtenForm="may" partOfSpeech="n"/>
+      <Sense id="oewn-may-plant__1.20.00.." synset="oewn-00000007-n"/>
+    </LexicalEntry>
+    <LexicalEntry id="oewn-take_off-v">
+      <Lemma writtenForm="take off" partOfSpeech="v"/>
+      <Sense id="oewn-take_off__2.38.00.." subcat="via" synset="oewn-00000008-v"/>
+    </LexicalEntry>
+    <Synset id="oewn-00000001-n" ili="i1" members="oewn-BE-n" partOfSpeech="n" lexfile="noun.substance">
+      <Definition>the chemical symbol for beryllium</Definition>
+    </Synset>
+    <Synset id="oewn-00000002-n" ili="i2" members="oewn-May-n" partOfSpeech="n" lexfile="noun.time">
+      <Definition>the fifth month</Definition>
+    </Synset>
+    <Synset id="oewn-00000003-n" ili="i3" members="oewn-bank-n" partOfSpeech="n" lexfile="noun.group">
+      <Definition>a financial &amp; lending institution</Definition>
+      <Definition sourceSense="oewn-bank__1.14.00..">an institution that keeps money</Definition>
+      <Example dc:source="Fixture corpus">The bank closes at five.</Example>
+      <SynsetRelation relType="antonym" target="oewn-00000004-n"/>
+    </Synset>
+    <Synset id="oewn-00000004-n" ili="i4" members="oewn-bank-n" partOfSpeech="n" lexfile="noun.object">
+      <Definition>sloping land beside water</Definition>
+    </Synset>
+    <Synset id="oewn-00000005-v" ili="i5" members="oewn-bank-v" partOfSpeech="v" lexfile="verb.possession">
+      <Definition>to deposit money</Definition>
+    </Synset>
+    <Synset id="oewn-00000006-s" ili="i6" members="oewn-bright-a" partOfSpeech="s" lexfile="adj.all">
+      <Definition>giving out much light</Definition>
+    </Synset>
+    <Synset id="oewn-00000007-n" ili="i7" members="oewn-may-n" partOfSpeech="n" lexfile="noun.plant">
+      <Definition>a flowering plant</Definition>
+      <ILIDefinition dc:source="Fixture">a plant used for a parser fixture</ILIDefinition>
+    </Synset>
+    <Synset id="oewn-00000008-v" ili="i8" members="oewn-take_off-v" partOfSpeech="v" lexfile="verb.motion">
+      <Definition>to leave the ground</Definition>
+      <SynsetRelation relType="hypernym" target="oewn-00000005-v"/>
+    </Synset>
+    <SyntacticBehaviour id="via"
+                        subcategorizationFrame="Somebody ----s"
+                        senses="oewn-take_off__2.38.00.."/>
+  </Lexicon>
+</LexicalResource>

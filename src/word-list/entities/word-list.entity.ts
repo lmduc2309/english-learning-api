@@ -29,6 +29,24 @@ export class WordList {
   @Column({ type: 'text', nullable: true })
   notes: string;
 
+  @Column({ name: 'folder_ids', type: 'uuid', array: true, default: '{}' })
+  folderIds: string[];
+
+  @Column({ name: 'review_stage', type: 'smallint', default: 0 })
+  reviewStage: number;
+
+  @Column({ name: 'next_review_at', type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
+  nextReviewAt: Date;
+
+  @Column({ name: 'last_reviewed_at', type: 'timestamptz', nullable: true })
+  lastReviewedAt: Date | null;
+
+  @Column({ name: 'review_successes', type: 'integer', default: 0 })
+  reviewSuccesses: number;
+
+  @Column({ name: 'review_failures', type: 'integer', default: 0 })
+  reviewFailures: number;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

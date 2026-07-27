@@ -13,6 +13,11 @@ import { Synonym } from './entities/synonym.entity';
 import { SearchModule } from '../common/search/search.module';
 import { CacheModule } from '../common/cache/cache.module';
 import { LlmModule } from '../llm/llm.module';
+import { LearnerSense } from './entities/learner-sense.entity';
+import { LearnerEntry } from './entities/learner-entry.entity';
+import { LearnerExample } from './entities/learner-example.entity';
+import { LearnerPronunciation } from './entities/learner-pronunciation.entity';
+import { LearnerSenseTranslation } from './entities/learner-sense-translation.entity';
 
 @Module({
   imports: [
@@ -27,6 +32,11 @@ import { LlmModule } from '../llm/llm.module';
       Example,
       WordForm,
       Synonym,
+      LearnerSense,
+      LearnerEntry,
+      LearnerExample,
+      LearnerPronunciation,
+      LearnerSenseTranslation,
     ]),
   ],
   controllers: [DictionaryController],

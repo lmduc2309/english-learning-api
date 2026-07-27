@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "source": {
+    "id": "oewn-2025",
+    "name": "Open English WordNet",
+    "version": "2025",
+    "release_date": "2025-12-31",
+    "release_tag": "2025-edition",
+    "release_commit": "dc343f2683279ecbb13fab4e2fd778d7b162d287",
+    "release_url": "https://github.com/globalwordnet/english-wordnet/releases/tag/2025-edition",
+    "artifact": "english-wordnet-2025.xml.gz",
+    "artifact_url": "https://github.com/globalwordnet/english-wordnet/releases/download/2025-edition/english-wordnet-2025.xml.gz",
+    "official_digest_api": "https://api.github.com/repos/globalwordnet/english-wordnet/releases/tags/2025-edition",
+    "sha256": "9ca6d1dcb75f822fdd66617f7d9da48142ace38dd544d6ad5e2feca1674ad3fe",
+    "compressed_bytes": 11363503,
+    "uncompressed_bytes": 89237271,
+    "media_type": "application/gzip",
+    "format": "UTF-8 GWA WN-LMF 1.3 XML (gzip)",
+    "dtd": "LexicalResource SYSTEM \"http://globalwordnet.github.io/schemas/WN-LMF-1.3.dtd\"",
+    "license": "CC BY 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "bundled_licenses": [
+      {
+        "path": "data/learner-core/licenses/oewn-2025/LICENSE.md",
+        "sha256": "672cc8b5663e8dc74c4b07a9dcf477193853575b119908fd3dc0aeeb60a9dbbb"
+      },
+      {
+        "path": "data/learner-core/licenses/oewn-2025/WNDB_License.txt",
+        "sha256": "df30ec18fbabcdaf031b79ea026d3e6b959010cffe6dd7be9ac137822175b904"
+      }
+    ],
+    "attribution": "Open English WordNet 2025, © 2019-present The Open English WordNet Team, licensed under CC BY 4.0 and derived from Princeton WordNet under the WordNet License."
+  },
+  "validation": {
+    "lexicon": {
+      "id": "oewn",
+      "label": "Open English Wordnet",
+      "language": "en",
+      "email": "english-wordnet@googlegroups.com",
+      "license": "https://creativecommons.org/licenses/by/4.0",
+      "version": "2025",
+      "url": "https://github.com/globalwordnet/english-wordnet"
+    },
+    "counts": {
+      "lexical_entries": 135969,
+      "lemmas": 135969,
+      "senses": 185129,
+      "synsets": 107519,
+      "definitions": 107524,
+      "examples": 49596,
+      "pronunciations": 43534,
+      "forms": 4473,
+      "ili_definitions": 3184,
+      "sense_relations": 120254,
+      "synset_relations": 234810,
+      "relations": 355064
+    },
+    "all_ids_unique": true,
+    "all_references_resolved": true,
+    "all_synsets_defined": true,
+    "no_external_dtd_fetch": true,
+    "exact_doctype_required": true
+  },
+  "selection": {
+    "source_path": "data/learner-core/ngsl-candidates.csv",
+    "source_sha256": "adbee22c7a2cfb5045eb937cbf8e7dafe6a0f1cb0ca5826c8a707878fe33954e",
+    "ngsl_version": "1.2",
+    "priority_from": 1,
+    "priority_to": 100,
+    "matching_policy": "Exact case-sensitive OEWN lemma match against NGSL original_source_lemmas; case-fold-only entries are diagnostics and never sense candidates.",
+    "expected_first_100": {
+      "requested_headwords": 100,
+      "headwords_with_exact_entries": 72,
+      "headwords_without_exact_entries": 28,
+      "source_senses": 863
+    }
+  },
+  "derived": {
+    "candidate_json": {
+      "path": "data/learner-core/oewn-ngsl-first-100-candidates.json",
+      "sha256": "09f7c43b6abc92217643a882a0b5e4ccf3a97aa84ab8c2c1d7dd19b5e98a15d2",
+      "bytes": 1784769,
+      "rows": 100
+    },
+    "headword_table": {
+      "path": "data/learner-core/oewn-ngsl-first-100-headwords.csv",
+      "sha256": "e9de6fd1eb64040749862581c34be926cbae3699e13e60f077c197a5d5f24fc8",
+      "bytes": 21963,
+      "rows": 100
+    },
+    "sense_table": {
+      "path": "data/learner-core/oewn-ngsl-first-100-senses.csv",
+      "sha256": "f7d89986c3c3b15b32d7c6a4e32ea9f15f2fd4697d25b464ada38d9b28563c45",
+      "bytes": 705931,
+      "rows": 863
+    }
+  },
+  "publication_policy": {
+    "stage": "source_evidence_only",
+    "database_import_allowed": false,
+    "public_display_allowed": false,
+    "human_sense_selection_required": true,
+    "independent_vietnamese_review_required": true,
+    "source_order_is_not_learner_order": true
+  }
+}

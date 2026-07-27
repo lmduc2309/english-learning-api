@@ -45,6 +45,27 @@ describe('LlmService — constructor', () => {
     );
   });
 
+  it('starts disabled without a key when fallback is explicitly disabled', async () => {
+    const svc = new LlmService(
+      makeConfig({
+        'llm.enableFallback': false,
+        'llm.baseUrl': 'https://openrouter.ai/api/v1',
+        'llm.model': 'openai/gpt-4o-mini',
+      }),
+    );
+
+    await expect(
+      svc.chatWithUser({ message: 'hello' }),
+    ).rejects.toMatchObject({
+      status: HttpStatus.SERVICE_UNAVAILABLE,
+      message: 'LLM service is disabled',
+    });
+    await expect(svc.healthCheck()).resolves.toMatchObject({
+      status: 'disabled',
+      enabled: false,
+    });
+  });
+
   it('initializes when API key is set', () => {
     const svc = new LlmService(
       makeConfig({
@@ -352,6 +373,144 @@ describe('LlmService.translate', () => {
       svc.translate({ text: 'x', source_lang: 'en', target_lang: 'vi' }),
     ).rejects.toMatchObject({
       status: HttpStatus.SERVICE_UNAVAILABLE,
+    });
+  });
+});
+
+describe('LlmService.generateVietnameseSentences', () => {
+  let mockCreate: jest.Mock;
+  let svc: LlmService;
+
+  beforeEach(() => {
+    mockCreate = jest.fn();
+    svc = makeServiceWithMock(mockCreate);
+  });
+
+  it('returns parsed sentences from the LLM JSON response', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              sentences: [
+                { vi: 'Tôi đang đi bộ trong công viên.', words: ['walk'] },
+                { vi: 'Anh ấy rất thông minh.', words: ['intelligent'] },
+              ],
+            }),
+          },
+        },
+      ],
+    });
+    const result = await svc.generateVietnameseSentences(
+      ['walk', 'intelligent'],
+      2,
+      'intermediate',
+    );
+    expect(result).toEqual([
+      { vi: 'Tôi đang đi bộ trong công viên.', words: ['walk'] },
+      { vi: 'Anh ấy rất thông minh.', words: ['intelligent'] },
+    ]);
+    const [args] = mockCreate.mock.calls[0];
+    expect(args.response_format).toEqual({ type: 'json_object' });
+    expect(args.temperature).toBe(0.7);
+    expect(args.max_tokens).toBe(160); // 80 * 2
+    expect(args.messages[0].content).toMatch(/Vietnamese teacher/i);
+    expect(args.messages[1].content).toContain('walk');
+    expect(args.messages[1].content).toContain('intelligent');
+    expect(args.messages[1].content).toContain('intermediate');
+  });
+
+  it('throws 500 when the LLM response cannot be parsed as JSON', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [{ message: { content: 'not json' } }],
+    });
+    await expect(
+      svc.generateVietnameseSentences(['x'], 1, 'intermediate'),
+    ).rejects.toMatchObject({
+      status: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: 'Failed to generate Vietnamese sentences',
+    });
+  });
+
+  it('throws 500 when JSON parses but has no sentences array', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [{ message: { content: JSON.stringify({ foo: 'bar' }) } }],
+    });
+    await expect(
+      svc.generateVietnameseSentences(['x'], 1, 'intermediate'),
+    ).rejects.toMatchObject({
+      status: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: 'Failed to generate Vietnamese sentences',
+    });
+  });
+});
+
+describe('LlmService.gradeSpokenAnswer', () => {
+  let mockCreate: jest.Mock;
+  let svc: LlmService;
+
+  beforeEach(() => {
+    mockCreate = jest.fn();
+    svc = makeServiceWithMock(mockCreate);
+  });
+
+  it('returns verdict + score + feedback + suggestedAnswer from the LLM JSON', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              verdict: 'correct',
+              score: 92,
+              feedback: 'Great pronunciation and word choice.',
+              suggestedAnswer: 'I am walking in the park.',
+            }),
+          },
+        },
+      ],
+    });
+    const result = await svc.gradeSpokenAnswer({
+      vietnamese: 'Tôi đang đi bộ trong công viên.',
+      userTranscript: 'I am walking in the park',
+      words: ['walk'],
+    });
+    expect(result).toEqual({
+      verdict: 'correct',
+      score: 92,
+      feedback: 'Great pronunciation and word choice.',
+      suggestedAnswer: 'I am walking in the park.',
+    });
+    const [args] = mockCreate.mock.calls[0];
+    expect(args.response_format).toEqual({ type: 'json_object' });
+    expect(args.temperature).toBe(0.2);
+    expect(args.max_tokens).toBe(300);
+    expect(args.messages[0].content).toMatch(/English teacher/i);
+    expect(args.messages[1].content).toContain('Tôi đang đi bộ trong công viên.');
+    expect(args.messages[1].content).toContain('I am walking in the park');
+    expect(args.messages[1].content).toContain('walk');
+  });
+
+  it('throws 500 when the LLM response cannot be parsed', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [{ message: { content: 'not json' } }],
+    });
+    await expect(
+      svc.gradeSpokenAnswer({ vietnamese: 'x', userTranscript: 'y', words: ['z'] }),
+    ).rejects.toMatchObject({
+      status: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: 'Failed to grade answer',
+    });
+  });
+
+  it('throws 500 when JSON parses but verdict is missing', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [{ message: { content: JSON.stringify({ score: 100 }) } }],
+    });
+    await expect(
+      svc.gradeSpokenAnswer({ vietnamese: 'x', userTranscript: 'y', words: ['z'] }),
+    ).rejects.toMatchObject({
+      status: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: 'Failed to grade answer',
     });
   });
 });
