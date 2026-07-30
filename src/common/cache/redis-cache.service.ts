@@ -107,6 +107,28 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Atomically read and delete a one-time value.
+   *
+   * Authentication authorization codes use this instead of a separate get +
+   * delete pair so concurrent exchanges cannot redeem the same code twice.
+   */
+  async take<T>(key: string, options?: CacheOptions): Promise<T | null> {
+    if (!this.isConnected) {
+      this.logger.warn('Redis not connected, one-time cache miss');
+      return null;
+    }
+
+    try {
+      const fullKey = this.generateKey(key, options?.prefix);
+      const value = await this.client.getDel(fullKey);
+      return value ? JSON.parse(value) as T : null;
+    } catch (error) {
+      this.logger.error(`Error taking cache key ${key}:`, error.message);
+      return null;
+    }
+  }
+
+  /**
    * Set value in cache
    */
   async set<T>(key: string, value: T, options?: CacheOptions): Promise<void> {
