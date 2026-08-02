@@ -102,7 +102,10 @@
     "dsd:permissions:test": "jest --config jest.scripts.config.js --runInBand scripts/dsd/permissions.spec.ts",
     "dsd:backup": "ts-node scripts/dsd/create-backup-manifest.ts",
     "dsd:verify-restore": "ts-node scripts/dsd/verify-restore.ts",
-    "dsd:verify-restores": "zsh scripts/dsd/verify-database-restores.sh"
+    "dsd:verify-restores": "zsh scripts/dsd/verify-database-restores.sh",
+    "dsd:inventory:validate": "ts-node scripts/dsd/inventory.ts validate",
+    "dsd:inventory:import": "ts-node scripts/dsd/inventory.ts import",
+    "dsd:inventory:stats": "ts-node scripts/dsd/inventory.ts stats"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",
