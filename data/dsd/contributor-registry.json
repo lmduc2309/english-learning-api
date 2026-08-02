@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "description": "Pseudonymous contributor register. IDs here are the only identity that appears in Git or in dsd_provenance_events. Names, contact details, signatures and executed contracts live in the contract store and are referenced by evidence ID only. The validator rejects personal-data fields, so this rule is enforced rather than trusted.",
+  "idFormat": "DSD-<ROLE-LETTER>-<sequence>, e.g. DSD-A-001 for an author, DSD-R-001 for a reviewer",
+  "contributors": []
+}

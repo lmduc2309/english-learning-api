@@ -87,7 +87,8 @@
     "translate-py:examples": "python3 scripts/translate-py.py --type examples",
     "translate-py:all": "python3 scripts/translate-py.py --type all",
     "translate-py:stats": "python3 scripts/translate-py.py --stats",
-    "export-review-queues": "ts-node scripts/export-review-queues.ts"
+    "export-review-queues": "ts-node scripts/export-review-queues.ts",
+    "dsd:registry:validate": "ts-node scripts/dsd/lib/registry.ts"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",

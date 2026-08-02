@@ -74,3 +74,26 @@ data/learner-core/*
 !data/learner-core/licenses/**
 # Raw source bytes are checksum-locked but intentionally not committed.
 data/learner-core/vendor/
+
+# Local full-database review exports are large and contain generated snapshots.
+reports/word-data-export-*/
+reports/word-data-export-*.zip
+
+# DSD corpus. data/* above already ignores everything here, so the three
+# registries are re-included explicitly — they are the enforcement mechanism
+# and must be version-controlled and CI-validated.
+!data/dsd/
+data/dsd/*
+!data/dsd/source-registry.json
+!data/dsd/tool-registry.json
+!data/dsd/contributor-registry.json
+
+# Never re-include these: personal data, executed contracts, and generated
+# artifacts. Only pseudonymous IDs and evidence IDs are committed — see
+# docs/dsd-corpus/IP-ASSIGNMENT-CHECKLIST.md. The registry validator also
+# rejects personal-data fields, so this is defence in depth, not the only line.
+data/dsd/contracts/
+data/dsd/private/
+data/dsd/audio/
+data/dsd/exports/
+data/dsd/releases/

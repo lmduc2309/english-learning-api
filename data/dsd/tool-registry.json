@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "description": "Software permitted in the DSD pipeline. Every tool is pinned by revision so any output can be reproduced and attributed later. Tool output is always a candidate: no tool listed here may produce publishable content directly.",
+  "tools": [
+    {
+      "id": "misaki",
+      "aliases": ["Misaki G2P"],
+      "scopes": ["tool"],
+      "status": "candidate",
+      "blockedReason": "",
+      "approvedScopes": [],
+      "evidenceIds": ["EV-TOOL-MISAKI-001"],
+      "url": "https://github.com/hexgrad/misaki",
+      "revision": "PENDING-PIN-AT-TASK-9",
+      "notes": "Apache-2.0. American English with fallback=None. Produces IPA candidates only; a human authors the final pronunciation record."
+    },
+    {
+      "id": "microsoft-phonetic-matching",
+      "aliases": ["PhoneticMatching"],
+      "scopes": ["tool"],
+      "status": "candidate",
+      "blockedReason": "",
+      "approvedScopes": [],
+      "evidenceIds": ["EV-TOOL-PHONETICMATCHING-001"],
+      "url": "https://github.com/microsoft/PhoneticMatching",
+      "revision": "PENDING-PIN-AT-TASK-9",
+      "notes": "MIT. General English IPA. Old native dependencies require a feasibility check before adoption."
+    },
+    {
+      "id": "piper",
+      "aliases": ["Piper TTS"],
+      "scopes": ["tool"],
+      "status": "candidate",
+      "blockedReason": "",
+      "approvedScopes": [],
+      "evidenceIds": ["EV-TOOL-PIPER-001"],
+      "url": "https://github.com/rhasspy/piper",
+      "revision": "PENDING-PIN-AT-TASK-11",
+      "notes": "Internal build tool on DSD-controlled machines only. Not bundled into any customer-distributed client. eSpeak NG in the phonemization path is GPL; program output is not covered, but binary distribution is a separate question kept out of scope."
+    }
+  ]
+}

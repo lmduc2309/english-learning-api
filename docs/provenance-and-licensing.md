@@ -12,6 +12,19 @@ fine.
 A policy document alone did not prevent that. Where a rule can be enforced by a
 database constraint, it is — see *Enforcement* below.
 
+> **Scope note (2026-08-02).** This document governs the **legacy corpus and
+> the learner overlay** in `english_learning_db`. The DSD corpus is a separate
+> programme with its own, stricter rules in `docs/dsd-corpus/`, its own
+> database, and its own registries. Where the two disagree, DSD's rules apply
+> to DSD content.
+>
+> **OEWN and NGSL are approved here and blocked for DSD.** That is not a
+> contradiction. Attribution is a reasonable cost when shipping an application,
+> and an unreasonable one when licensing a dataset, because the obligation
+> propagates to every downstream licensee. The learner overlay was designed for
+> the first case; DSD is built for the second. See
+> `docs/dsd-corpus/README.md`.
+
 ## The layers, and what each may claim
 
 | Layer | Tables | May claim |

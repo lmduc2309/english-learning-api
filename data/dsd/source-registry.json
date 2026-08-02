@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "description": "Content sources governed for the DSD corpus. A source is usable only when status is 'approved' AND the intended use appears in approvedScopes. Everything else is blocked by default.",
+  "sources": [
+    {
+      "id": "dsd-english-original",
+      "aliases": ["DSD English original content"],
+      "scopes": ["inventory", "definition", "example", "relation"],
+      "status": "blocked",
+      "blockedReason": "Awaiting the counsel-approved contributor agreement and at least one recorded IP-assignment evidence ID. Until DSD holds assigned rights, authored English is not a source DSD may publish.",
+      "approvedScopes": [],
+      "evidenceIds": [],
+      "notes": "Unblock only when Task 1 rights matrix and Task 2B staffing gate are both satisfied. See docs/dsd-corpus/IP-ASSIGNMENT-CHECKLIST.md."
+    },
+    {
+      "id": "dsd-vietnamese-original",
+      "aliases": ["DSD Vietnamese original content"],
+      "scopes": ["translation", "example"],
+      "status": "blocked",
+      "blockedReason": "Same contributor-rights precondition as dsd-english-original.",
+      "approvedScopes": [],
+      "evidenceIds": []
+    },
+    {
+      "id": "dsd-ipa-original",
+      "aliases": ["DSD authored IPA"],
+      "scopes": ["pronunciation"],
+      "status": "blocked",
+      "blockedReason": "Requires the Gate C two-person IPA workflow and contributor rights evidence.",
+      "approvedScopes": [],
+      "evidenceIds": []
+    },
+
+    {
+      "id": "piper-ljspeech-medium",
+      "aliases": ["en_US-ljspeech-medium", "LJSpeech"],
+      "scopes": ["audio_model", "audio_training_data"],
+      "status": "blocked",
+      "blockedReason": "Selected technical candidate. Copyright evidence for the training recordings is necessary but not sufficient: performer, voice and personality rights for the intended release territories are not yet cleared. See F6 and docs/dsd-corpus/RIGHTS-MATRIX.md.",
+      "approvedScopes": [],
+      "evidenceIds": ["EV-AUDIO-LJSPEECH-CARD-001"],
+      "url": "https://huggingface.co/rhasspy/piper-voices/blob/main/en/en_US/ljspeech/medium/MODEL_CARD",
+      "revision": "PENDING-PIN-AT-TASK-11",
+      "notes": "Public-domain dataset, trained from scratch per the model card. Pin the artifact revision and SHA-256 in Task 11."
+    },
+    {
+      "id": "piper-norman-medium",
+      "aliases": ["en_US-norman-medium", "Norman"],
+      "scopes": ["audio_model", "audio_training_data"],
+      "status": "blocked",
+      "blockedReason": "Selected technical candidate. Same unresolved performer/voice/personality rights question as LJSpeech.",
+      "approvedScopes": [],
+      "evidenceIds": ["EV-AUDIO-NORMAN-CARD-001"],
+      "url": "https://huggingface.co/rhasspy/piper-voices/blob/main/en/en_US/norman/medium/MODEL_CARD",
+      "revision": "PENDING-PIN-AT-TASK-11",
+      "notes": "Public-domain LibriVox audio, trained from scratch per the model card."
+    },
+
+    {
+      "id": "piper-amy-medium",
+      "aliases": ["en_US-amy-medium", "Amy"],
+      "scopes": ["audio_model"],
+      "status": "blocked",
+      "blockedReason": "Fine-tuned from Lessac. The upstream Blizzard agreement restricts the material to research and excludes commercial TTS.",
+      "approvedScopes": [],
+      "evidenceIds": ["EV-AUDIO-AMY-BLOCK-001"]
+    },
+    {
+      "id": "piper-ryan-medium",
+      "aliases": ["en_US-ryan-medium", "Ryan"],
+      "scopes": ["audio_model"],
+      "status": "blocked",
+      "blockedReason": "Model card records CC BY-NC-SA 4.0. Non-commercial licences cannot enter a commercial corpus.",
+      "approvedScopes": [],
+      "evidenceIds": ["EV-AUDIO-RYAN-BLOCK-001"]
+    },
+    {
+      "id": "lessac-blizzard",
+      "aliases": ["Lessac"],
+      "scopes": ["audio_training_data"],
+      "status": "blocked",
+      "blockedReason": "Upstream agreement restricts the material to research and excludes commercial TTS.",
+      "approvedScopes": [],
+      "evidenceIds": ["EV-AUDIO-LESSAC-BLOCK-001"]
+    },
+
+    {
+      "id": "oewn-2025",
+      "aliases": ["Open English WordNet", "OEWN"],
+      "scopes": ["definition", "example", "pronunciation", "relation"],
+      "status": "blocked",
+      "blockedReason": "CC BY 4.0 permits commercial use, but attribution propagates to every downstream licensee. DSD is built to be licensed or resold without a third-party data-attribution chain. Product decision 2026-08-02.",
+      "approvedScopes": [],
+      "evidenceIds": ["EV-SRC-OEWN-EXCLUSION-001"],
+      "notes": "Remains approved for the historical learner overlay in english_learning_db. Blocked for DSD."
+    },
+    {
+      "id": "ngsl-1-2",
+      "aliases": ["New General Service List", "NGSL"],
+      "scopes": ["inventory"],
+      "status": "blocked",
+      "blockedReason": "CC BY-SA 4.0 share-alike on the compilation. Excluded from DSD by the same product decision as OEWN; the DSD inventory is built independently.",
+      "approvedScopes": [],
+      "evidenceIds": ["EV-SRC-NGSL-EXCLUSION-001"]
+    },
+    {
+      "id": "wiktionary-en",
+      "aliases": ["Wiktionary"],
+      "scopes": ["definition", "example"],
+      "status": "blocked",
+      "blockedReason": "CC BY-SA 3.0 / GFDL share-alike would infect any derivative, including Vietnamese translated from it.",
+      "approvedScopes": [],
+      "evidenceIds": ["EV-SRC-WIKTIONARY-BLOCK-001"]
+    },
+    {
+      "id": "tudien-archive",
+      "aliases": ["tudien"],
+      "scopes": ["translation"],
+      "status": "blocked",
+      "blockedReason": "No established reusable licence; aggregates third-party dictionaries. Never publishable, in DSD or elsewhere.",
+      "approvedScopes": [],
+      "evidenceIds": ["EV-SRC-TUDIEN-BLOCK-001"]
+    },
+    {
+      "id": "legacy-dictionary-corpus",
+      "aliases": ["legacy corpus", "english_learning_db dictionary tables"],
+      "scopes": ["inventory", "definition", "translation", "example", "pronunciation", "relation"],
+      "status": "blocked",
+      "blockedReason": "No reconstructable per-row provenance. Readable only by the Task 8 compliance similarity audit, through a column-scoped read-only role, and never as authoring input.",
+      "approvedScopes": [],
+      "evidenceIds": ["EV-SRC-LEGACY-BLOCK-001"]
+    }
+  ]
+}
