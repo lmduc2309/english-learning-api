@@ -16,6 +16,13 @@ export default () => {
         commercialSafeMode &&
         process.env.COMMERCIAL_ALLOW_GENERATED_CONTENT === 'true',
     },
+    dsd: {
+      // Full validation lives in src/dsd-corpus/dsd-corpus.config.ts. Only the
+      // channel is surfaced here, so routing can read it without importing the
+      // DSD data source.
+      database: process.env.DSD_DB_DATABASE || 'dsd_corpus_db',
+      releaseChannel: process.env.DSD_RELEASE_CHANNEL || 'off',
+    },
     llm: {
       apiKey: process.env.LLM_API_KEY,
       baseUrl: process.env.LLM_BASE_URL || 'https://openrouter.ai/api/v1',

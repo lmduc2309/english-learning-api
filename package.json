@@ -88,7 +88,14 @@
     "translate-py:all": "python3 scripts/translate-py.py --type all",
     "translate-py:stats": "python3 scripts/translate-py.py --stats",
     "export-review-queues": "ts-node scripts/export-review-queues.ts",
-    "dsd:registry:validate": "ts-node scripts/dsd/lib/registry.ts"
+    "dsd:registry:validate": "ts-node scripts/dsd/lib/registry.ts",
+    "dsd:db:create": "zsh scripts/dsd/create-workbench.sh create",
+    "dsd:db:status": "zsh scripts/dsd/create-workbench.sh status",
+    "dsd:migration:show": "ts-node scripts/dsd/migrations.ts show",
+    "dsd:migration:run": "ts-node scripts/dsd/migrations.ts run",
+    "dsd:migration:revert": "ts-node scripts/dsd/migrations.ts revert",
+    "dsd:migration:show:prod": "node dist/src/dsd-corpus/migrations/runner.js show",
+    "dsd:migration:run:prod": "node dist/src/dsd-corpus/migrations/runner.js run"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",
