@@ -11,9 +11,11 @@ import {
   evaluateEntryPublication,
   externalGates,
   planReviewApply,
+  qualityGate,
   rollupEntryStatus,
   validateDecisionsFile,
 } from './review';
+import { QualityInput } from './quality-audit';
 
 const SENSE_ID = '11111111-1111-1111-1111-111111111111';
 const HASH_A = 'a'.repeat(64);
@@ -303,9 +305,8 @@ describe('evaluateEntryPublication', () => {
   });
 
   it('blocks when a gate has not run', () => {
-    // Fail closed: not_run is not a pass, and Tasks 7 and 8 are not built yet.
+    // Fail closed: not_run is not a pass, and Task 8 is not built yet.
     const blocked = evaluateEntryPublication(snapshot(), externalGates());
-    expect(blocked.join(' ')).toMatch(/gate 'quality': not_run/);
     expect(blocked.join(' ')).toMatch(/gate 'similarity': not_run/);
   });
 
@@ -371,7 +372,84 @@ describe('evaluateEntryPublication', () => {
     const s = snapshot({ entryStatus: 'draft' });
     s.senses[0].translations = [];
     s.senses[0].examples = [];
-    expect(evaluateEntryPublication(s, externalGates()).length).toBeGreaterThan(4);
+    const blocked = evaluateEntryPublication(s, externalGates()).join(' ');
+    expect(blocked).toMatch(/not approved/);
+    expect(blocked).toMatch(/no approved Vietnamese/);
+    expect(blocked).toMatch(/no approved example/);
+    expect(blocked).toMatch(/gate 'similarity'/);
+  });
+});
+
+describe('qualityGate', () => {
+  function content(overrides: Partial<QualityInput> = {}): QualityInput {
+    return {
+      definitions: [
+        {
+          entityId: 'd1',
+          headword: 'rehearse',
+          partOfSpeech: 'verb',
+          definitionEn: 'To practise a performance before presenting it to an audience.',
+          usageLabels: ['general'],
+        },
+      ],
+      translations: [
+        {
+          entityId: 't1',
+          headword: 'rehearse',
+          definitionEn: 'To practise a performance before presenting it to an audience.',
+          locale: 'vi',
+          text: 'diễn tập',
+        },
+      ],
+      examples: [
+        {
+          entityId: 'x1',
+          headword: 'rehearse',
+          partOfSpeech: 'verb',
+          exampleEn: 'The choir rehearses every Thursday evening.',
+          exampleVi: 'Dàn hợp xướng diễn tập vào mỗi tối thứ Năm.',
+        },
+      ],
+      ...overrides,
+    };
+  }
+
+  it('passes clean content', () => {
+    expect(qualityGate(content())).toMatchObject({ status: 'pass', detail: 'no findings' });
+  });
+
+  it('fails on a critical finding and names it', () => {
+    const bad = content();
+    bad.translations[0].text = 'rehearse';
+    const gate = qualityGate(bad);
+    expect(gate.status).toBe('fail');
+    expect(gate.detail).toMatch(/headword_echo on t1/);
+  });
+
+  it('passes with warnings, but reports that there were some', () => {
+    // A warning must not silently become an approval, and it must not silently
+    // become a block either. It is counted and shown.
+    const warned = content();
+    warned.examples[0].exampleEn = 'the choir rehearses every Thursday';
+    const gate = qualityGate(warned);
+    expect(gate.status).toBe('pass');
+    expect(gate.detail).toMatch(/warning/);
+  });
+
+  it('blocks publication when it fails', () => {
+    const bad = content();
+    bad.definitions[0].definitionEn = 'To rehearse.';
+    expect(
+      evaluateEntryPublication(
+        {
+          entryId: SENSE_ID,
+          headword: 'rehearse',
+          entryStatus: 'approved',
+          senses: [],
+        },
+        [qualityGate(bad)],
+      ).join(' '),
+    ).toMatch(/gate 'quality': fail/);
   });
 });
 

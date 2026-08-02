@@ -112,7 +112,8 @@
     "dsd:review:queue": "ts-node scripts/dsd/review.ts queue",
     "dsd:review:validate": "ts-node scripts/dsd/review.ts validate",
     "dsd:review:apply": "ts-node scripts/dsd/review.ts apply",
-    "dsd:publish": "ts-node scripts/dsd/review.ts publish"
+    "dsd:publish": "ts-node scripts/dsd/review.ts publish",
+    "dsd:quality:audit": "ts-node scripts/dsd/quality-audit.ts"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",

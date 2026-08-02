@@ -28,6 +28,8 @@ import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { buildDsdCorpusConfig } from '../../src/dsd-corpus/dsd-corpus.config';
 import { createDsdDataSource } from '../../src/dsd-corpus/dsd-corpus.datasource';
+import { criticalFindings } from '../../src/dsd-corpus/quality/dsd-quality';
+import { QualityInput, auditRecords } from './quality-audit';
 import { loadRegistries, RegistrySnapshot, snapshotRegistries } from './lib/registry';
 import {
   DsdAction,
@@ -495,17 +497,37 @@ export function evaluateEntryPublication(
 }
 
 /**
+ * Run the deterministic quality rules over the text being published.
+ *
+ * These are computable from the row, so they run live rather than being looked
+ * up. A stored verdict could have been produced against text that has since
+ * changed; this cannot.
+ */
+export function qualityGate(content: QualityInput): GateResult {
+  const findings = auditRecords(content);
+  const critical = criticalFindings(findings);
+  if (critical.length === 0) {
+    const warnings = findings.length;
+    return {
+      gate: 'quality',
+      status: 'pass',
+      detail: warnings === 0 ? 'no findings' : `${warnings} warning(s)`,
+    };
+  }
+  return {
+    gate: 'quality',
+    status: 'fail',
+    detail: critical.map((f) => `${f.rule} on ${f.entityId}`).join('; '),
+  };
+}
+
+/**
  * The gates owned by later tasks. Until they exist there is no evidence a
  * record was checked, so publication is refused — which is the correct answer,
  * not a placeholder.
  */
 export function externalGates(): GateResult[] {
   return [
-    {
-      gate: 'quality',
-      status: 'not_run',
-      detail: 'dsd:quality:audit is not implemented yet (Task 7)',
-    },
     {
       gate: 'similarity',
       status: 'not_run',
@@ -745,6 +767,8 @@ async function runApply(): Promise<void> {
 const SNAPSHOT_SQL = `
   SELECT s.id, s.sense_key AS "senseKey", s.status, s.content_sha256 AS "contentSha256",
          s.authored_by AS "authoredBy", s.reviewed_by AS "reviewedBy",
+         s.part_of_speech AS "partOfSpeech", s.definition_en AS "definitionEn",
+         s.usage_labels AS "usageLabels",
          (SELECT json_agg(json_build_object('actor', p.actor, 'outputHash', p.output_hash))
             FROM dsd_provenance_events p
            WHERE p.entity_kind = 'sense' AND p.entity_id = s.id AND p.event_type = 'approved'
@@ -752,7 +776,7 @@ const SNAPSHOT_SQL = `
          (SELECT json_agg(json_build_object(
                    'entityKind','translation','entityId',t.id,'status',t.status,
                    'contentSha256',t.content_sha256,'authoredBy',t.authored_by,
-                   'reviewedBy',t.reviewed_by,
+                   'reviewedBy',t.reviewed_by,'locale',t.locale,'text',t.text,
                    'approvals',(SELECT json_agg(json_build_object('actor',p.actor,'outputHash',p.output_hash))
                                   FROM dsd_provenance_events p
                                  WHERE p.entity_kind='translation' AND p.entity_id=t.id
@@ -761,7 +785,7 @@ const SNAPSHOT_SQL = `
          (SELECT json_agg(json_build_object(
                    'entityKind','example','entityId',x.id,'status',x.status,
                    'contentSha256',x.content_sha256,'authoredBy',x.authored_by,
-                   'reviewedBy',x.reviewed_by,
+                   'reviewedBy',x.reviewed_by,'exampleEn',x.example_en,'exampleVi',x.example_vi,
                    'approvals',(SELECT json_agg(json_build_object('actor',p.actor,'outputHash',p.output_hash))
                                   FROM dsd_provenance_events p
                                  WHERE p.entity_kind='example' AND p.entity_id=x.id
@@ -810,7 +834,40 @@ async function runPublish(): Promise<void> {
       })),
     };
 
-    const blocked = evaluateEntryPublication(snapshot, externalGates());
+    // The quality rules run against the very text about to be published, not
+    // against a verdict recorded earlier.
+    const content: QualityInput = {
+      definitions: senses.map((row: any) => ({
+        entityId: row.id,
+        headword: entry.headword,
+        partOfSpeech: row.partOfSpeech,
+        definitionEn: row.definitionEn,
+        usageLabels: row.usageLabels ?? [],
+      })),
+      translations: senses.flatMap((row: any) =>
+        (row.translations ?? []).map((t: any) => ({
+          entityId: t.entityId,
+          headword: entry.headword,
+          definitionEn: row.definitionEn,
+          locale: t.locale,
+          text: t.text,
+        })),
+      ),
+      examples: senses.flatMap((row: any) =>
+        (row.examples ?? []).map((x: any) => ({
+          entityId: x.entityId,
+          headword: entry.headword,
+          partOfSpeech: row.partOfSpeech,
+          exampleEn: x.exampleEn,
+          exampleVi: x.exampleVi,
+        })),
+      ),
+    };
+
+    const blocked = evaluateEntryPublication(snapshot, [
+      qualityGate(content),
+      ...externalGates(),
+    ]);
     if (blocked.length > 0) {
       console.error(`Publication of '${entry.headword}' is blocked:`);
       for (const reason of blocked) console.error(`  - ${reason}`);
