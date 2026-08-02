@@ -1,9 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { RegistrySnapshot } from './lib/registry';
 import {
   FORBIDDEN_PACKAGE_FIELDS,
   CurationPackage,
-  RegistrySnapshot,
   validatePackage,
   planCurationImport,
 } from './curation';

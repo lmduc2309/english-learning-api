@@ -108,7 +108,11 @@
     "dsd:inventory:stats": "ts-node scripts/dsd/inventory.ts stats",
     "dsd:curation:validate": "ts-node scripts/dsd/curation.ts validate",
     "dsd:curation:import": "ts-node scripts/dsd/curation.ts import",
-    "dsd:curation:stats": "ts-node scripts/dsd/curation.ts stats"
+    "dsd:curation:stats": "ts-node scripts/dsd/curation.ts stats",
+    "dsd:review:queue": "ts-node scripts/dsd/review.ts queue",
+    "dsd:review:validate": "ts-node scripts/dsd/review.ts validate",
+    "dsd:review:apply": "ts-node scripts/dsd/review.ts apply",
+    "dsd:publish": "ts-node scripts/dsd/review.ts publish"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",

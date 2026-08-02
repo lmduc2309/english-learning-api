@@ -33,7 +33,7 @@ import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { buildDsdCorpusConfig } from '../../src/dsd-corpus/dsd-corpus.config';
 import { createDsdDataSource } from '../../src/dsd-corpus/dsd-corpus.datasource';
-import { loadRegistries, LoadedRegistries } from './lib/registry';
+import { loadRegistries, RegistrySnapshot, snapshotRegistries } from './lib/registry';
 import {
   normalizeContent,
   definitionHash,
@@ -152,33 +152,6 @@ export interface CurationPackage {
   batch_id: string;
   declaration_id: string;
   entries: CurationEntry[];
-}
-
-/** Registry facts the validator needs, injected so it stays pure and testable. */
-export interface RegistrySnapshot {
-  approvedScopesBySource: Record<string, string[]>;
-  contributors: Record<string, { status: string; roles: string[]; rightsEvidenceId: string }>;
-}
-
-export function snapshotRegistries(loaded: LoadedRegistries = loadRegistries()): RegistrySnapshot {
-  const approvedScopesBySource: RegistrySnapshot['approvedScopesBySource'] = {};
-  for (const source of loaded.sources) {
-    // Only approved sources contribute scopes. A candidate is not a permission.
-    if (source.status === 'approved') {
-      approvedScopesBySource[source.id] = source.approvedScopes ?? [];
-    }
-  }
-
-  const contributors: RegistrySnapshot['contributors'] = {};
-  for (const contributor of loaded.contributors) {
-    contributors[contributor.id] = {
-      status: contributor.status,
-      roles: contributor.roles ?? [],
-      rightsEvidenceId: (contributor.ipAssignmentEvidenceId ?? '').trim(),
-    };
-  }
-
-  return { approvedScopesBySource, contributors };
 }
 
 // ─── validation ─────────────────────────────────────────────────────────────

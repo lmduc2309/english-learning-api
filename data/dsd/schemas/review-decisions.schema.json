@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsdtech.site/schemas/dsd-review-decisions.json",
+  "title": "DSD review decisions",
+  "description": "One reviewer's decisions on one queue. Each decision names the exact content hash it was made against; if the text changed after the queue was generated the decision is stale and is refused. A decision approves or rejects — it cannot publish, and it cannot carry replacement wording, because rewriting is authoring and an author cannot review their own work. This schema documents the contract; scripts/dsd/review.ts is the enforcing implementation and additionally checks the reviewer against data/dsd/contributor-registry.json, refuses self-review, and refuses transitions that skip a state.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["decisions_version", "queue_id", "batch_id", "reviewer_id", "decision_evidence_id", "decisions"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "decisions_version": { "const": 1 },
+    "queue_id": {
+      "type": "string",
+      "description": "The queue this reviewer worked from, as written by dsd:review:queue.",
+      "minLength": 1
+    },
+    "batch_id": { "type": "string", "minLength": 1 },
+    "reviewer_id": {
+      "type": "string",
+      "description": "Pseudonymous contributor ID holding 'reviewer' or 'linguistic_reviewer'. Must not be the author of any record decided here.",
+      "pattern": "^DSD-[A-Z]-\\d{3,}$"
+    },
+    "decision_evidence_id": {
+      "type": "string",
+      "description": "Identifies the signed review record. Required because dsd_provenance_events stores no free text: the notes below live in this committed file, and the ledger event points at it.",
+      "minLength": 1
+    },
+    "decisions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/decision" }
+    }
+  },
+  "$defs": {
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entity_kind", "entity_id", "content_sha256", "decision"],
+      "properties": {
+        "entity_kind": {
+          "type": "string",
+          "description": "Translations and examples are decided independently of their sense: an accurate definition with a weak example is a rejected example, not a rejected sense.",
+          "enum": ["sense", "translation", "example"]
+        },
+        "entity_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "content_sha256": {
+          "type": "string",
+          "description": "The hash shown in the queue. A decision that does not match the row's current hash is stale and is refused rather than applied.",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "decision": { "type": "string", "enum": ["approve", "reject"] },
+        "notes": {
+          "type": "string",
+          "description": "DSD-specific guidance the author can act on. Required for a rejection. Must not link out or name a blocked source — a reviewer who directs an author towards third-party wording ends the clean-room chain."
+        }
+      }
+    }
+  },
+  "$comment": "Forbidden fields, rejected by name: definition_en, translation_vi, text, example_en, example_vi, replacement, rewrite, suggested_text, status, reviewed_at, published_at, content_hash_override, word_id, definition_id, source_definition_id, legacy_id, oewn_sense_id, provider, model, prompt, api_key, similarity_score. reviewed_at is set by the database so a file cannot backdate a review; publication is dsd:publish, which runs the completeness, provenance, quality and similarity gates first and treats a gate that has not run as a block."
+}

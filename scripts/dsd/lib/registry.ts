@@ -245,6 +245,45 @@ export interface LoadedRegistries {
   errors: string[];
 }
 
+/**
+ * The registry facts the curation and review validators need, flattened.
+ *
+ * Passed in rather than read from disk so those validators stay pure: they run
+ * on a laptop against a JSON file, with no database and no filesystem
+ * assumption, and a test can hand them an approved source that does not exist
+ * yet.
+ */
+export interface RegistrySnapshot {
+  approvedScopesBySource: Record<string, string[]>;
+  contributors: Record<string, { status: string; roles: string[]; rightsEvidenceId: string }>;
+  /** Names a reviewer must not cite in decision notes. */
+  blockedSourceNames?: string[];
+}
+
+export function snapshotRegistries(loaded: LoadedRegistries = loadRegistries()): RegistrySnapshot {
+  const approvedScopesBySource: RegistrySnapshot['approvedScopesBySource'] = {};
+  const blockedSourceNames: string[] = [];
+  for (const source of loaded.sources) {
+    // Only approved sources contribute scopes. A candidate is not a permission.
+    if (source.status === 'approved') {
+      approvedScopesBySource[source.id] = source.approvedScopes ?? [];
+    } else {
+      blockedSourceNames.push(source.id, ...(source.aliases ?? []));
+    }
+  }
+
+  const contributors: RegistrySnapshot['contributors'] = {};
+  for (const contributor of loaded.contributors) {
+    contributors[contributor.id] = {
+      status: contributor.status,
+      roles: contributor.roles ?? [],
+      rightsEvidenceId: (contributor.ipAssignmentEvidenceId ?? '').trim(),
+    };
+  }
+
+  return { approvedScopesBySource, contributors, blockedSourceNames };
+}
+
 export function registryDir(): string {
   return path.resolve(__dirname, '../../../data/dsd');
 }
