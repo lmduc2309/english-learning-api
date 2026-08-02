@@ -11,6 +11,7 @@ import { AddVietnameseGlossSearch1721401500000 } from './1721401500000-AddVietna
 import { DedupeLegacyDictionaryRows1721402000000 } from './1721402000000-DedupeLegacyDictionaryRows';
 import { NormalizeRawMarkupDefinitions1721402100000 } from './1721402100000-NormalizeRawMarkupDefinitions';
 import { NormalizeCjkPunctuation1721402200000 } from './1721402200000-NormalizeCjkPunctuation';
+import { DedupeWordPartOfSpeech1721402300000 } from './1721402300000-DedupeWordPartOfSpeech';
 
 const migrations = [
   CreateLegacyBaseline1721399000000,
@@ -24,6 +25,7 @@ const migrations = [
   DedupeLegacyDictionaryRows1721402000000,
   NormalizeRawMarkupDefinitions1721402100000,
   NormalizeCjkPunctuation1721402200000,
+  DedupeWordPartOfSpeech1721402300000,
 ];
 
 const dataSource = new DataSource({

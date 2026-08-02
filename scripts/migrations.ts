@@ -13,6 +13,7 @@ import { AddVietnameseGlossSearch1721401500000 } from '../src/migrations/1721401
 import { DedupeLegacyDictionaryRows1721402000000 } from '../src/migrations/1721402000000-DedupeLegacyDictionaryRows';
 import { NormalizeRawMarkupDefinitions1721402100000 } from '../src/migrations/1721402100000-NormalizeRawMarkupDefinitions';
 import { NormalizeCjkPunctuation1721402200000 } from '../src/migrations/1721402200000-NormalizeCjkPunctuation';
+import { DedupeWordPartOfSpeech1721402300000 } from '../src/migrations/1721402300000-DedupeWordPartOfSpeech';
 
 dotenv.config();
 
@@ -37,6 +38,7 @@ const ds = new DataSource({
     DedupeLegacyDictionaryRows1721402000000,
     NormalizeRawMarkupDefinitions1721402100000,
     NormalizeCjkPunctuation1721402200000,
+    DedupeWordPartOfSpeech1721402300000,
   ],
   migrationsTableName: 'app_migrations',
   migrationsTransactionMode: 'each',
