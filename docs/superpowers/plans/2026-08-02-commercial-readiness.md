@@ -10,14 +10,33 @@
 
 ## The finding that drives this plan
 
+**Correction (2026-08-02):** an earlier draft of this plan reported "650,400
+definitions servable today". That figure counted rows whose *quality flags* do
+not block presentation. It did **not** account for `commercialSafeMode`, which
+already exists, already defaults to on when `NODE_ENV=production`, and already
+returns `null` instead of the `raw_fallback` payload. **The API does not serve
+unlicensed Vietnamese in production.** G1.1 below was already implemented
+before this plan was written.
+
+The accurate position:
+
 | | |
 | --- | --- |
-| Definitions the API will serve today | **650,400** |
-| Examples the API will serve today | **300,824** |
+| Rows whose quality flags permit presentation | 650,400 definitions / 300,824 examples |
+| Rows the production API will actually serve | **0** — `commercialSafeMode` returns `null` |
 | Published curated senses | **0** |
-| Licence covering the Vietnamese in all of it | **none** |
+| Licence covering the Vietnamese still in the database | **none** |
 
-Every servable row carries `tudien` Vietnamese. The importer's own header states the archive *"does not state an explicit reusable license and aggregates third-party dictionary content."* There is no per-row provenance — `source`, `translation_method` and `translation_confidence` are empty on 100% of rows — so cleared and uncleared content cannot be separated after the fact.
+So the runtime exposure is closed. What remains is that the unlicensed content
+is still **in the production database and in the CSV exports**, which matters
+the moment a database is handed to a partner, restored elsewhere, or a deploy
+runs with `NODE_ENV` unset or `COMMERCIAL_SAFE_MODE=false`.
+
+The importer's own header states the `tudien` archive *"does not state an
+explicit reusable license and aggregates third-party dictionary content."*
+There is no per-row provenance — `source`, `translation_method` and
+`translation_confidence` are empty on 100% of rows — so cleared and uncleared
+content cannot be separated after the fact.
 
 **This is not fixable by re-translating.** A translation is a derivative of its source, so obligations follow the English, not the translator:
 
@@ -50,15 +69,35 @@ Re-translating the legacy corpus therefore spends money improving content that s
 
 # Gate 1 — Stop the exposure (do first, ~1 day)
 
-### G1.1 Gate `raw_fallback` behind config, default off
+### G1.1 Gate `raw_fallback` behind config — ALREADY DONE ✅
 
-**Files:** `src/dictionary/dictionary.service.ts`, `src/dictionary/dictionary.service.spec.ts`, `.env.example`
+`src/config/configuration.ts` defines `content.commercialSafeMode`, defaulting
+to `nodeEnv === 'production'` and overridable via `COMMERCIAL_SAFE_MODE`.
+`dictionary.service.ts:451` returns `null` before the `raw_fallback` payload
+when it is on, and `lookupWord` treats `null` as "not in database" — falling
+through to LLM generation or a 404.
 
-`findWordInDatabase` returns `LookupWordResponseDto | null`, and `lookupWord` already treats `null` as "not in database" — falling through to LLM generation or a 404. That is the correct gate point: no new error paths, no client changes.
+The boundary is enforced in more places than a lookup gate would cover:
+search (`:100`), the curated relation set (`:367`), LLM generation
+(`:211`, `:490`), export (`:668`), the VI→EN resolve path (`:259`), and all
+four `CategoryService` query paths. `LlmService` independently refuses to
+generate unless `allowGeneratedContent` is set. Covered by
+`DictionaryService — commercial-safe boundary` in the spec.
 
-Add `DICTIONARY_SERVE_RAW_FALLBACK`, defaulting to **false**. When false and no published learner entry exists, return `null` instead of the `raw_fallback` payload.
+**Verify before each deploy** rather than assuming — this is the single control
+standing between the product and the licensing problem:
 
-Effect: the API can no longer serve unlicensed Vietnamese. Coverage drops to whatever is curated — currently zero — so this is deployed together with G2 content, or with `LLM_FALLBACK_ENABLED=true` so lookups degrade to clearly-labelled `generated_fallback` rather than 404.
+```bash
+NODE_ENV=production node -e "
+  const c = require('./dist/config/configuration').default();
+  if (!c.content.commercialSafeMode) { console.error('UNSAFE'); process.exit(1); }
+  console.log('commercial-safe mode ON, generated content:', c.content.allowGeneratedContent);
+"
+```
+
+Remaining work here is a deployment assertion, not a code change: make the API
+refuse to boot if `NODE_ENV=production` and `COMMERCIAL_SAFE_MODE=false`, so
+the gate cannot be turned off by a stray environment variable.
 
 ### G1.2 Remove `tudien` Vietnamese from the production database
 
