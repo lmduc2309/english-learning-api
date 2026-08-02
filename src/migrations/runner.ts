@@ -13,6 +13,7 @@ import { NormalizeRawMarkupDefinitions1721402100000 } from './1721402100000-Norm
 import { NormalizeCjkPunctuation1721402200000 } from './1721402200000-NormalizeCjkPunctuation';
 import { DedupeWordPartOfSpeech1721402300000 } from './1721402300000-DedupeWordPartOfSpeech';
 import { BackupCjkTranslations1721402350000 } from './1721402350000-BackupCjkTranslations';
+import { RecomputeLegacyQualityFlags1721402400000 } from './1721402400000-RecomputeLegacyQualityFlags';
 
 const migrations = [
   CreateLegacyBaseline1721399000000,
@@ -28,6 +29,7 @@ const migrations = [
   NormalizeCjkPunctuation1721402200000,
   DedupeWordPartOfSpeech1721402300000,
   BackupCjkTranslations1721402350000,
+  RecomputeLegacyQualityFlags1721402400000,
 ];
 
 const dataSource = new DataSource({
