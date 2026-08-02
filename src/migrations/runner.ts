@@ -10,6 +10,7 @@ import { AddLearnerDefinitionProvenance1721401400000 } from './1721401400000-Add
 import { AddVietnameseGlossSearch1721401500000 } from './1721401500000-AddVietnameseGlossSearch';
 import { DedupeLegacyDictionaryRows1721402000000 } from './1721402000000-DedupeLegacyDictionaryRows';
 import { NormalizeRawMarkupDefinitions1721402100000 } from './1721402100000-NormalizeRawMarkupDefinitions';
+import { NormalizeCjkPunctuation1721402200000 } from './1721402200000-NormalizeCjkPunctuation';
 
 const migrations = [
   CreateLegacyBaseline1721399000000,
@@ -22,6 +23,7 @@ const migrations = [
   AddVietnameseGlossSearch1721401500000,
   DedupeLegacyDictionaryRows1721402000000,
   NormalizeRawMarkupDefinitions1721402100000,
+  NormalizeCjkPunctuation1721402200000,
 ];
 
 const dataSource = new DataSource({
