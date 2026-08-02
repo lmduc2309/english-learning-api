@@ -15,6 +15,7 @@ import { DedupeWordPartOfSpeech1721402300000 } from './1721402300000-DedupeWordP
 import { BackupCjkTranslations1721402350000 } from './1721402350000-BackupCjkTranslations';
 import { RecomputeLegacyQualityFlags1721402400000 } from './1721402400000-RecomputeLegacyQualityFlags';
 import { RemoveEmptyDefinitions1721403000000 } from './1721403000000-RemoveEmptyDefinitions';
+import { NormalizeExampleMarkup1721403100000 } from './1721403100000-NormalizeExampleMarkup';
 
 const migrations = [
   CreateLegacyBaseline1721399000000,
@@ -32,6 +33,7 @@ const migrations = [
   BackupCjkTranslations1721402350000,
   RecomputeLegacyQualityFlags1721402400000,
   RemoveEmptyDefinitions1721403000000,
+  NormalizeExampleMarkup1721403100000,
 ];
 
 const dataSource = new DataSource({
