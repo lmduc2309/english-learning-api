@@ -18,6 +18,7 @@ import { BackupCjkTranslations1721402350000 } from '../src/migrations/1721402350
 import { RecomputeLegacyQualityFlags1721402400000 } from '../src/migrations/1721402400000-RecomputeLegacyQualityFlags';
 import { RemoveEmptyDefinitions1721403000000 } from '../src/migrations/1721403000000-RemoveEmptyDefinitions';
 import { NormalizeExampleMarkup1721403100000 } from '../src/migrations/1721403100000-NormalizeExampleMarkup';
+import { ClassifyVietnameseEchoes1721403200000 } from '../src/migrations/1721403200000-ClassifyVietnameseEchoes';
 
 dotenv.config();
 
@@ -47,6 +48,7 @@ const ds = new DataSource({
     RecomputeLegacyQualityFlags1721402400000,
     RemoveEmptyDefinitions1721403000000,
     NormalizeExampleMarkup1721403100000,
+    ClassifyVietnameseEchoes1721403200000,
   ],
   migrationsTableName: 'app_migrations',
   migrationsTransactionMode: 'each',

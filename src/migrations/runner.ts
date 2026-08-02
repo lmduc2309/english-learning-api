@@ -16,6 +16,7 @@ import { BackupCjkTranslations1721402350000 } from './1721402350000-BackupCjkTra
 import { RecomputeLegacyQualityFlags1721402400000 } from './1721402400000-RecomputeLegacyQualityFlags';
 import { RemoveEmptyDefinitions1721403000000 } from './1721403000000-RemoveEmptyDefinitions';
 import { NormalizeExampleMarkup1721403100000 } from './1721403100000-NormalizeExampleMarkup';
+import { ClassifyVietnameseEchoes1721403200000 } from './1721403200000-ClassifyVietnameseEchoes';
 
 const migrations = [
   CreateLegacyBaseline1721399000000,
@@ -34,6 +35,7 @@ const migrations = [
   RecomputeLegacyQualityFlags1721402400000,
   RemoveEmptyDefinitions1721403000000,
   NormalizeExampleMarkup1721403100000,
+  ClassifyVietnameseEchoes1721403200000,
 ];
 
 const dataSource = new DataSource({
