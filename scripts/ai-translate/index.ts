@@ -32,6 +32,7 @@ function parseArgs(): CLIOptions {
 
   return {
     type: (getArg('--type') as TranslationType) || 'definitions',
+    target: (getArg('--target') as 'null' | 'cjk') || 'null',
     limit: parseInt(getArg('--limit') || '0', 10),
     batchSize: parseInt(getArg('--batch-size') || String(config.batch.size), 10),
     dryRun: args.includes('--dry-run'),
@@ -81,10 +82,14 @@ async function main(): Promise<void> {
   console.log(`   Batch size: ${options.batchSize}`);
   if (options.limit) console.log(`   Limit:      ${options.limit}`);
   if (options.word) console.log(`   Word:       ${options.word}`);
+  console.log(
+    `   Target:     ${options.target === 'cjk' ? 'CJK-contaminated rows' : 'untranslated (NULL) rows'}`,
+  );
   if (options.dryRun) console.log('   Mode:       DRY RUN');
   console.log('');
 
-  const tracker = new ProgressTracker();
+  // --dry-run must write nothing at all, PostgreSQL or SQLite.
+  const tracker = new ProgressTracker(options.target, options.dryRun);
   const db = new DbConnector();
 
   try {

@@ -79,8 +79,12 @@ export interface RunStats {
 
 export type TranslationType = 'definitions' | 'examples';
 
+export type TranslationTarget = 'null' | 'cjk';
+
 export interface CLIOptions {
   type: TranslationType;
+  /** 'null' fills untranslated rows; 'cjk' repairs contaminated ones. */
+  target: TranslationTarget;
   limit: number;
   batchSize: number;
   dryRun: boolean;

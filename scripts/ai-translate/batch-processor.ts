@@ -9,8 +9,18 @@ import type {
   TranslationResult,
   ExampleItem,
   TranslationType,
+  TranslationTarget,
   RunStats,
 } from './types';
+
+interface RunOptions {
+  limit: number;
+  batchSize: number;
+  dryRun: boolean;
+  word: string | null;
+  /** 'null' fills untranslated rows; 'cjk' repairs contaminated ones. */
+  target: TranslationTarget;
+}
 
 export class BatchProcessor {
   private client: OpenRouterClient;
@@ -43,27 +53,17 @@ export class BatchProcessor {
     process.on('SIGTERM', handler);
   }
 
-  async translateDefinitions(options: {
-    limit: number;
-    batchSize: number;
-    dryRun: boolean;
-    word: string | null;
-  }): Promise<RunStats> {
+  async translateDefinitions(options: RunOptions): Promise<RunStats> {
     return this.runTranslation('definitions', options);
   }
 
-  async translateExamples(options: {
-    limit: number;
-    batchSize: number;
-    dryRun: boolean;
-    word: string | null;
-  }): Promise<RunStats> {
+  async translateExamples(options: RunOptions): Promise<RunStats> {
     return this.runTranslation('examples', options);
   }
 
   private async runTranslation(
     type: TranslationType,
-    options: { limit: number; batchSize: number; dryRun: boolean; word: string | null },
+    options: RunOptions,
   ): Promise<RunStats> {
     this.stats = {
       totalToTranslate: 0,
@@ -88,10 +88,20 @@ export class BatchProcessor {
     }
 
     // Fetch items from database
-    const items =
-      type === 'definitions'
-        ? await this.db.fetchUntranslatedDefinitions(options.limit, doneIds, options.word)
-        : await this.db.fetchUntranslatedExamples(options.limit, doneIds, options.word);
+    // Default target 'null' keeps every existing invocation behaving as before.
+    const fetchItems: (
+      limit: number,
+      excludeIds: Set<number>,
+      word?: string | null,
+    ) => Promise<Array<TranslationItem | ExampleItem>> =
+      options.target === 'cjk'
+        ? type === 'definitions'
+          ? this.db.fetchCjkContaminatedDefinitions.bind(this.db)
+          : this.db.fetchCjkContaminatedExamples.bind(this.db)
+        : type === 'definitions'
+          ? this.db.fetchUntranslatedDefinitions.bind(this.db)
+          : this.db.fetchUntranslatedExamples.bind(this.db);
+    const items = await fetchItems(options.limit, doneIds, options.word);
 
     this.stats.totalToTranslate = items.length;
 

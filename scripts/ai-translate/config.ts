@@ -28,7 +28,11 @@ export const config = {
   },
 
   progress: {
-    dbPath: path.resolve(__dirname, '../../data/ai-translate-progress.db'),
+    // AI_TRANSLATE_PROGRESS_DB lets a rehearsal use a disposable file so it
+    // cannot mark production items as done.
+    dbPath:
+      process.env.AI_TRANSLATE_PROGRESS_DB ||
+      path.resolve(__dirname, '../../data/ai-translate-progress.db'),
   },
 };
 
