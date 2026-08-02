@@ -115,7 +115,8 @@
     "dsd:publish": "ts-node scripts/dsd/review.ts publish",
     "dsd:quality:audit": "ts-node scripts/dsd/quality-audit.ts",
     "dsd:similarity:audit": "ts-node scripts/dsd/similarity-audit.ts audit",
-    "dsd:similarity:report": "ts-node scripts/dsd/similarity-audit.ts report"
+    "dsd:similarity:report": "ts-node scripts/dsd/similarity-audit.ts report",
+    "dsd:similarity:calibrate": "ts-node scripts/dsd/similarity-calibrate.ts"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",

@@ -307,7 +307,11 @@ describe('evaluateEntryPublication', () => {
   it('blocks when a gate has not run', () => {
     // Fail closed: not_run is not a pass, and Task 8 is not built yet.
     const blocked = evaluateEntryPublication(snapshot(), [
-      similarityGate([{ entityKind: 'sense', entityId: SENSE_ID, contentSha256: HASH_A }], [], null),
+      similarityGate(
+        [{ entityKind: 'sense', entityId: SENSE_ID, contentSha256: HASH_A }],
+        [],
+        { sha256: null, reason: 'no approved similarity policy' },
+      ),
     ]);
     expect(blocked.join(' ')).toMatch(/gate 'similarity': not_run/);
     expect(blocked.join(' ')).toMatch(/no approved similarity policy/);
@@ -376,7 +380,7 @@ describe('evaluateEntryPublication', () => {
     s.senses[0].translations = [];
     s.senses[0].examples = [];
     const blocked = evaluateEntryPublication(s, [
-      similarityGate([], [], null),
+      similarityGate([], [], { sha256: null, reason: 'no approved similarity policy' }),
     ]).join(' ');
     expect(blocked).toMatch(/not approved/);
     expect(blocked).toMatch(/no approved Vietnamese/);

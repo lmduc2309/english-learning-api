@@ -107,6 +107,12 @@ data/dsd/curation/*
 !data/dsd/reviews/
 data/dsd/reviews/*
 !data/dsd/reviews/*.json
+# The similarity policy and its calibration set are the evidence behind every
+# compliance verdict. Both are synthetic and both must be reviewable in a diff.
+!data/dsd/similarity/
+data/dsd/similarity/*
+!data/dsd/similarity/*.json
+!data/dsd/similarity/*.jsonl
 
 # Never re-include these: personal data, executed contracts, and generated
 # artifacts. Only pseudonymous IDs and evidence IDs are committed — see

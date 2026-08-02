@@ -46,6 +46,11 @@ export function normalizeForComparison(value: string): string {
   return (value ?? '')
     .normalize('NFKC')
     .toLowerCase()
+    // Markup is not wording. Left in, an HTML tag would inject letters and a
+    // copy wrapped in <em> would stop looking like a copy.
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\{\{[^}]*\}\}/g, ' ')
+    .replace(/&(?:nbsp|amp|lt|gt|quot|apos|#\d+|#x[0-9a-f]+);/gi, ' ')
     .replace(/[‘’ʼ′]/g, "'")
     .replace(/[“”]/g, '"')
     .replace(/[^\p{L}\p{N}'\s]/gu, ' ')
@@ -103,27 +108,71 @@ export function cosine(a: string[], b: string[]): number {
 }
 
 /**
- * Longest run of consecutive tokens shared by both texts.
+ * Function words. A shared run made only of these is not evidence of copying —
+ * "a unit of measurement" and "there is a" are how English works, not what
+ * someone wrote.
+ */
+const FUNCTION_WORDS = new Set([
+  'a', 'an', 'the', 'of', 'to', 'in', 'on', 'at', 'for', 'with', 'by', 'from',
+  'into', 'onto', 'over', 'under', 'about', 'as', 'than', 'that', 'which',
+  'who', 'whom', 'whose', 'and', 'or', 'but', 'if', 'because', 'so', 'is',
+  'are', 'was', 'were', 'be', 'been', 'being', 'am', 'do', 'does', 'did',
+  'has', 'have', 'had', 'will', 'would', 'shall', 'should', 'can', 'could',
+  'may', 'might', 'must', 'not', 'no', 'it', 'its', 'this', 'these', 'those',
+  'there', 'here', 'i', 'you', 'he', 'she', 'we', 'they', 'them', 'his',
+  'her', 'their', 'our', 'my', 'your', 'one', 'used', 'such', 'more', 'most',
+]);
+
+export function isContentWord(token: string): boolean {
+  return !FUNCTION_WORDS.has(token);
+}
+
+export interface RunMatch {
+  /** Length in tokens of the longest shared run. */
+  longest: number;
+  /** Content words in the most content-bearing shared run. */
+  content: number;
+}
+
+/**
+ * Longest runs of consecutive tokens shared by both texts.
  *
  * The metric that catches the copy the set metrics miss: a long verbatim
  * clause dropped into otherwise original writing barely moves Jaccard, but it
  * is the clearest evidence of copying there is.
+ *
+ * Two numbers come back because raw length is not enough. A four-token run of
+ * articles and prepositions is unavoidable in English; four content words in a
+ * row is a sentence someone else wrote. Content is measured across every
+ * shared run, not just the longest, so a short dense run is not hidden by a
+ * long thin one.
  */
-export function longestCommonRun(a: string[], b: string[]): number {
-  if (a.length === 0 || b.length === 0) return 0;
-  let best = 0;
+export function longestCommonRun(a: string[], b: string[]): RunMatch {
+  if (a.length === 0 || b.length === 0) return { longest: 0, content: 0 };
+
+  // Prefix sums make counting the content words of a run O(1).
+  const contentPrefix = new Array(a.length + 1).fill(0);
+  for (let i = 0; i < a.length; i++) {
+    contentPrefix[i + 1] = contentPrefix[i] + (isContentWord(a[i]) ? 1 : 0);
+  }
+
+  let longest = 0;
+  let content = 0;
   let previous = new Array(b.length + 1).fill(0);
   for (let i = 1; i <= a.length; i++) {
     const current = new Array(b.length + 1).fill(0);
     for (let j = 1; j <= b.length; j++) {
       if (a[i - 1] === b[j - 1]) {
-        current[j] = previous[j - 1] + 1;
-        if (current[j] > best) best = current[j];
+        const length = previous[j - 1] + 1;
+        current[j] = length;
+        if (length > longest) longest = length;
+        const words = contentPrefix[i] - contentPrefix[i - length];
+        if (words > content) content = words;
       }
     }
     previous = current;
   }
-  return best;
+  return { longest, content };
 }
 
 export interface ComponentScores {
@@ -135,6 +184,8 @@ export interface ComponentScores {
   longestRun: number;
   /** Longest run as a fraction of the shorter text, so length cannot hide a copy. */
   longestRunRatio: number;
+  /** Content words in the most content-bearing shared run. */
+  contentRun: number;
 }
 
 function round(value: number): number {
@@ -154,8 +205,9 @@ export function compare(dsdText: string, legacyText: string): ComponentScores {
     wordNgramJaccard: round(jaccard(wordNgrams(a), wordNgrams(b))),
     charNgramJaccard: round(jaccard(charNgrams(dsdText), charNgrams(legacyText))),
     cosine: round(cosine(a, b)),
-    longestRun: run,
-    longestRunRatio: shorter === 0 ? 0 : round(run / shorter),
+    longestRun: run.longest,
+    longestRunRatio: shorter === 0 ? 0 : round(run.longest / shorter),
+    contentRun: run.content,
   };
 }
 
@@ -167,7 +219,8 @@ export interface PolicyBand {
   charNgramJaccard: number;
   cosine: number;
   longestRunRatio: number;
-  longestRun: number;
+  /** Content words a shared run must carry before it counts as a clause. */
+  contentRun: number;
 }
 
 export interface SimilarityPolicy {
@@ -263,6 +316,20 @@ export function validatePolicy(policy: SimilarityPolicy): string[] {
  * Classify one comparison. Exact wins outright; otherwise a single metric
  * crossing a band is enough, because a copy only has to be detectable one way.
  */
+/** One metric crossing is enough: a copy only has to be detectable one way. */
+export function crossesBand(scores: ComponentScores, thresholds: PolicyBand): boolean {
+  return (
+    scores.tokenJaccard >= thresholds.tokenJaccard ||
+    scores.wordNgramJaccard >= thresholds.wordNgramJaccard ||
+    scores.charNgramJaccard >= thresholds.charNgramJaccard ||
+    scores.cosine >= thresholds.cosine ||
+    // A high ratio over articles and prepositions is not a copied clause, so
+    // the run must also carry enough content words to be someone's writing.
+    (scores.longestRunRatio >= thresholds.longestRunRatio &&
+      scores.contentRun >= thresholds.contentRun)
+  );
+}
+
 export function classify(
   scores: ComponentScores,
   recordType: RecordType,
@@ -271,16 +338,8 @@ export function classify(
   if (scores.exact) return 'exact';
 
   const band = policy.bands[recordType];
-  const crosses = (thresholds: PolicyBand) =>
-    scores.tokenJaccard >= thresholds.tokenJaccard ||
-    scores.wordNgramJaccard >= thresholds.wordNgramJaccard ||
-    scores.charNgramJaccard >= thresholds.charNgramJaccard ||
-    scores.cosine >= thresholds.cosine ||
-    (scores.longestRunRatio >= thresholds.longestRunRatio &&
-      scores.longestRun >= thresholds.longestRun);
-
-  if (crosses(band.high)) return 'high';
-  if (crosses(band.medium)) return 'medium';
+  if (crossesBand(scores, band.high)) return 'high';
+  if (crossesBand(scores, band.medium)) return 'medium';
   return 'low';
 }
 

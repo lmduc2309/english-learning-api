@@ -29,12 +29,12 @@ function policy(): SimilarityPolicy {
     rationale: 'Calibrated against the v1 labelled control set.',
     bands: {
       definition: {
-        high: { tokenJaccard: 0.8, wordNgramJaccard: 0.6, charNgramJaccard: 0.8, cosine: 0.9, longestRunRatio: 0.7, longestRun: 6 },
-        medium: { tokenJaccard: 0.6, wordNgramJaccard: 0.35, charNgramJaccard: 0.6, cosine: 0.75, longestRunRatio: 0.5, longestRun: 4 },
+        high: { tokenJaccard: 0.8, wordNgramJaccard: 0.6, charNgramJaccard: 0.8, cosine: 0.9, longestRunRatio: 0.7, contentRun: 6 },
+        medium: { tokenJaccard: 0.6, wordNgramJaccard: 0.35, charNgramJaccard: 0.6, cosine: 0.75, longestRunRatio: 0.5, contentRun: 4 },
       },
       example: {
-        high: { tokenJaccard: 0.85, wordNgramJaccard: 0.65, charNgramJaccard: 0.85, cosine: 0.92, longestRunRatio: 0.75, longestRun: 7 },
-        medium: { tokenJaccard: 0.65, wordNgramJaccard: 0.4, charNgramJaccard: 0.65, cosine: 0.8, longestRunRatio: 0.55, longestRun: 5 },
+        high: { tokenJaccard: 0.85, wordNgramJaccard: 0.65, charNgramJaccard: 0.85, cosine: 0.92, longestRunRatio: 0.75, contentRun: 7 },
+        medium: { tokenJaccard: 0.65, wordNgramJaccard: 0.4, charNgramJaccard: 0.65, cosine: 0.8, longestRunRatio: 0.55, contentRun: 5 },
       },
     },
   };

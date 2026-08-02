@@ -30,12 +30,12 @@ function policy(overrides: Partial<SimilarityPolicy> = {}): SimilarityPolicy {
     rationale: 'Calibrated against the v1 labelled control set.',
     bands: {
       definition: {
-        high: { tokenJaccard: 0.8, wordNgramJaccard: 0.6, charNgramJaccard: 0.8, cosine: 0.9, longestRunRatio: 0.7, longestRun: 6 },
-        medium: { tokenJaccard: 0.6, wordNgramJaccard: 0.35, charNgramJaccard: 0.6, cosine: 0.75, longestRunRatio: 0.5, longestRun: 4 },
+        high: { tokenJaccard: 0.8, wordNgramJaccard: 0.6, charNgramJaccard: 0.8, cosine: 0.9, longestRunRatio: 0.7, contentRun: 6 },
+        medium: { tokenJaccard: 0.6, wordNgramJaccard: 0.35, charNgramJaccard: 0.6, cosine: 0.75, longestRunRatio: 0.5, contentRun: 4 },
       },
       example: {
-        high: { tokenJaccard: 0.85, wordNgramJaccard: 0.65, charNgramJaccard: 0.85, cosine: 0.92, longestRunRatio: 0.75, longestRun: 7 },
-        medium: { tokenJaccard: 0.65, wordNgramJaccard: 0.4, charNgramJaccard: 0.65, cosine: 0.8, longestRunRatio: 0.55, longestRun: 5 },
+        high: { tokenJaccard: 0.85, wordNgramJaccard: 0.65, charNgramJaccard: 0.85, cosine: 0.92, longestRunRatio: 0.75, contentRun: 7 },
+        medium: { tokenJaccard: 0.65, wordNgramJaccard: 0.4, charNgramJaccard: 0.65, cosine: 0.8, longestRunRatio: 0.55, contentRun: 5 },
       },
     },
     ...overrides,
@@ -77,11 +77,27 @@ describe('metrics', () => {
   it('longestCommonRun finds a verbatim clause inside different writing', () => {
     const a = tokenize('Something entirely different a person who teaches children and more.');
     const b = tokenize('Other words here a person who teaches children plus other things.');
-    expect(longestCommonRun(a, b)).toBe(5);
+    expect(longestCommonRun(a, b)).toEqual({ longest: 5, content: 3 });
+  });
+
+  it('counts content words, so a run of function words is not a copied clause', () => {
+    // "a unit of measurement" is how English works, not what somebody wrote.
+    const a = tokenize('A unit of measurement equal to one hundred centimetres.');
+    const b = tokenize('A unit of measurement used for distance between towns.');
+    const run = longestCommonRun(a, b);
+    expect(run.longest).toBe(4);
+    expect(run.content).toBe(2);
+  });
+
+  it('finds the densest run, not only the longest', () => {
+    // A long thin run must not hide a short one full of content words.
+    const a = tokenize('of the in a rare mountain gorilla habitat');
+    const b = tokenize('of the in a common rare mountain gorilla habitat');
+    expect(longestCommonRun(a, b).content).toBe(4);
   });
 
   it('returns zero for empty input rather than dividing by nothing', () => {
-    expect(longestCommonRun([], ['a'])).toBe(0);
+    expect(longestCommonRun([], ['a'])).toEqual({ longest: 0, content: 0 });
     expect(cosine([], ['a'])).toBe(0);
     expect(jaccard([], [])).toBe(0);
   });
@@ -179,7 +195,7 @@ describe('classify', () => {
     // Two three-word texts sharing two words have a high ratio but no clause.
     const scores = compare('red hot car', 'red hot van');
     expect(scores.longestRunRatio).toBeGreaterThan(0.5);
-    expect(scores.longestRun).toBeLessThan(4);
+    expect(scores.contentRun).toBeLessThan(4);
   });
 });
 

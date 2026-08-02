@@ -1,0 +1,47 @@
+{
+  "policyVersion": "v1",
+  "normalizationVersion": 1,
+  "algorithmVersion": 1,
+  "effectiveDate": "2026-08-03",
+  "approvers": [],
+  "benchmarkSha256": "c72ea021355554fe8f29a6e568585a1e63fa508748ee0b87bbe764ad6a744fc8",
+  "rationale": "Each medium threshold is set one grid step above the strongest independent control in data/dsd/similarity/v1-calibration.jsonl, so every metric is as sensitive as it can be without accusing writing that was demonstrably independent. Recall against the near-copy controls is then measured rather than fitted, which keeps the thresholds describing the problem and not the fixture set. High is the 25th percentile of near-copy scores, so the strongest matches surface first; both bands block publication until a compliance reviewer clears them. Run thresholds count content words, because a shared run of articles and prepositions is how English works rather than evidence of copying.",
+  "bands": {
+    "definition": {
+      "medium": {
+        "tokenJaccard": 0.55,
+        "wordNgramJaccard": 0.25,
+        "charNgramJaccard": 0.4,
+        "cosine": 0.7,
+        "longestRunRatio": 0.7,
+        "contentRun": 3
+      },
+      "high": {
+        "tokenJaccard": 0.55,
+        "wordNgramJaccard": 0.25,
+        "charNgramJaccard": 0.55,
+        "cosine": 0.7,
+        "longestRunRatio": 0.7,
+        "contentRun": 3
+      }
+    },
+    "example": {
+      "medium": {
+        "tokenJaccard": 0.25,
+        "wordNgramJaccard": 0.05,
+        "charNgramJaccard": 0.15,
+        "cosine": 0.55,
+        "longestRunRatio": 0.25,
+        "contentRun": 2
+      },
+      "high": {
+        "tokenJaccard": 0.75,
+        "wordNgramJaccard": 0.3,
+        "charNgramJaccard": 0.65,
+        "cosine": 0.85,
+        "longestRunRatio": 0.5,
+        "contentRun": 3
+      }
+    }
+  }
+}

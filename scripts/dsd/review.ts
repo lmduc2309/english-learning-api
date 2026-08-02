@@ -30,13 +30,8 @@ import { buildDsdCorpusConfig } from '../../src/dsd-corpus/dsd-corpus.config';
 import { createDsdDataSource } from '../../src/dsd-corpus/dsd-corpus.datasource';
 import { criticalFindings } from '../../src/dsd-corpus/quality/dsd-quality';
 import { QualityInput, auditRecords } from './quality-audit';
-import {
-  DEFAULT_POLICY_PATH,
-  StoredResult,
-  evaluateSimilarityGate,
-  loadPolicy,
-} from './similarity-audit';
-import { policyHash } from './lib/similarity';
+import { DEFAULT_POLICY_PATH, StoredResult, evaluateSimilarityGate } from './similarity-audit';
+import { policyHash, validatePolicy } from './lib/similarity';
 import { loadRegistries, RegistrySnapshot, snapshotRegistries } from './lib/registry';
 import {
   DsdAction,
@@ -540,24 +535,39 @@ export function qualityGate(content: QualityInput): GateResult {
 export function similarityGate(
   records: Array<{ entityKind: string; entityId: string; contentSha256: string }>,
   stored: StoredResult[],
-  currentPolicySha256: string | null,
+  policy: PolicyState,
 ): GateResult {
-  if (!currentPolicySha256) {
-    return {
-      gate: 'similarity',
-      status: 'not_run',
-      detail: `no approved similarity policy at ${DEFAULT_POLICY_PATH} (Task 8A)`,
-    };
+  if (!policy.sha256) {
+    return { gate: 'similarity', status: 'not_run', detail: policy.reason };
   }
-  const { status, detail } = evaluateSimilarityGate(records, stored, currentPolicySha256);
+  const { status, detail } = evaluateSimilarityGate(records, stored, policy.sha256);
   return { gate: 'similarity', status, detail };
 }
 
-/** The current policy digest, or null when no approved policy is on disk. */
-export function currentPolicySha256(): string | null {
+export interface PolicyState {
+  sha256: string | null;
+  reason: string;
+}
+
+/**
+ * The current policy digest, or the reason there isn't one.
+ *
+ * An unapproved policy is not a usable policy: its thresholds have not been
+ * signed off, so results produced under it carry no authority. Returning the
+ * reason rather than throwing lets publication report a missing approval as
+ * one blocking reason among several instead of crashing on the first.
+ */
+export function currentPolicy(): PolicyState {
   const file = path.resolve(process.cwd(), DEFAULT_POLICY_PATH);
-  if (!fs.existsSync(file)) return null;
-  return policyHash(loadPolicy(file));
+  if (!fs.existsSync(file)) {
+    return { sha256: null, reason: `no similarity policy at ${DEFAULT_POLICY_PATH}` };
+  }
+  const policy = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const errors = validatePolicy(policy);
+  if (errors.length > 0) {
+    return { sha256: null, reason: `similarity policy is not usable: ${errors.join('; ')}` };
+  }
+  return { sha256: policyHash(policy), reason: 'approved' };
 }
 
 // ─── I/O ────────────────────────────────────────────────────────────────────
@@ -914,7 +924,7 @@ async function runPublish(): Promise<void> {
 
     const blocked = evaluateEntryPublication(snapshot, [
       qualityGate(content),
-      similarityGate(audited, stored, currentPolicySha256()),
+      similarityGate(audited, stored, currentPolicy()),
     ]);
     if (blocked.length > 0) {
       console.error(`Publication of '${entry.headword}' is blocked:`);

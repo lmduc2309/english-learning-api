@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsdtech.site/schemas/dsd-similarity-policy.json",
+  "title": "DSD similarity policy",
+  "description": "The frozen thresholds the compliance audit classifies against. Every stored result carries this policy's digest, so changing any value here invalidates the verdicts produced under the old one and blocks publication until the affected records are re-audited. Produced by scripts/dsd/similarity-calibrate.ts from a labelled control set; never hand-edited.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "policyVersion",
+    "normalizationVersion",
+    "algorithmVersion",
+    "effectiveDate",
+    "approvers",
+    "benchmarkSha256",
+    "rationale",
+    "bands"
+  ],
+  "properties": {
+    "policyVersion": {
+      "type": "string",
+      "description": "Immutable version label. A change to any threshold is a new version, never an edit to this one.",
+      "pattern": "^v\\d+(\\.\\d+)*$"
+    },
+    "normalizationVersion": {
+      "type": "integer",
+      "description": "Must match the build. A policy calibrated under different normalization describes different numbers.",
+      "minimum": 1
+    },
+    "algorithmVersion": { "type": "integer", "minimum": 1 },
+    "effectiveDate": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "approvers": {
+      "type": "array",
+      "description": "Product owner, linguistic reviewer and legal/compliance reviewer. At least three: a policy one person can set is a policy one person can weaken. An empty list means the policy is a candidate, validation fails, and publication stays blocked.",
+      "items": { "type": "string", "pattern": "^DSD-[A-Z]-\\d{3,}$" }
+    },
+    "benchmarkSha256": {
+      "type": "string",
+      "description": "Digest of the calibration set these thresholds were selected from. Editing a fixture without re-calibrating is therefore detectable.",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "rationale": {
+      "type": "string",
+      "description": "How the thresholds were chosen, in enough detail that someone can disagree with the method.",
+      "minLength": 1
+    },
+    "bands": {
+      "type": "object",
+      "description": "Definitions and examples differ in length, so one threshold cannot safely serve both.",
+      "additionalProperties": false,
+      "required": ["definition", "example"],
+      "properties": {
+        "definition": { "$ref": "#/$defs/bandPair" },
+        "example": { "$ref": "#/$defs/bandPair" }
+      }
+    }
+  },
+  "$defs": {
+    "bandPair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["high", "medium"],
+      "properties": {
+        "high": { "$ref": "#/$defs/band" },
+        "medium": { "$ref": "#/$defs/band" }
+      }
+    },
+    "band": {
+      "type": "object",
+      "description": "One metric crossing its threshold is enough to classify into the band: a copy only has to be detectable one way. No medium threshold may exceed its high counterpart.",
+      "additionalProperties": false,
+      "required": ["tokenJaccard", "wordNgramJaccard", "charNgramJaccard", "cosine", "longestRunRatio", "contentRun"],
+      "properties": {
+        "tokenJaccard": { "type": "number", "minimum": 0, "maximum": 1 },
+        "wordNgramJaccard": { "type": "number", "minimum": 0, "maximum": 1 },
+        "charNgramJaccard": { "type": "number", "minimum": 0, "maximum": 1 },
+        "cosine": { "type": "number", "minimum": 0, "maximum": 1 },
+        "longestRunRatio": {
+          "type": "number",
+          "description": "Longest shared token run as a fraction of the shorter text. Paired with contentRun: both must be crossed together.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "contentRun": {
+          "type": "integer",
+          "description": "Content words the shared run must carry. Function words are excluded because a run of articles and prepositions is how English works, not evidence of copying.",
+          "minimum": 1
+        }
+      }
+    }
+  },
+  "$comment": "Exact normalized matches always classify as exact regardless of these bands, and an exact match can never be cleared as independently authored in v1 — enforced by CHK_dsd_similarity_exact_never_cleared, not only by the tool. There is deliberately no field here for semantic embeddings: a verdict that cannot be reproduced across model versions is not a verdict."
+}
