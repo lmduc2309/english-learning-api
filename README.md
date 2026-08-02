@@ -137,7 +137,8 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-MIT
+The software is MIT-licensed. Dictionary and curriculum data have separate
+terms and commercial-release gates; see [DATA-LICENSES.md](DATA-LICENSES.md).
 
 ## Author
 

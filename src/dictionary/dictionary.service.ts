@@ -2,7 +2,7 @@ import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Like, Repository } from 'typeorm';
+import { ILike, Like, Repository } from 'typeorm';
 import { firstValueFrom } from 'rxjs';
 import {
   SearchWordDto,
@@ -37,6 +37,8 @@ import {
 export class DictionaryService {
   private readonly logger = new Logger(DictionaryService.name);
   private readonly llmFallbackEnabled: boolean;
+  private readonly commercialSafeMode: boolean;
+  private readonly allowGeneratedContent: boolean;
 
   // Common English words for autocomplete (can be expanded)
   private readonly commonWords = [
@@ -73,8 +75,15 @@ export class DictionaryService {
     private llmService: LlmService,
   ) {
     this.llmFallbackEnabled = this.configService.get<boolean>('llm.enableFallback');
+    this.commercialSafeMode =
+      this.configService.get<boolean>('content.commercialSafeMode') === true;
+    this.allowGeneratedContent =
+      this.configService.get<boolean>('content.allowGeneratedContent') === true;
     this.logger.log(
       `LLM fallback ${this.llmFallbackEnabled ? 'enabled' : 'disabled'}`,
+    );
+    this.logger.log(
+      `Commercial-safe content boundary ${this.commercialSafeMode ? 'enabled' : 'disabled'}`,
     );
   }
 
@@ -82,12 +91,41 @@ export class DictionaryService {
     try {
       const query = dto.q.toLowerCase();
       const limit = dto.limit || 15;
-      const cacheKey = `search:${query}:${limit}`;
+      const cacheKey = `search:${this.commercialSafeMode ? 'commercial' : 'reference'}:${query}:${limit}`;
 
       // Try Redis cache first
       return await this.cacheService.getOrSet(
         cacheKey,
         async () => {
+          if (this.commercialSafeMode) {
+            const entries = await this.learnerEntryRepository.find({
+              where: {
+                status: 'published',
+                word: { word: ILike(`${query}%`) },
+              },
+              relations: [
+                'word',
+                'senses',
+                'senses.translations',
+                'pronunciations',
+              ],
+              take: limit,
+              order: { learnerRank: 'ASC', word: { word: 'ASC' } },
+            });
+            const suggestions = entries
+              .map((entry) => ({
+                entry,
+                definitions: presentLearnerDefinitions(entry),
+              }))
+              .filter(({ definitions }) => definitions.length > 0)
+              .map(({ entry, definitions }) => ({
+                word: entry.word.word,
+                ipa: presentLearnerPronunciations(entry)[0]?.ipa,
+                pos: definitions[0]?.pos,
+              }));
+            return { suggestions, count: suggestions.length };
+          }
+
           // Use B+ tree search index for optimized prefix search
           const results = await this.searchIndexService.searchWords(query, limit);
 
@@ -154,7 +192,7 @@ export class DictionaryService {
   async lookupWord(word: string): Promise<LookupWordResponseDto> {
     try {
       const normalizedWord = word.toLowerCase().trim();
-      const cacheKey = `word:${normalizedWord}`;
+      const cacheKey = `word:${this.commercialSafeMode ? 'commercial' : 'reference'}:${normalizedWord}`;
 
       // Try Redis cache first
       return await this.cacheService.getOrSet(
@@ -168,7 +206,10 @@ export class DictionaryService {
           }
 
           // Check if LLM fallback is enabled
-          if (!this.llmFallbackEnabled) {
+          if (
+            !this.llmFallbackEnabled
+            || (this.commercialSafeMode && !this.allowGeneratedContent)
+          ) {
             this.logger.warn(`Word "${word}" not found in database and LLM fallback is disabled`);
             throw new HttpException(
               `Word "${word}" not found in dictionary`,
@@ -215,12 +256,25 @@ export class DictionaryService {
       if (hasVietnameseMarks) {
         detectedDirection = 'vi-en';
       } else {
-        const englishHeadword = await this.wordRepository.findOne({
-          where: [
-            { word: normalizedQuery.toLowerCase() },
-            { wordNormalized: normalizedQuery.toLowerCase() },
-          ],
-        });
+        const englishHeadword = this.commercialSafeMode
+          ? await this.learnerEntryRepository.findOne({
+              where: [
+                {
+                  status: 'published',
+                  word: { word: normalizedQuery.toLowerCase() },
+                },
+                {
+                  status: 'published',
+                  word: { wordNormalized: normalizedQuery.toLowerCase() },
+                },
+              ],
+            })
+          : await this.wordRepository.findOne({
+              where: [
+                { word: normalizedQuery.toLowerCase() },
+                { wordNormalized: normalizedQuery.toLowerCase() },
+              ],
+            });
         if (englishHeadword) {
           detectedDirection = 'en-vi';
         } else {
@@ -310,7 +364,9 @@ export class DictionaryService {
         { word: word },
         { wordNormalized: word },
       ],
-      relations: ['pronunciations', 'definitions', 'definitions.examples', 'wordForms'],
+      relations: this.commercialSafeMode
+        ? []
+        : ['pronunciations', 'definitions', 'definitions.examples', 'wordForms'],
     });
 
     if (!wordEntity) {
@@ -383,13 +439,19 @@ export class DictionaryService {
         // provenance/review model.
         word_forms: undefined,
         synonyms: undefined,
-        frequency_rank: learnerEntry.learnerRank ?? wordEntity.frequencyRank,
+        frequency_rank: this.commercialSafeMode
+          ? learnerEntry.learnerRank ?? undefined
+          : learnerEntry.learnerRank ?? wordEntity.frequencyRank,
         learner_band: learnerEntry.learnerBand || undefined,
         rank_source: learnerEntry.rankSource || undefined,
         rank_source_version: learnerEntry.rankSourceVersion || undefined,
         rank_source_license: learnerEntry.rankSourceLicense || undefined,
         data_source: 'curated',
       };
+    }
+
+    if (this.commercialSafeMode) {
+      return null;
     }
 
     return {
@@ -427,6 +489,12 @@ export class DictionaryService {
   }
 
   async translate(dto: TranslateDto): Promise<TranslateResponseDto> {
+    if (this.commercialSafeMode && !this.allowGeneratedContent) {
+      throw new HttpException(
+        'Generated translation is disabled in commercial-safe mode',
+        HttpStatus.FORBIDDEN,
+      );
+    }
     try {
       return await this.llmService.translate(dto);
     } catch (llmError) {
@@ -457,6 +525,34 @@ export class DictionaryService {
     return {
       status: 'healthy',
       service: 'dictionary',
+    };
+  }
+
+  getAttribution() {
+    return {
+      commercial_safe_mode: this.commercialSafeMode,
+      software_license: 'MIT',
+      data_policy: 'Only published learner-overlay content may be served commercially.',
+      sources: [
+        {
+          name: 'Open English WordNet',
+          version: '2025',
+          license: 'CC BY 4.0',
+          url: 'https://github.com/globalwordnet/english-wordnet/releases/tag/2025-edition',
+          attribution:
+            'Open English WordNet 2025, © 2019-present The Open English WordNet Team.',
+        },
+        {
+          name: 'New General Service List',
+          version: '1.2',
+          license: 'CC BY-SA 4.0',
+          url: 'https://www.newgeneralservicelist.com/new-general-service-list',
+          attribution:
+            'New General Service List by Browne, C., Culligan, B., and Phillips, J.',
+        },
+      ],
+      excluded_data:
+        'Legacy/reference dictionary rows are not commercially distributed.',
     };
   }
 
@@ -599,6 +695,11 @@ export class DictionaryService {
     accent: 'US' | 'UK',
   ): Promise<{ audio_url: string | null }> {
     try {
+      if (this.commercialSafeMode) {
+        // Learner pronunciations currently carry reviewed IPA but no licensed
+        // audio artifact. Do not expose legacy or third-party fallback audio.
+        return { audio_url: null };
+      }
       // First check database
       const wordEntity = await this.wordRepository.findOne({
         where: [{ word }, { wordNormalized: word.toLowerCase() }],

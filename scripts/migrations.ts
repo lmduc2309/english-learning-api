@@ -20,6 +20,7 @@ import { RemoveEmptyDefinitions1721403000000 } from '../src/migrations/172140300
 import { NormalizeExampleMarkup1721403100000 } from '../src/migrations/1721403100000-NormalizeExampleMarkup';
 import { ClassifyVietnameseEchoes1721403200000 } from '../src/migrations/1721403200000-ClassifyVietnameseEchoes';
 import { EnforceLearnerProvenance1721403300000 } from '../src/migrations/1721403300000-EnforceLearnerProvenance';
+import { StrengthenCommercialPublication1721403400000 } from '../src/migrations/1721403400000-StrengthenCommercialPublication';
 
 dotenv.config();
 
@@ -51,6 +52,7 @@ const ds = new DataSource({
     NormalizeExampleMarkup1721403100000,
     ClassifyVietnameseEchoes1721403200000,
     EnforceLearnerProvenance1721403300000,
+    StrengthenCommercialPublication1721403400000,
   ],
   migrationsTableName: 'app_migrations',
   migrationsTransactionMode: 'each',

@@ -3,7 +3,8 @@
 node_modules
 dist
 coverage
-data
+data/*
+!data/commercial-source-registry.json
 reports
 uploads
 .env*

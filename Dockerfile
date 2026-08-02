@@ -18,10 +18,12 @@ WORKDIR /app
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --chown=node:node package.json ./package.json
+COPY --chown=node:node data/commercial-source-registry.json ./data/commercial-source-registry.json
+COPY --chown=node:node DATA-LICENSES.md ./DATA-LICENSES.md
 
 RUN mkdir -p /app/uploads && chown node:node /app/uploads
 USER node
 
 EXPOSE 7474
 
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/src/main.js"]

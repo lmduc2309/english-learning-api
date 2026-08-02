@@ -7,6 +7,7 @@ import { Word } from '../dictionary/entities/word.entity';
 import { LearnerEntry } from '../dictionary/entities/learner-entry.entity';
 import { RedisCacheService } from '../common/cache/redis-cache.service';
 import { SearchIndexService } from '../common/search/search-index.service';
+import { ConfigService } from '@nestjs/config';
 
 function queryBuilder() {
   const builder = {
@@ -56,7 +57,7 @@ function repository() {
   };
 }
 
-async function buildService() {
+async function buildService(commercialSafeMode = false) {
   const categoryRepository = repository();
   const categoryWordRepository = repository();
   const wordRepository = repository();
@@ -85,6 +86,10 @@ async function buildService() {
           searchTopics: jest.fn().mockResolvedValue([]),
         },
       },
+      {
+        provide: ConfigService,
+        useValue: { get: jest.fn().mockReturnValue(commercialSafeMode) },
+      },
     ],
   }).compile();
 
@@ -99,6 +104,19 @@ async function buildService() {
 }
 
 describe('CategoryService learner-only catalog', () => {
+  it('forces the learner-only predicate when commercial-safe mode is enabled', async () => {
+    const { service, categoryRepository, cache } = await buildService(true);
+    const qb = queryBuilder();
+    categoryRepository.createQueryBuilder.mockReturnValue(qb);
+
+    await service.getTopics(false);
+
+    expect(cache.getOrSet.mock.calls[0][0]).toBe('all:learner');
+    expect(qb.where).toHaveBeenCalledWith(
+      expect.stringContaining("learner_entry.status = 'published'"),
+    );
+  });
+
   it('partitions topic caches and applies the published learner predicate only when requested', async () => {
     const { service, categoryRepository, cache } = await buildService();
     const referenceQb = queryBuilder();
@@ -233,5 +251,41 @@ describe('CategoryService learner-only catalog', () => {
 
     expect(cache.invalidateCategoryCaches).toHaveBeenCalledWith();
     expect(cache.invalidateTopicCaches).toHaveBeenCalledWith();
+  });
+
+  it('fails closed instead of formatting raw category data in commercial mode', async () => {
+    const {
+      service,
+      categoryRepository,
+      categoryWordRepository,
+    } = await buildService(true);
+    categoryRepository.findOne.mockResolvedValue({
+      id: 5,
+      name: 'animals',
+      displayName: 'Animals',
+      topic: 'Nature',
+    });
+
+    const countQb = queryBuilder();
+    countQb.getCount.mockResolvedValue(1);
+    const wordsQb = queryBuilder();
+    wordsQb.getMany.mockResolvedValue([{
+      word: {
+        id: 7,
+        word: 'cat',
+        frequencyRank: 42,
+        pronunciations: [],
+        definitions: [{ definitionEn: 'legacy definition' }],
+        wordForms: [],
+      },
+    }]);
+    categoryWordRepository.createQueryBuilder
+      .mockReturnValueOnce(countQb)
+      .mockReturnValueOnce(wordsQb);
+    categoryRepository.createQueryBuilder.mockReturnValue(queryBuilder());
+
+    const result = await service.getCategoryWords('animals');
+
+    expect(result.words).toEqual([]);
   });
 });

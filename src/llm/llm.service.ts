@@ -32,6 +32,7 @@ export class LlmService {
   private readonly openai: OpenAI | null;
   private readonly model: string;
   private readonly baseUrl: string;
+  private readonly commercialGeneratedContentBlocked: boolean;
 
   constructor(
     private configService: ConfigService,
@@ -42,6 +43,9 @@ export class LlmService {
       configService.get<boolean>('llm.enableFallback') !== false;
     this.baseUrl = configService.get<string>('llm.baseUrl') ?? '';
     this.model = configService.get<string>('llm.model') ?? '';
+    this.commercialGeneratedContentBlocked =
+      configService.get<boolean>('content.commercialSafeMode') === true
+      && configService.get<boolean>('content.allowGeneratedContent') !== true;
 
     if (!apiKey && !openaiOverride && fallbackEnabled) {
       throw new Error('LLM_API_KEY is required but not set');
@@ -373,12 +377,19 @@ Grade the learner. Return ONLY valid JSON in this exact format:
     return {
       status: this.openai ? 'healthy' : 'disabled',
       enabled: Boolean(this.openai),
+      commercial_content_allowed: !this.commercialGeneratedContentBlocked,
       model: this.model,
       url: this.baseUrl,
     };
   }
 
   private async chat(messages: ChatMessage[], opts: ChatOpts = {}): Promise<string> {
+    if (this.commercialGeneratedContentBlocked) {
+      throw new HttpException(
+        'Generated content is disabled in commercial-safe mode',
+        HttpStatus.FORBIDDEN,
+      );
+    }
     if (!this.openai) {
       throw new HttpException(
         'LLM service is disabled',

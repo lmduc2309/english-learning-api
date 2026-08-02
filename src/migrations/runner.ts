@@ -18,6 +18,7 @@ import { RemoveEmptyDefinitions1721403000000 } from './1721403000000-RemoveEmpty
 import { NormalizeExampleMarkup1721403100000 } from './1721403100000-NormalizeExampleMarkup';
 import { ClassifyVietnameseEchoes1721403200000 } from './1721403200000-ClassifyVietnameseEchoes';
 import { EnforceLearnerProvenance1721403300000 } from './1721403300000-EnforceLearnerProvenance';
+import { StrengthenCommercialPublication1721403400000 } from './1721403400000-StrengthenCommercialPublication';
 
 const migrations = [
   CreateLegacyBaseline1721399000000,
@@ -38,6 +39,7 @@ const migrations = [
   NormalizeExampleMarkup1721403100000,
   ClassifyVietnameseEchoes1721403200000,
   EnforceLearnerProvenance1721403300000,
+  StrengthenCommercialPublication1721403400000,
 ];
 
 const dataSource = new DataSource({

@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "canonical_name": "Open English WordNet",
+      "aliases": ["oewn", "open english wordnet", "open english wordnet 2025"],
+      "scope": ["definition"],
+      "version": "2025",
+      "license": "CC BY 4.0",
+      "evidence_url": "https://github.com/globalwordnet/english-wordnet/releases/tag/2025-edition",
+      "artifact_sha256": "9ca6d1dcb75f822fdd66617f7d9da48142ace38dd544d6ad5e2feca1674ad3fe",
+      "commercial_status": "approved"
+    },
+    {
+      "canonical_name": "New General Service List",
+      "aliases": ["ngsl", "new general service list"],
+      "scope": ["rank"],
+      "version": "1.2",
+      "license": "CC BY-SA 4.0",
+      "evidence_url": "https://www.newgeneralservicelist.com/new-general-service-list",
+      "commercial_status": "approved"
+    },
+    {
+      "canonical_name": "DSD English original bilingual content",
+      "aliases": ["dsd english original", "duskstilldev bilingual review"],
+      "scope": ["translation", "example", "pronunciation"],
+      "version": "1",
+      "license": "Proprietary - DSD English",
+      "evidence_url": "docs/commercial-content-authorship.md",
+      "commercial_status": "blocked_pending_signed_ip_assignment"
+    }
+  ]
+}

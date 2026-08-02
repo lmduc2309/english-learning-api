@@ -52,6 +52,12 @@ mode dictionary fallback generation is disabled, `/serious/llm/health` reports
 `disabled`, and the rest of the API remains available. Supply a valid key
 before enabling the fallback.
 
+`COMMERCIAL_SAFE_MODE=true` is mandatory for a commercial deployment. It makes
+dictionary and category endpoints fail closed to published learner-overlay
+content and disables legacy, external-audio and generated fallbacks. Do not set
+`COMMERCIAL_ALLOW_GENERATED_CONTENT=true` until provider terms and the product
+policy have been recorded and approved.
+
 ## Validate and start
 
 Take and verify a PostgreSQL backup before running migrations. Then:
@@ -62,6 +68,7 @@ docker compose --env-file deploy/.env.production -f deploy/compose.yml build
 docker compose --env-file deploy/.env.production -f deploy/compose.yml up -d postgres redis
 docker compose --env-file deploy/.env.production -f deploy/compose.yml run --rm api npm run migration:show:prod
 docker compose --env-file deploy/.env.production -f deploy/compose.yml run --rm api npm run migration:run:prod
+docker compose --env-file deploy/.env.production -f deploy/compose.yml run --rm api npm run commercial:audit:prod
 docker compose --env-file deploy/.env.production -f deploy/compose.yml up -d
 ```
 
@@ -86,6 +93,17 @@ Before a public release, run `npm audit --omit=dev` in both
 `english-learning-api` and `english-learning-games`. High or critical
 production advisories remain a release blocker unless the owner records a
 specific risk acceptance.
+
+The commercial audit is a hard release gate. A `NO-GO` result—including zero
+published learner entries—must stop deployment. Commercial exports must use
+`npm run commercial:export`; `export-word-data` deliberately includes the
+reference corpus and is never a commercial distribution artifact.
+
+For a local preflight, use:
+
+```sh
+COMMERCIAL_SAFE_MODE=true COMMERCIAL_ALLOW_GENERATED_CONTENT=false npm run commercial:audit
+```
 
 ## Add Cloudflare later
 

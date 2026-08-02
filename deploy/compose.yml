@@ -60,6 +60,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in deploy/.env.production}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       CORS_ORIGINS: ${PUBLIC_ORIGIN:-https://eng.dsdtech.site}
+      COMMERCIAL_SAFE_MODE: ${COMMERCIAL_SAFE_MODE:-true}
+      COMMERCIAL_ALLOW_GENERATED_CONTENT: ${COMMERCIAL_ALLOW_GENERATED_CONTENT:-false}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-https://openrouter.ai/api/v1}
       LLM_MODEL: ${LLM_MODEL:-openai/gpt-4o-mini}

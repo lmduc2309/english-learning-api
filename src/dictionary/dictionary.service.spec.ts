@@ -50,7 +50,12 @@ async function buildModule(overrides: {
         provide: ConfigService,
         useValue: {
           get: (key: string) =>
-            ({ 'llm.enableFallback': true, ...overrides.config } as Record<string, unknown>)[key],
+            ({
+              'llm.enableFallback': true,
+              'content.commercialSafeMode': false,
+              'content.allowGeneratedContent': false,
+              ...overrides.config,
+            } as Record<string, unknown>)[key],
         },
       },
       {
@@ -241,6 +246,101 @@ describe('DictionaryService.lookupWord — curated learner path', () => {
       data_status: 'raw',
       is_learner_visible: false,
     });
+  });
+});
+
+describe('DictionaryService — commercial-safe boundary', () => {
+  it('publishes durable attribution for every approved upstream data source', async () => {
+    const svc = await buildModule({
+      config: { 'content.commercialSafeMode': true },
+    });
+
+    expect(svc.getAttribution()).toMatchObject({
+      commercial_safe_mode: true,
+      software_license: 'MIT',
+      sources: [
+        { name: 'Open English WordNet', license: 'CC BY 4.0' },
+        { name: 'New General Service List', license: 'CC BY-SA 4.0' },
+      ],
+    });
+  });
+
+  it('does not expose a legacy word or generate replacement content', async () => {
+    const wordRepository = emptyRepo();
+    wordRepository.findOne.mockResolvedValue({
+      id: 7,
+      word: 'study',
+      definitions: [{ definitionEn: 'legacy text', definitionVi: 'dữ liệu cũ' }],
+    });
+    const llmService = { lookupDictionaryWord: jest.fn() };
+    const svc = await buildModule({
+      wordRepository,
+      llmService,
+      config: {
+        'content.commercialSafeMode': true,
+        'content.allowGeneratedContent': false,
+      },
+    });
+
+    await expect(svc.lookupWord('study')).rejects.toMatchObject({ status: 404 });
+    expect(llmService.lookupDictionaryWord).not.toHaveBeenCalled();
+  });
+
+  it('does not inherit an unapproved legacy frequency rank', async () => {
+    const wordRepository = emptyRepo();
+    wordRepository.findOne.mockResolvedValue({
+      id: 7,
+      word: 'study',
+      frequencyRank: 42,
+    });
+    const learnerEntryRepository = emptyRepo();
+    learnerEntryRepository.findOne.mockResolvedValue({
+      wordId: 7,
+      learnerRank: null,
+      status: 'published',
+      pronunciations: [],
+      senses: [{
+        id: 'sense-1',
+        senseOrder: 1,
+        partOfSpeech: 'verb',
+        definitionEn: 'To spend time learning about a subject.',
+        status: 'published',
+        translations: [{
+          locale: 'vi',
+          text: 'học',
+          reviewStatus: 'approved',
+        }],
+        examples: [],
+      }],
+    });
+    const svc = await buildModule({
+      wordRepository,
+      learnerEntryRepository,
+      config: { 'content.commercialSafeMode': true },
+    });
+
+    const result = await svc.lookupWord('study');
+
+    expect(result.data_source).toBe('curated');
+    expect(result.frequency_rank).toBeUndefined();
+  });
+
+  it('blocks unapproved generated translation endpoints', async () => {
+    const llmService = { translate: jest.fn() };
+    const svc = await buildModule({
+      llmService,
+      config: {
+        'content.commercialSafeMode': true,
+        'content.allowGeneratedContent': false,
+      },
+    });
+
+    await expect(svc.translate({
+      text: 'Hello',
+      source_lang: 'en',
+      target_lang: 'vi',
+    })).rejects.toMatchObject({ status: 403 });
+    expect(llmService.translate).not.toHaveBeenCalled();
   });
 });
 

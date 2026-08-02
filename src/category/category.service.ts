@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 import { In, Repository } from 'typeorm';
 import { Category } from './entities/category.entity';
 import { CategoryWord } from './entities/category-word.entity';
@@ -36,6 +37,7 @@ const PUBLISHED_LEARNER_WORD_EXISTS = `EXISTS (
 @Injectable()
 export class CategoryService {
   private readonly logger = new Logger(CategoryService.name);
+  private readonly commercialSafeMode: boolean;
 
   constructor(
     @InjectRepository(Category)
@@ -48,12 +50,17 @@ export class CategoryService {
     private learnerEntryRepository: Repository<LearnerEntry>,
     private searchIndexService: SearchIndexService,
     private cacheService: RedisCacheService,
-  ) {}
+    private configService: ConfigService,
+  ) {
+    this.commercialSafeMode =
+      this.configService.get<boolean>('content.commercialSafeMode') === true;
+  }
 
   /**
    * Get all distinct topics
    */
   async getTopics(learnerOnly = false): Promise<{ topic: string; categoryCount: number }[]> {
+    learnerOnly = learnerOnly || this.commercialSafeMode;
     const cacheKey = `all:${learnerOnly ? 'learner' : 'reference'}`;
     return await this.cacheService.getOrSet(
       cacheKey,
@@ -88,6 +95,7 @@ export class CategoryService {
    * parentOnly=true returns only root categories (no parent).
    */
   async getCategories(topic?: string, parentOnly?: boolean, learnerOnly = false): Promise<any[]> {
+    learnerOnly = learnerOnly || this.commercialSafeMode;
     const cacheKey = `${topic || 'all'}:${parentOnly ? 'parent' : 'all'}:${learnerOnly ? 'learner' : 'reference'}`;
     return await this.cacheService.getOrSet(
       cacheKey,
@@ -140,6 +148,7 @@ export class CategoryService {
    * Get subcategories of a parent category
    */
   async getSubCategories(parentIdOrName: string, learnerOnly = false): Promise<any[]> {
+    learnerOnly = learnerOnly || this.commercialSafeMode;
     const parent = await this.getCategory(parentIdOrName);
 
     const qb = this.categoryRepository
@@ -198,6 +207,7 @@ export class CategoryService {
     search?: string,
     learnerOnly = false,
   ): Promise<any> {
+    learnerOnly = learnerOnly || this.commercialSafeMode;
     const category = await this.getCategory(idOrName);
     const searchTerm = search?.trim();
     const cacheKey = `${category.id}:p${page}:l${limit}${searchTerm ? `:s${searchTerm}` : ''}:${learnerOnly ? 'learner' : 'reference'}`;
@@ -271,10 +281,12 @@ export class CategoryService {
             parentId: category.parentId,
           },
           subCategories,
-          words: words.map((cw) => this.formatWord(
-            cw.word,
-            learnerEntriesByWordId.get(String(cw.word.id)),
-          )),
+          words: words
+            .map((cw) => this.formatWord(
+              cw.word,
+              learnerEntriesByWordId.get(String(cw.word.id)),
+            ))
+            .filter((word) => word !== null),
           totalWords,
           page,
           limit,
@@ -491,10 +503,17 @@ export class CategoryService {
     const curatedDefinitions = presentLearnerDefinitions(learnerEntry);
     const hasCuratedDefinitions = curatedDefinitions.length > 0;
 
+    // The query above already limits commercial pages to published overlay
+    // rows. Keep presentation fail-closed too, so a concurrent unpublish or a
+    // missing relation can never turn into a legacy response.
+    if (this.commercialSafeMode && !hasCuratedDefinitions) return null;
+
     return {
       word: word.word,
       frequency_rank: hasCuratedDefinitions
-        ? learnerEntry?.learnerRank ?? word.frequencyRank
+        ? this.commercialSafeMode
+          ? learnerEntry?.learnerRank
+          : learnerEntry?.learnerRank ?? word.frequencyRank
         : word.frequencyRank,
       learner_band: hasCuratedDefinitions ? learnerEntry?.learnerBand : undefined,
       rank_source: hasCuratedDefinitions ? learnerEntry?.rankSource : undefined,

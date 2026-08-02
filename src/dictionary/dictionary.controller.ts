@@ -28,6 +28,12 @@ export class DictionaryController {
     return this.dictionaryService.healthCheck();
   }
 
+  @Get('attribution')
+  @ApiOperation({ summary: 'Data source, licence, and attribution notices' })
+  getAttribution() {
+    return this.dictionaryService.getAttribution();
+  }
+
   @Get('search')
   @ApiOperation({ summary: 'Search words with autocomplete' })
   @ApiResponse({
