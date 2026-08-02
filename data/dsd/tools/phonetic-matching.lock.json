@@ -1,0 +1,19 @@
+{
+  "toolId": "microsoft-phonetic-matching",
+  "name": "PhoneticMatching",
+  "purpose": "Second, independent IPA candidate for the same headword. Two tools disagreeing is the signal a human reviewer needs; one tool agreeing with itself is not evidence.",
+  "license": "MIT",
+  "licenseSource": "https://api.github.com/repos/microsoft/PhoneticMatching",
+  "repository": "https://github.com/microsoft/PhoneticMatching",
+  "revision": "2de8b79776ee3d967d9624afa56bc53045ab4d59",
+  "revisionBranch": "master",
+  "revisionDate": "2022-10-06T19:33:56Z",
+  "revisionPinnedOn": "2026-08-03",
+  "revisionPinnedFrom": "https://api.github.com/repos/microsoft/PhoneticMatching/commits/master",
+  "artifactSha256": null,
+  "configuration": {
+    "language": "en-US"
+  },
+  "feasibilityRisk": "Last commit 2022-10-06 and the package builds native dependencies. Confirm it installs and runs on the current toolchain before adopting it; if it does not, one tool is not enough and a second source must be approved instead.",
+  "$comment": "artifactSha256 is null for the same reason as misaki: nothing is installed. See that file."
+}

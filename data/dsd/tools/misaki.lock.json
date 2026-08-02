@@ -1,0 +1,19 @@
+{
+  "toolId": "misaki",
+  "name": "Misaki G2P",
+  "purpose": "Generates IPA candidates for DSD headwords. Candidates are never published; a human authors the pronunciation record.",
+  "license": "Apache-2.0",
+  "licenseSource": "https://api.github.com/repos/hexgrad/misaki",
+  "repository": "https://github.com/hexgrad/misaki",
+  "revision": "fba1236595f2d2bf21d414ba6e57d25256afada3",
+  "revisionBranch": "main",
+  "revisionDate": "2025-08-11T01:20:38Z",
+  "revisionPinnedOn": "2026-08-03",
+  "revisionPinnedFrom": "https://api.github.com/repos/hexgrad/misaki/commits/main",
+  "artifactSha256": null,
+  "configuration": {
+    "language": "en-US",
+    "fallback": null
+  },
+  "$comment": "artifactSha256 is null because nothing has been installed yet. It is the digest of the exact artifact that produced a candidate, so it can only be recorded by whoever installs it; scripts/dsd/ipa-candidates refuses to run while it is null. Pinning the revision without the artifact digest fixes what the code says, not what was executed — both are required before a candidate is admissible."
+}

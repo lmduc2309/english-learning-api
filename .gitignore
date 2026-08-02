@@ -113,6 +113,11 @@ data/dsd/reviews/*
 data/dsd/similarity/*
 !data/dsd/similarity/*.json
 !data/dsd/similarity/*.jsonl
+# Tool locks pin what produced a candidate. They are the reproducibility
+# record, so they belong in Git even though nothing is installed yet.
+!data/dsd/tools/
+data/dsd/tools/*
+!data/dsd/tools/*.json
 
 # Never re-include these: personal data, executed contracts, and generated
 # artifacts. Only pseudonymous IDs and evidence IDs are committed — see
