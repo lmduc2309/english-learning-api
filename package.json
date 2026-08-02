@@ -32,6 +32,7 @@
     "import-vi:dry": "ts-node scripts/import-vietnamese-meanings.ts --dry-run",
     "audit-vi": "ts-node scripts/audit-vietnamese.ts",
     "audit-bilingual": "ts-node scripts/audit-bilingual-quality.ts",
+    "export-word-data": "ts-node scripts/export-word-data.ts",
     "migration:show": "ts-node scripts/migrations.ts show",
     "migration:run": "ts-node scripts/migrations.ts run",
     "migration:show:prod": "node dist/migrations/runner.js show",
@@ -82,7 +83,8 @@
     "translate-py:defs": "python3 scripts/translate-py.py --type definitions",
     "translate-py:examples": "python3 scripts/translate-py.py --type examples",
     "translate-py:all": "python3 scripts/translate-py.py --type all",
-    "translate-py:stats": "python3 scripts/translate-py.py --stats"
+    "translate-py:stats": "python3 scripts/translate-py.py --stats",
+    "export-review-queues": "ts-node scripts/export-review-queues.ts"
   },
   "dependencies": {
     "@nestjs/axios": "^3.0.0",
