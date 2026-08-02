@@ -16,6 +16,7 @@ import { NormalizeCjkPunctuation1721402200000 } from '../src/migrations/17214022
 import { DedupeWordPartOfSpeech1721402300000 } from '../src/migrations/1721402300000-DedupeWordPartOfSpeech';
 import { BackupCjkTranslations1721402350000 } from '../src/migrations/1721402350000-BackupCjkTranslations';
 import { RecomputeLegacyQualityFlags1721402400000 } from '../src/migrations/1721402400000-RecomputeLegacyQualityFlags';
+import { RemoveEmptyDefinitions1721403000000 } from '../src/migrations/1721403000000-RemoveEmptyDefinitions';
 
 dotenv.config();
 
@@ -43,6 +44,7 @@ const ds = new DataSource({
     DedupeWordPartOfSpeech1721402300000,
     BackupCjkTranslations1721402350000,
     RecomputeLegacyQualityFlags1721402400000,
+    RemoveEmptyDefinitions1721403000000,
   ],
   migrationsTableName: 'app_migrations',
   migrationsTransactionMode: 'each',

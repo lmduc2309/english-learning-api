@@ -14,6 +14,7 @@ import { NormalizeCjkPunctuation1721402200000 } from './1721402200000-NormalizeC
 import { DedupeWordPartOfSpeech1721402300000 } from './1721402300000-DedupeWordPartOfSpeech';
 import { BackupCjkTranslations1721402350000 } from './1721402350000-BackupCjkTranslations';
 import { RecomputeLegacyQualityFlags1721402400000 } from './1721402400000-RecomputeLegacyQualityFlags';
+import { RemoveEmptyDefinitions1721403000000 } from './1721403000000-RemoveEmptyDefinitions';
 
 const migrations = [
   CreateLegacyBaseline1721399000000,
@@ -30,6 +31,7 @@ const migrations = [
   DedupeWordPartOfSpeech1721402300000,
   BackupCjkTranslations1721402350000,
   RecomputeLegacyQualityFlags1721402400000,
+  RemoveEmptyDefinitions1721403000000,
 ];
 
 const dataSource = new DataSource({
