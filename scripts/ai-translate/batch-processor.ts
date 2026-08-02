@@ -3,6 +3,7 @@ import { ProgressTracker } from './progress-tracker';
 import { DbConnector } from './db-connector';
 import { buildDefinitionPrompt, buildExamplePrompt } from './prompts';
 import { config } from './config';
+import { validateTranslation, type RejectionReason } from './validate-output';
 import type {
   TranslationItem,
   TranslationResult,
@@ -29,6 +30,7 @@ export class BatchProcessor {
       failed: 0,
       startedAt: new Date(),
       requestsMade: 0,
+      rejectedByReason: {},
     };
   }
 
@@ -70,6 +72,7 @@ export class BatchProcessor {
       failed: 0,
       startedAt: new Date(),
       requestsMade: 0,
+      rejectedByReason: {},
     };
 
     const label = type === 'definitions' ? 'definitions' : 'examples';
@@ -126,7 +129,20 @@ export class BatchProcessor {
         const results = await this.translateBatch(batch, type);
         this.stats.requestsMade++;
 
-        const successful = results.filter((r) => r.vi && r.vi.trim().length > 0);
+        // Validate before persisting. The pipeline previously accepted any
+        // non-empty string, which is how Chinese reached definition_vi.
+        const rejections = new Map<number, RejectionReason>();
+        const successful = results.filter((r) => {
+          const source = batch.find((b) => b.id === r.id);
+          const verdict = validateTranslation(source?.en ?? '', r.vi ?? '');
+          if (!verdict.ok) {
+            rejections.set(r.id, verdict.reason!);
+            this.stats.rejectedByReason[verdict.reason!] =
+              (this.stats.rejectedByReason[verdict.reason!] ?? 0) + 1;
+            return false;
+          }
+          return true;
+        });
         const failedCount = results.length - successful.length;
 
         if (!options.dryRun && successful.length > 0) {
@@ -144,7 +160,10 @@ export class BatchProcessor {
         // Mark failed items
         for (const item of batch) {
           const result = results.find((r) => r.id === item.id);
-          if (!result || !result.vi || result.vi.trim().length === 0) {
+          const rejection = rejections.get(item.id);
+          if (rejection) {
+            this.tracker.markFailed(item.id, type, `Rejected: ${rejection}`);
+          } else if (!result || !result.vi || result.vi.trim().length === 0) {
             this.tracker.markFailed(item.id, type, 'Empty translation');
           }
         }

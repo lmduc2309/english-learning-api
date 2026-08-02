@@ -125,6 +125,17 @@ async function main(): Promise<void> {
     console.log(`   Translated:        ${stats.translated.toLocaleString()} ✅`);
     console.log(`   Failed:            ${stats.failed.toLocaleString()} ❌`);
     console.log(`   Previously done:   ${stats.alreadyDone.toLocaleString()} ⏭️`);
+    // Surface rejections explicitly: a run whose output is entirely rejected
+    // otherwise looks identical to a run that had nothing to do.
+    const rejected: Array<[string, number]> = Object.entries(stats.rejectedByReason ?? {});
+    const rejectedTotal = rejected.reduce((sum, [, n]) => sum + n, 0);
+    if (rejectedTotal > 0) {
+      const breakdown = rejected
+        .sort((a, b) => b[1] - a[1])
+        .map(([reason, n]) => `${reason} ${n}`)
+        .join(', ');
+      console.log(`   Rejected output:   ${rejectedTotal.toLocaleString()} 🚫  (${breakdown})`);
+    }
     console.log(`   API requests:      ${stats.requestsMade}`);
     console.log(`   Time elapsed:      ${elapsed}s`);
     if (options.dryRun) {

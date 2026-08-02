@@ -73,6 +73,8 @@ export interface RunStats {
   failed: number;
   startedAt: Date;
   requestsMade: number;
+  /** Rejected model outputs, keyed by validate-output.ts RejectionReason. */
+  rejectedByReason: Record<string, number>;
 }
 
 export type TranslationType = 'definitions' | 'examples';
