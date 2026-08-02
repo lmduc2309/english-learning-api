@@ -14,6 +14,7 @@ import { DedupeLegacyDictionaryRows1721402000000 } from '../src/migrations/17214
 import { NormalizeRawMarkupDefinitions1721402100000 } from '../src/migrations/1721402100000-NormalizeRawMarkupDefinitions';
 import { NormalizeCjkPunctuation1721402200000 } from '../src/migrations/1721402200000-NormalizeCjkPunctuation';
 import { DedupeWordPartOfSpeech1721402300000 } from '../src/migrations/1721402300000-DedupeWordPartOfSpeech';
+import { BackupCjkTranslations1721402350000 } from '../src/migrations/1721402350000-BackupCjkTranslations';
 
 dotenv.config();
 
@@ -39,6 +40,7 @@ const ds = new DataSource({
     NormalizeRawMarkupDefinitions1721402100000,
     NormalizeCjkPunctuation1721402200000,
     DedupeWordPartOfSpeech1721402300000,
+    BackupCjkTranslations1721402350000,
   ],
   migrationsTableName: 'app_migrations',
   migrationsTransactionMode: 'each',
