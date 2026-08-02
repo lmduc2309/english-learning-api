@@ -105,7 +105,10 @@
     "dsd:verify-restores": "zsh scripts/dsd/verify-database-restores.sh",
     "dsd:inventory:validate": "ts-node scripts/dsd/inventory.ts validate",
     "dsd:inventory:import": "ts-node scripts/dsd/inventory.ts import",
-    "dsd:inventory:stats": "ts-node scripts/dsd/inventory.ts stats"
+    "dsd:inventory:stats": "ts-node scripts/dsd/inventory.ts stats",
+    "dsd:curation:validate": "ts-node scripts/dsd/curation.ts validate",
+    "dsd:curation:import": "ts-node scripts/dsd/curation.ts import",
+    "dsd:curation:stats": "ts-node scripts/dsd/curation.ts stats"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",

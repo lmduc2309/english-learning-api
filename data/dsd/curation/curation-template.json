@@ -1,0 +1,42 @@
+{
+  "$schema": "https://dsdtech.site/schemas/dsd-curation-package.json",
+  "package_version": 1,
+  "batch_id": "",
+  "declaration_id": "",
+  "entries": [
+    {
+      "dsd_entry_id": "00000000-0000-0000-0000-000000000000",
+      "headword": "",
+      "product_rationale": "",
+      "senses": [
+        {
+          "sense_key": "s1",
+          "sense_order": 1,
+          "part_of_speech": "noun",
+          "definition_en": "",
+          "usage_labels": [],
+          "authored_by": "",
+          "source_id": "",
+          "rights_evidence_id": "",
+          "translation": {
+            "locale": "vi",
+            "text": "",
+            "authored_by": "",
+            "source_id": "",
+            "rights_evidence_id": ""
+          },
+          "examples": [
+            {
+              "example_order": 1,
+              "en": "",
+              "vi": "",
+              "authored_by": "",
+              "source_id": "",
+              "rights_evidence_id": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

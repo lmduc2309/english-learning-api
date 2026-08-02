@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsdtech.site/schemas/dsd-curation-package.json",
+  "title": "DSD curation package",
+  "description": "A batch of authored content attached to inventory entries that already exist. Definitions, Vietnamese translations and examples only. Pronunciation and audio are separate workflows with a separate rights basis and are rejected here. This schema documents the contract; scripts/dsd/curation.ts is the enforcing implementation and additionally checks each record's source against the approved scopes in data/dsd/source-registry.json and each author against data/dsd/contributor-registry.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["package_version", "batch_id", "declaration_id", "entries"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "package_version": { "const": 1 },
+    "batch_id": {
+      "type": "string",
+      "description": "Batch identifier, stored on every row so a whole batch can be traced or withdrawn.",
+      "minLength": 1
+    },
+    "declaration_id": {
+      "type": "string",
+      "description": "Signed clean-room declaration covering this batch. Required: authorship without a declaration is an assertion nobody can audit.",
+      "minLength": 1
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/entry" }
+    }
+  },
+  "$defs": {
+    "contributorId": {
+      "type": "string",
+      "description": "Pseudonymous contributor ID from data/dsd/contributor-registry.json. Names never enter Git.",
+      "pattern": "^DSD-[A-Z]-\\d{3,}$"
+    },
+    "authorship": {
+      "type": "object",
+      "description": "Every record carries its own author, source and rights evidence. A definition and its translation are frequently written by different people, and each claim must stand on its own.",
+      "required": ["authored_by", "source_id", "rights_evidence_id"],
+      "properties": {
+        "authored_by": { "$ref": "#/$defs/contributorId" },
+        "source_id": {
+          "type": "string",
+          "description": "Source ID from data/dsd/source-registry.json, which must be approved for this record's scope: 'definition', 'translation' or 'example'.",
+          "minLength": 1
+        },
+        "rights_evidence_id": {
+          "type": "string",
+          "description": "Must equal the contributor's ipAssignmentEvidenceId in the registry.",
+          "minLength": 1
+        }
+      }
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dsd_entry_id", "senses"],
+      "properties": {
+        "dsd_entry_id": {
+          "type": "string",
+          "description": "UUID of an existing dsd_entries row. Content attaches to inventory; it never creates it, and no legacy identifier is accepted anywhere in this package.",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "headword": {
+          "type": "string",
+          "description": "Authoring context, never written. Checked against the inventory row at import, which catches senses authored against the wrong UUID."
+        },
+        "product_rationale": {
+          "type": "string",
+          "description": "Authoring context copied from the inventory decision, never written."
+        },
+        "senses": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/sense" }
+        }
+      }
+    },
+    "sense": {
+      "type": "object",
+      "additionalProperties": false,
+      "allOf": [{ "$ref": "#/$defs/authorship" }],
+      "required": [
+        "sense_key", "sense_order", "part_of_speech", "definition_en", "usage_labels",
+        "authored_by", "source_id", "rights_evidence_id", "translation", "examples"
+      ],
+      "properties": {
+        "sense_key": {
+          "type": "string",
+          "description": "Stable key for this sense within the entry. DSD-assigned; never a source sense ID.",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "sense_order": { "type": "integer", "minimum": 1 },
+        "part_of_speech": {
+          "type": "string",
+          "enum": ["noun","verb","adjective","adverb","pronoun","preposition","conjunction","interjection","determiner","numeral","phrase"]
+        },
+        "definition_en": {
+          "type": "string",
+          "description": "Originally authored English definition. At most 400 characters after normalization — a longer one is two senses.",
+          "minLength": 1,
+          "maxLength": 400
+        },
+        "usage_labels": {
+          "type": "array",
+          "description": "Register or domain labels. Order carries no meaning and does not affect the content hash.",
+          "items": { "type": "string" }
+        },
+        "authored_by": { "$ref": "#/$defs/contributorId" },
+        "source_id": { "type": "string", "minLength": 1 },
+        "rights_evidence_id": { "type": "string", "minLength": 1 },
+        "translation": { "$ref": "#/$defs/translation" },
+        "examples": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/example" }
+        }
+      }
+    },
+    "translation": {
+      "type": "object",
+      "additionalProperties": false,
+      "allOf": [{ "$ref": "#/$defs/authorship" }],
+      "required": ["locale", "text", "authored_by", "source_id", "rights_evidence_id"],
+      "properties": {
+        "locale": { "const": "vi" },
+        "text": { "type": "string", "minLength": 1 },
+        "authored_by": { "$ref": "#/$defs/contributorId" },
+        "source_id": { "type": "string", "minLength": 1 },
+        "rights_evidence_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "example": {
+      "type": "object",
+      "additionalProperties": false,
+      "allOf": [{ "$ref": "#/$defs/authorship" }],
+      "required": ["example_order", "en", "vi", "authored_by", "source_id", "rights_evidence_id"],
+      "properties": {
+        "example_order": { "type": "integer", "minimum": 1 },
+        "en": { "type": "string", "minLength": 1 },
+        "vi": {
+          "type": "string",
+          "description": "Vietnamese rendering of the same sentence. The pair is the unit a reviewer approves and the unit that is hashed.",
+          "minLength": 1
+        },
+        "authored_by": { "$ref": "#/$defs/contributorId" },
+        "source_id": { "type": "string", "minLength": 1 },
+        "rights_evidence_id": { "type": "string", "minLength": 1 }
+      }
+    }
+  },
+  "$comment": "Forbidden fields, rejected by name with an explanatory error: word_id, definition_id, source_definition_id, source_sense_id, example_id, legacy_id, oewn_sense_id, ngsl_rank, frequency_rank, ipa, pronunciation, audio_url, audio_path, status, reviewed_by, reviewed_at, approved_by, approved_at, published_at, revision, supersedes_id, provider, model, prompt, temperature, api_key, generated_by, similarity_score, similarity_source. Curation imports drafts; review state and publication are set by the review workflow, by a different person, under a CHECK constraint that refuses self-review."
+}

@@ -96,6 +96,11 @@ data/dsd/inventory/*
 !data/dsd/schemas/
 data/dsd/schemas/*
 !data/dsd/schemas/*.json
+# Curation packages are the authorship record for every definition, translation
+# and example in the corpus. They must be reviewable in a diff.
+!data/dsd/curation/
+data/dsd/curation/*
+!data/dsd/curation/*.json
 
 # Never re-include these: personal data, executed contracts, and generated
 # artifacts. Only pseudonymous IDs and evidence IDs are committed — see
