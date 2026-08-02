@@ -30,6 +30,13 @@ import { buildDsdCorpusConfig } from '../../src/dsd-corpus/dsd-corpus.config';
 import { createDsdDataSource } from '../../src/dsd-corpus/dsd-corpus.datasource';
 import { criticalFindings } from '../../src/dsd-corpus/quality/dsd-quality';
 import { QualityInput, auditRecords } from './quality-audit';
+import {
+  DEFAULT_POLICY_PATH,
+  StoredResult,
+  evaluateSimilarityGate,
+  loadPolicy,
+} from './similarity-audit';
+import { policyHash } from './lib/similarity';
 import { loadRegistries, RegistrySnapshot, snapshotRegistries } from './lib/registry';
 import {
   DsdAction,
@@ -522,18 +529,35 @@ export function qualityGate(content: QualityInput): GateResult {
 }
 
 /**
- * The gates owned by later tasks. Until they exist there is no evidence a
- * record was checked, so publication is refused — which is the correct answer,
- * not a placeholder.
+ * The similarity gate, read from the stored audit.
+ *
+ * Unlike quality, this cannot be recomputed here: measuring it requires the
+ * legacy connection, which only the audit is permitted to open. So publication
+ * reads the recorded verdict — and treats a missing one as a block, because
+ * "no result for this text under this policy" means either the text or the
+ * policy moved since anyone checked.
  */
-export function externalGates(): GateResult[] {
-  return [
-    {
+export function similarityGate(
+  records: Array<{ entityKind: string; entityId: string; contentSha256: string }>,
+  stored: StoredResult[],
+  currentPolicySha256: string | null,
+): GateResult {
+  if (!currentPolicySha256) {
+    return {
       gate: 'similarity',
       status: 'not_run',
-      detail: 'dsd:similarity:audit is not implemented yet (Task 8)',
-    },
-  ];
+      detail: `no approved similarity policy at ${DEFAULT_POLICY_PATH} (Task 8A)`,
+    };
+  }
+  const { status, detail } = evaluateSimilarityGate(records, stored, currentPolicySha256);
+  return { gate: 'similarity', status, detail };
+}
+
+/** The current policy digest, or null when no approved policy is on disk. */
+export function currentPolicySha256(): string | null {
+  const file = path.resolve(process.cwd(), DEFAULT_POLICY_PATH);
+  if (!fs.existsSync(file)) return null;
+  return policyHash(loadPolicy(file));
 }
 
 // ─── I/O ────────────────────────────────────────────────────────────────────
@@ -864,9 +888,33 @@ async function runPublish(): Promise<void> {
       ),
     };
 
+    // Only definitions and English examples are compared; legacy Vietnamese
+    // has no licence and is never read, so there is nothing to compare against.
+    const audited = [
+      ...snapshot.senses.map((s) => ({
+        entityKind: 'sense',
+        entityId: s.entityId,
+        contentSha256: s.contentSha256,
+      })),
+      ...snapshot.senses.flatMap((s) =>
+        s.examples.map((x) => ({
+          entityKind: 'example',
+          entityId: x.entityId,
+          contentSha256: x.contentSha256,
+        })),
+      ),
+    ];
+    const stored: StoredResult[] = await ds.query(
+      `SELECT entity_kind AS "entityKind", entity_id AS "entityId",
+              content_sha256 AS "contentSha256", policy_sha256 AS "policySha256",
+              match_class AS "matchClass", decision
+         FROM dsd_similarity_results WHERE entity_id = ANY($1::uuid[])`,
+      [audited.map((r) => r.entityId)],
+    );
+
     const blocked = evaluateEntryPublication(snapshot, [
       qualityGate(content),
-      ...externalGates(),
+      similarityGate(audited, stored, currentPolicySha256()),
     ]);
     if (blocked.length > 0) {
       console.error(`Publication of '${entry.headword}' is blocked:`);

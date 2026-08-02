@@ -1,5 +1,6 @@
 import { MigrationInterface } from 'typeorm';
 import { CreateDsdCorpusCore1785628800000 } from './1785628800000-CreateDsdCorpusCore';
+import { AddDsdSimilarityAudit1785628900000 } from './1785628900000-AddDsdSimilarityAudit';
 
 /**
  * DSD migration list.
@@ -10,4 +11,5 @@ import { CreateDsdCorpusCore1785628800000 } from './1785628800000-CreateDsdCorpu
  */
 export const DSD_MIGRATIONS: Array<new () => MigrationInterface> = [
   CreateDsdCorpusCore1785628800000,
+  AddDsdSimilarityAudit1785628900000,
 ];

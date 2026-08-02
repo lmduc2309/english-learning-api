@@ -9,7 +9,7 @@ import {
   ReviewableRow,
   buildQueue,
   evaluateEntryPublication,
-  externalGates,
+  similarityGate,
   planReviewApply,
   qualityGate,
   rollupEntryStatus,
@@ -306,8 +306,11 @@ describe('evaluateEntryPublication', () => {
 
   it('blocks when a gate has not run', () => {
     // Fail closed: not_run is not a pass, and Task 8 is not built yet.
-    const blocked = evaluateEntryPublication(snapshot(), externalGates());
+    const blocked = evaluateEntryPublication(snapshot(), [
+      similarityGate([{ entityKind: 'sense', entityId: SENSE_ID, contentSha256: HASH_A }], [], null),
+    ]);
     expect(blocked.join(' ')).toMatch(/gate 'similarity': not_run/);
+    expect(blocked.join(' ')).toMatch(/no approved similarity policy/);
   });
 
   it('blocks when a gate fails', () => {
@@ -372,7 +375,9 @@ describe('evaluateEntryPublication', () => {
     const s = snapshot({ entryStatus: 'draft' });
     s.senses[0].translations = [];
     s.senses[0].examples = [];
-    const blocked = evaluateEntryPublication(s, externalGates()).join(' ');
+    const blocked = evaluateEntryPublication(s, [
+      similarityGate([], [], null),
+    ]).join(' ');
     expect(blocked).toMatch(/not approved/);
     expect(blocked).toMatch(/no approved Vietnamese/);
     expect(blocked).toMatch(/no approved example/);

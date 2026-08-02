@@ -13,6 +13,7 @@ import { DsdTranslation } from './entities/dsd-translation.entity';
 import { DsdExample } from './entities/dsd-example.entity';
 import { DsdPronunciation } from './entities/dsd-pronunciation.entity';
 import { DsdProvenanceEvent } from './entities/dsd-provenance-event.entity';
+import { DsdSimilarityResult } from './entities/dsd-similarity-result.entity';
 
 /**
  * TypeORM data sources for the DSD corpus.
@@ -34,6 +35,7 @@ export const DSD_ENTITIES: DataSourceOptions['entities'] = [
   DsdExample,
   DsdPronunciation,
   DsdProvenanceEvent,
+  DsdSimilarityResult,
 ];
 
 export function dsdDataSourceOptions(
