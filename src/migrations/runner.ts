@@ -9,6 +9,7 @@ import { MarkLegacyDictionaryReferenceOnly1721401300000 } from './1721401300000-
 import { AddLearnerDefinitionProvenance1721401400000 } from './1721401400000-AddLearnerDefinitionProvenance';
 import { AddVietnameseGlossSearch1721401500000 } from './1721401500000-AddVietnameseGlossSearch';
 import { DedupeLegacyDictionaryRows1721402000000 } from './1721402000000-DedupeLegacyDictionaryRows';
+import { NormalizeRawMarkupDefinitions1721402100000 } from './1721402100000-NormalizeRawMarkupDefinitions';
 
 const migrations = [
   CreateLegacyBaseline1721399000000,
@@ -20,6 +21,7 @@ const migrations = [
   AddLearnerDefinitionProvenance1721401400000,
   AddVietnameseGlossSearch1721401500000,
   DedupeLegacyDictionaryRows1721402000000,
+  NormalizeRawMarkupDefinitions1721402100000,
 ];
 
 const dataSource = new DataSource({

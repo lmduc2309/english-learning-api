@@ -11,6 +11,7 @@ import { MarkLegacyDictionaryReferenceOnly1721401300000 } from '../src/migration
 import { AddLearnerDefinitionProvenance1721401400000 } from '../src/migrations/1721401400000-AddLearnerDefinitionProvenance';
 import { AddVietnameseGlossSearch1721401500000 } from '../src/migrations/1721401500000-AddVietnameseGlossSearch';
 import { DedupeLegacyDictionaryRows1721402000000 } from '../src/migrations/1721402000000-DedupeLegacyDictionaryRows';
+import { NormalizeRawMarkupDefinitions1721402100000 } from '../src/migrations/1721402100000-NormalizeRawMarkupDefinitions';
 
 dotenv.config();
 
@@ -33,6 +34,7 @@ const ds = new DataSource({
     AddLearnerDefinitionProvenance1721401400000,
     AddVietnameseGlossSearch1721401500000,
     DedupeLegacyDictionaryRows1721402000000,
+    NormalizeRawMarkupDefinitions1721402100000,
   ],
   migrationsTableName: 'app_migrations',
   migrationsTransactionMode: 'each',
