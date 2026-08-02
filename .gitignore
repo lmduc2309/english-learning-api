@@ -97,3 +97,7 @@ data/dsd/private/
 data/dsd/audio/
 data/dsd/exports/
 data/dsd/releases/
+
+# Local backup dumps and manifests. Snapshot-bound and reproducible;
+# never committed. Off-host copies are the disaster-recovery path.
+backups/

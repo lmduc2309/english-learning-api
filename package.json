@@ -99,7 +99,10 @@
     "dsd:provision:plan": "zsh scripts/dsd/provision-dsd-database.sh plan",
     "dsd:provision:apply": "zsh scripts/dsd/provision-dsd-database.sh apply",
     "dsd:provision:status": "zsh scripts/dsd/provision-dsd-database.sh status",
-    "dsd:permissions:test": "jest --config jest.scripts.config.js --runInBand scripts/dsd/permissions.spec.ts"
+    "dsd:permissions:test": "jest --config jest.scripts.config.js --runInBand scripts/dsd/permissions.spec.ts",
+    "dsd:backup": "ts-node scripts/dsd/create-backup-manifest.ts",
+    "dsd:verify-restore": "ts-node scripts/dsd/verify-restore.ts",
+    "dsd:verify-restores": "zsh scripts/dsd/verify-database-restores.sh"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",
