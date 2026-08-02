@@ -7,6 +7,12 @@ import {
   requireDsdConnection,
 } from './dsd-corpus.config';
 import { DSD_MIGRATIONS } from './migrations';
+import { DsdEntry } from './entities/dsd-entry.entity';
+import { DsdSense } from './entities/dsd-sense.entity';
+import { DsdTranslation } from './entities/dsd-translation.entity';
+import { DsdExample } from './entities/dsd-example.entity';
+import { DsdPronunciation } from './entities/dsd-pronunciation.entity';
+import { DsdProvenanceEvent } from './entities/dsd-provenance-event.entity';
 
 /**
  * TypeORM data sources for the DSD corpus.
@@ -17,8 +23,18 @@ import { DSD_MIGRATIONS } from './migrations';
  * legacy entity is registered here — invariants 1 and 2.
  */
 
-/** Entities are added by Task 3. Kept explicit so the list cannot drift. */
-export const DSD_ENTITIES: DataSourceOptions['entities'] = [];
+/**
+ * Registered explicitly so the list cannot drift, and so no legacy entity can
+ * arrive here by a glob (invariants 1 and 2).
+ */
+export const DSD_ENTITIES: DataSourceOptions['entities'] = [
+  DsdEntry,
+  DsdSense,
+  DsdTranslation,
+  DsdExample,
+  DsdPronunciation,
+  DsdProvenanceEvent,
+];
 
 export function dsdDataSourceOptions(
   role: DsdRole,

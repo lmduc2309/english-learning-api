@@ -1,11 +1,13 @@
 import { MigrationInterface } from 'typeorm';
+import { CreateDsdCorpusCore1785628800000 } from './1785628800000-CreateDsdCorpusCore';
 
 /**
  * DSD migration list.
  *
- * Registered explicitly, in order, exactly as the legacy runner does. Task 3
- * adds the first entry (`CreateDsdCoreSchema`). Keeping this list hand-written
- * rather than glob-loaded means a migration cannot appear in production merely
- * by existing on disk.
+ * Registered explicitly, in order, exactly as the legacy runner does. Keeping
+ * this list hand-written rather than glob-loaded means a migration cannot
+ * appear in production merely by existing on disk.
  */
-export const DSD_MIGRATIONS: Array<new () => MigrationInterface> = [];
+export const DSD_MIGRATIONS: Array<new () => MigrationInterface> = [
+  CreateDsdCorpusCore1785628800000,
+];
