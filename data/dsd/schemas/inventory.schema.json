@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsdtech.site/schemas/dsd-inventory-row.json",
+  "title": "DSD inventory row",
+  "description": "One headword selected for the DSD corpus. Selection is a product decision recorded with its rationale and author. This schema documents the CSV contract; scripts/dsd/inventory.ts is the enforcing implementation and additionally rejects legacy-bearing columns by name.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "headword",
+    "part_of_speech_expectation",
+    "dsd_priority",
+    "product_rationale",
+    "author_contributor_id",
+    "authored_date",
+    "inventory_evidence_id",
+    "declaration_id"
+  ],
+  "properties": {
+    "headword": {
+      "type": "string",
+      "description": "English headword. Latin letters, apostrophe, hyphen and single spaces only; at most 4 words and 40 characters. Longer values or sentence punctuation indicate a definition pasted into the wrong column.",
+      "pattern": "^[A-Za-z][A-Za-z'\\- ]*$",
+      "maxLength": 40
+    },
+    "part_of_speech_expectation": {
+      "type": "string",
+      "description": "Expected part of speech. A hint for authoring, not a published fact.",
+      "enum": ["noun","verb","adjective","adverb","pronoun","preposition","conjunction","interjection","determiner","numeral","phrase"]
+    },
+    "dsd_priority": {
+      "type": "integer",
+      "description": "DSD-owned learning priority. Never an imported frequency rank.",
+      "minimum": 1
+    },
+    "dsd_band": {
+      "type": "string",
+      "description": "Optional grouping label, e.g. core or extended."
+    },
+    "product_rationale": {
+      "type": "string",
+      "description": "Why DSD teaches this word. Required: inventory selection is a product decision and must be defensible as independent of any source dictionary.",
+      "minLength": 1
+    },
+    "author_contributor_id": {
+      "type": "string",
+      "description": "Pseudonymous contributor ID from data/dsd/contributor-registry.json. Names never enter Git.",
+      "pattern": "^DSD-[A-Z]-\\d{3,}$"
+    },
+    "authored_date": { "type": "string", "format": "date", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "inventory_evidence_id": { "type": "string", "minLength": 1 },
+    "declaration_id": {
+      "type": "string",
+      "description": "Signed clean-room declaration covering this batch.",
+      "minLength": 1
+    }
+  },
+  "$comment": "Forbidden columns, rejected by name with an explanatory error: word_id, definition_id, source_definition_id, source_sense_id, example_id, legacy_id, definition, definition_en, definition_vi, translation, translation_vi, example, example_en, example_vi, ipa, pronunciation, frequency_rank, ngsl_rank, oewn_sense_id."
+}

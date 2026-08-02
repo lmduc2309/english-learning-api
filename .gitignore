@@ -87,6 +87,15 @@ data/dsd/*
 !data/dsd/source-registry.json
 !data/dsd/tool-registry.json
 !data/dsd/contributor-registry.json
+# Inventory files and schemas are tracked deliverables: an inventory CSV is the
+# evidence of a product decision, and the schema is the contract the tool
+# enforces. They carry pseudonymous IDs only, never personal data.
+!data/dsd/inventory/
+data/dsd/inventory/*
+!data/dsd/inventory/*.csv
+!data/dsd/schemas/
+data/dsd/schemas/*
+!data/dsd/schemas/*.json
 
 # Never re-include these: personal data, executed contracts, and generated
 # artifacts. Only pseudonymous IDs and evidence IDs are committed — see
