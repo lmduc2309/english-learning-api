@@ -58,7 +58,13 @@ describe('the API cannot reach candidates', () => {
     // read a row, so this looks for the shapes that are: a repository, an
     // entity reference in application code, or SQL naming the table.
     const src = path.resolve(__dirname, '../..');
-    const allowed = ['dsd-corpus/migrations/index.ts'];
+    const allowed = [
+      // Has to import the class to register it.
+      'dsd-corpus/migrations/index.ts',
+      // Names the table in order to REVOKE access to it, which is the opposite
+      // of querying it.
+      'dsd-corpus/migrations/1785629400000-AddDsdServingViews.ts',
+    ];
     const offenders: string[] = [];
 
     const walk = (dir: string) => {
