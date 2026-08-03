@@ -69,6 +69,23 @@ services:
       LLM_APP_TITLE: ${LLM_APP_TITLE:-DSD English}
       LLM_HTTP_REFERER: ${PUBLIC_ORIGIN:-https://eng.dsdtech.site}
       TTS_SERVICE_URL: http://tts:8001
+      # ── DSD corpus ────────────────────────────────────────────────────────
+      # Activation is a two-step deploy on purpose. Ship code with the channel
+      # `off` or `internal`, verify the release signature and smoke tests
+      # against it, then set `public` in a second deploy. A rollback sets the
+      # channel back to `off`; it never falls back to legacy, because there is
+      # no fallback path in the code to reach.
+      #
+      # `public` also refuses a release id that is not public-eligible, and the
+      # scale is part of the id — so a pilot cannot be promoted by editing this
+      # file.
+      DSD_RELEASE_CHANNEL: ${DSD_RELEASE_CHANNEL:-off}
+      DSD_ACTIVE_RELEASE_ID: ${DSD_ACTIVE_RELEASE_ID:-}
+      DSD_DB_DATABASE: ${DSD_DB_DATABASE:-dsd_corpus_db}
+      # One URL per role; no role falls back to another's credential. Only the
+      # serving role belongs in the API container.
+      DSD_APP_DATABASE_URL: ${DSD_APP_DATABASE_URL:-}
+      DSD_AUDIO_PUBLIC_BASE_URL: ${DSD_AUDIO_PUBLIC_BASE_URL:-}
     expose:
       - "7474"
     volumes:

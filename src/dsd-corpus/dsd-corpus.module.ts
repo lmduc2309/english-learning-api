@@ -6,6 +6,8 @@ import {
   dsdMustBeAvailable,
 } from './dsd-corpus.config';
 import { createDsdDataSource } from './dsd-corpus.datasource';
+import { DsdCorpusController } from './dsd-corpus.controller';
+import { DsdQueryService } from './dsd-query.service';
 
 export const DSD_DATA_SOURCE = 'DSD_DATA_SOURCE';
 export const DSD_CORPUS_CONFIG = 'DSD_CORPUS_CONFIG';
@@ -38,7 +40,9 @@ export class DsdCorpusModule implements OnApplicationBootstrap {
     return {
       module: DsdCorpusModule,
       global: true,
+      controllers: [DsdCorpusController],
       providers: [
+        DsdQueryService,
         { provide: DSD_CORPUS_CONFIG, useValue: config },
         {
           provide: DSD_DATA_SOURCE,
@@ -59,7 +63,7 @@ export class DsdCorpusModule implements OnApplicationBootstrap {
           },
         },
       ],
-      exports: [DSD_DATA_SOURCE, DSD_CORPUS_CONFIG],
+      exports: [DSD_DATA_SOURCE, DSD_CORPUS_CONFIG, DsdQueryService],
     };
   }
 

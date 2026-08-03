@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { In, Repository } from 'typeorm';
@@ -13,6 +13,8 @@ import {
   presentLearnerPronunciations,
   presentRawDefinitions,
 } from '../dictionary/dictionary-presenter';
+import { DSD_CORPUS_CONFIG } from '../dsd-corpus/dsd-corpus.module';
+import { DsdCorpusConfig } from '../dsd-corpus/dsd-corpus.config';
 
 // Category packs are a learning surface. Active clients opt into this filter
 // so raw/reference-only dictionary rows cannot silently become lesson content.
@@ -51,15 +53,31 @@ export class CategoryService {
     private searchIndexService: SearchIndexService,
     private cacheService: RedisCacheService,
     private configService: ConfigService,
+    @Optional() @Inject(DSD_CORPUS_CONFIG) private readonly dsdConfig?: DsdCorpusConfig,
   ) {
     this.commercialSafeMode =
       this.configService.get<boolean>('content.commercialSafeMode') === true;
   }
 
   /**
+   * Whether category endpoints must return nothing.
+   *
+   * DSD has no native categories yet — relations arrive in a later task and
+   * categories after that. So on the public DSD channel there is no DSD category
+   * data to serve, and the alternative is legacy or learner_* rows, which
+   * commercial mode forbids. Empty is the only honest answer: an empty topic
+   * list is a visibly missing feature, whereas silently serving reference packs
+   * as lesson content is a licensing problem nobody notices.
+   */
+  private get categoriesUnavailableInCommercialMode(): boolean {
+    return this.dsdConfig?.releaseChannel === 'public' && this.commercialSafeMode;
+  }
+
+  /**
    * Get all distinct topics
    */
   async getTopics(learnerOnly = false): Promise<{ topic: string; categoryCount: number }[]> {
+    if (this.categoriesUnavailableInCommercialMode) return [];
     learnerOnly = learnerOnly || this.commercialSafeMode;
     const cacheKey = `all:${learnerOnly ? 'learner' : 'reference'}`;
     return await this.cacheService.getOrSet(
@@ -95,6 +113,7 @@ export class CategoryService {
    * parentOnly=true returns only root categories (no parent).
    */
   async getCategories(topic?: string, parentOnly?: boolean, learnerOnly = false): Promise<any[]> {
+    if (this.categoriesUnavailableInCommercialMode) return [];
     learnerOnly = learnerOnly || this.commercialSafeMode;
     const cacheKey = `${topic || 'all'}:${parentOnly ? 'parent' : 'all'}:${learnerOnly ? 'learner' : 'reference'}`;
     return await this.cacheService.getOrSet(
@@ -148,6 +167,7 @@ export class CategoryService {
    * Get subcategories of a parent category
    */
   async getSubCategories(parentIdOrName: string, learnerOnly = false): Promise<any[]> {
+    if (this.categoriesUnavailableInCommercialMode) return [];
     learnerOnly = learnerOnly || this.commercialSafeMode;
     const parent = await this.getCategory(parentIdOrName);
 
@@ -207,6 +227,10 @@ export class CategoryService {
     search?: string,
     learnerOnly = false,
   ): Promise<any> {
+    if (this.categoriesUnavailableInCommercialMode) {
+      // Shaped like a real empty page so clients need no special case.
+      return { category: null, words: [], total: 0, page, limit };
+    }
     learnerOnly = learnerOnly || this.commercialSafeMode;
     const category = await this.getCategory(idOrName);
     const searchTerm = search?.trim();

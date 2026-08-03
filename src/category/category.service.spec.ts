@@ -8,6 +8,7 @@ import { LearnerEntry } from '../dictionary/entities/learner-entry.entity';
 import { RedisCacheService } from '../common/cache/redis-cache.service';
 import { SearchIndexService } from '../common/search/search-index.service';
 import { ConfigService } from '@nestjs/config';
+import { DSD_CORPUS_CONFIG } from '../dsd-corpus/dsd-corpus.module';
 
 function queryBuilder() {
   const builder = {
@@ -57,7 +58,9 @@ function repository() {
   };
 }
 
-async function buildService(commercialSafeMode = false) {
+async function buildService(commercialSafeMode = false,
+  dsdChannel: 'off' | 'internal' | 'public' = 'off',
+) {
   const categoryRepository = repository();
   const categoryWordRepository = repository();
   const wordRepository = repository();
@@ -89,6 +92,16 @@ async function buildService(commercialSafeMode = false) {
       {
         provide: ConfigService,
         useValue: { get: jest.fn().mockReturnValue(commercialSafeMode) },
+      },
+      {
+        provide: DSD_CORPUS_CONFIG,
+        useValue: {
+          database: 'dsd_corpus_db',
+          releaseChannel: dsdChannel,
+          activeReleaseId: dsdChannel === 'off' ? '' : 'DSD-REL-V1-5000-a1b2c3d4',
+          connections: {},
+          errors: [],
+        },
       },
     ],
   }).compile();
@@ -287,5 +300,56 @@ describe('CategoryService learner-only catalog', () => {
     const result = await service.getCategoryWords('animals');
 
     expect(result.words).toEqual([]);
+  });
+});
+
+// ─── Task 15: commercial category endpoints never serve legacy data ──────────
+
+describe('categories on the public DSD channel', () => {
+  it('returns no topics rather than legacy or learner packs', async () => {
+    // DSD has no native categories yet. An empty list is a visibly missing
+    // feature; serving reference packs as lesson content is a licensing problem
+    // nobody notices.
+    const { service, categoryRepository } = await buildService(true, 'public');
+    expect(await service.getTopics()).toEqual([]);
+    expect(categoryRepository.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
+  it('returns no categories and runs no query', async () => {
+    const { service, categoryRepository } = await buildService(true, 'public');
+    expect(await service.getCategories('travel')).toEqual([]);
+    expect(categoryRepository.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
+  it('returns no subcategories and runs no query', async () => {
+    const { service, categoryRepository } = await buildService(true, 'public');
+    expect(await service.getSubCategories('travel')).toEqual([]);
+    expect(categoryRepository.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
+  it('returns an empty page of words without touching a repository', async () => {
+    const { service, categoryRepository, wordRepository } = await buildService(true, 'public');
+    const result = await service.getCategoryWords('travel', 1, 20);
+    expect(result).toMatchObject({ words: [], total: 0, page: 1, limit: 20 });
+    expect(categoryRepository.createQueryBuilder).not.toHaveBeenCalled();
+    expect(wordRepository.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
+  it('writes nothing to the cache, so nothing survives a mode switch', async () => {
+    const { service, cache } = await buildService(true, 'public');
+    await service.getTopics();
+    expect(cache.getOrSet).not.toHaveBeenCalled();
+  });
+});
+
+describe('categories on the off channel keep working', () => {
+  it('still consults the catalog in commercial mode when DSD is not serving', async () => {
+    // The guard is about the public DSD channel, not commercial mode as such,
+    // so an off-channel deployment is unchanged. Evidenced by the repository
+    // being reached; this mock is not wired for the full query, which is why the
+    // call is allowed to fail after that point.
+    const { service, categoryRepository } = await buildService(true, 'off');
+    await service.getTopics().catch(() => undefined);
+    expect(categoryRepository.createQueryBuilder).toHaveBeenCalled();
   });
 });

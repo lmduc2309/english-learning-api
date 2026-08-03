@@ -5,6 +5,7 @@ import {
   buildDsdCorpusConfig,
   requireDsdConnection,
   dsdMustBeAvailable,
+  assessReleaseId,
 } from './dsd-corpus.config';
 
 const LEGACY_DB = 'english_learning_db';
@@ -117,5 +118,115 @@ describe('release channel', () => {
     expect(dsdMustBeAvailable('off')).toBe(false);
     expect(dsdMustBeAvailable('internal')).toBe(true);
     expect(dsdMustBeAvailable('public')).toBe(true);
+  });
+});
+
+// ─── Task 15: release identity and public eligibility ───────────────────────
+
+describe('assessReleaseId', () => {
+  it('accepts a versioned release at or above the public threshold', () => {
+    const result = assessReleaseId('DSD-REL-V1-5000-a1b2c3d4');
+    expect(result).toMatchObject({ valid: true, publicEligible: true });
+  });
+
+  it('accepts a pilot release as valid but never public-eligible', () => {
+    // The scale is part of the identifier, so eligibility cannot be granted by
+    // editing an environment variable — only by building a different release.
+    const result = assessReleaseId('DSD-REL-PILOT-20260803-a1b2c3d4');
+    expect(result.valid).toBe(true);
+    expect(result.publicEligible).toBe(false);
+    expect(result.reason).toMatch(/never public-eligible/);
+  });
+
+  it('refuses a versioned release below the threshold', () => {
+    const result = assessReleaseId('DSD-REL-V1-500-a1b2c3d4');
+    expect(result.publicEligible).toBe(false);
+    expect(result.reason).toMatch(/below the 5000/);
+  });
+
+  it('accepts a larger release', () => {
+    expect(assessReleaseId('DSD-REL-V1-20000-a1b2c3d4').publicEligible).toBe(true);
+  });
+
+  it.each([
+    '',
+    'v1',
+    'DSD-REL-V1-5000',
+    'DSD-REL-V1-5000-XYZ',
+    'DSD-REL-PILOT-2026-a1b2c3d4',
+    'release-5000',
+  ])('rejects the malformed id %j', (id) => {
+    expect(assessReleaseId(id).valid).toBe(false);
+  });
+});
+
+describe('the active release id', () => {
+  const base = {
+    DSD_DB_DATABASE: 'dsd_corpus_db',
+    DB_DATABASE: 'english_learning_db',
+  };
+
+  it('is ignored on the off channel', () => {
+    const config = buildDsdCorpusConfig({ ...base, DSD_RELEASE_CHANNEL: 'off' } as any);
+    expect(config.errors).toEqual([]);
+    expect(config.activeReleaseId).toBe('');
+  });
+
+  it('is required for internal', () => {
+    const config = buildDsdCorpusConfig({ ...base, DSD_RELEASE_CHANNEL: 'internal' } as any);
+    expect(config.errors.join(' ')).toMatch(/DSD_ACTIVE_RELEASE_ID is required/);
+  });
+
+  it('is required for public', () => {
+    const config = buildDsdCorpusConfig({ ...base, DSD_RELEASE_CHANNEL: 'public' } as any);
+    expect(config.errors.join(' ')).toMatch(/DSD_ACTIVE_RELEASE_ID is required/);
+  });
+
+  it('lets a pilot activate the internal channel', () => {
+    const config = buildDsdCorpusConfig({
+      ...base,
+      DSD_RELEASE_CHANNEL: 'internal',
+      DSD_ACTIVE_RELEASE_ID: 'DSD-REL-PILOT-20260803-a1b2c3d4',
+    } as any);
+    expect(config.errors).toEqual([]);
+    expect(config.activeReleaseId).toBe('DSD-REL-PILOT-20260803-a1b2c3d4');
+  });
+
+  it('refuses to let a pilot activate the public channel', () => {
+    // The acceptance criterion: a pilot id cannot activate public even through
+    // direct environment manipulation.
+    const config = buildDsdCorpusConfig({
+      ...base,
+      DSD_RELEASE_CHANNEL: 'public',
+      DSD_ACTIVE_RELEASE_ID: 'DSD-REL-PILOT-20260803-a1b2c3d4',
+    } as any);
+    expect(config.errors.join(' ')).toMatch(/cannot activate the public channel/);
+  });
+
+  it('refuses a 500-entry release on the public channel', () => {
+    const config = buildDsdCorpusConfig({
+      ...base,
+      DSD_RELEASE_CHANNEL: 'public',
+      DSD_ACTIVE_RELEASE_ID: 'DSD-REL-V1-500-a1b2c3d4',
+    } as any);
+    expect(config.errors.join(' ')).toMatch(/cannot activate the public channel/);
+  });
+
+  it('accepts the signed 5,000-entry v1 on the public channel', () => {
+    const config = buildDsdCorpusConfig({
+      ...base,
+      DSD_RELEASE_CHANNEL: 'public',
+      DSD_ACTIVE_RELEASE_ID: 'DSD-REL-V1-5000-a1b2c3d4',
+    } as any);
+    expect(config.errors).toEqual([]);
+  });
+
+  it('refuses a malformed id rather than serving from an unnamed corpus', () => {
+    const config = buildDsdCorpusConfig({
+      ...base,
+      DSD_RELEASE_CHANNEL: 'public',
+      DSD_ACTIVE_RELEASE_ID: 'latest',
+    } as any);
+    expect(config.errors.join(' ')).toMatch(/is not DSD-REL-PILOT/);
   });
 });

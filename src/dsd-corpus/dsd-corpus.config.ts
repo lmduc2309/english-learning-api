@@ -39,6 +39,61 @@ const DSD_ENV_VAR: Record<DsdRole, string> = {
 export const DSD_RELEASE_CHANNELS = ['off', 'internal', 'public'] as const;
 export type DsdReleaseChannel = (typeof DSD_RELEASE_CHANNELS)[number];
 
+/**
+ * Release identity, and what may be served from it.
+ *
+ * The scale is part of the identifier rather than a separate flag, so
+ * eligibility cannot be granted by editing an environment variable. A pilot
+ * release is structurally incapable of activating the public channel: the only
+ * way to promote one is to produce a differently-named release, which means
+ * actually building it.
+ *
+ *   DSD-REL-PILOT-<yyyymmdd>-<8 hex>   never public-eligible
+ *   DSD-REL-V<n>-<count>-<8 hex>       public-eligible at 5,000 entries or more
+ */
+export const DSD_PILOT_RELEASE_RE = /^DSD-REL-PILOT-\d{8}-[0-9a-f]{8}$/;
+export const DSD_VERSIONED_RELEASE_RE = /^DSD-REL-V(\d+)-(\d{3,})-[0-9a-f]{8}$/;
+
+/** Below this, a release is a pilot however it is named. */
+export const DSD_MIN_PUBLIC_ENTRIES = 5000;
+
+export interface ReleaseEligibility {
+  valid: boolean;
+  publicEligible: boolean;
+  reason: string;
+}
+
+export function assessReleaseId(releaseId: string): ReleaseEligibility {
+  const id = (releaseId ?? '').trim();
+  if (!id) {
+    return { valid: false, publicEligible: false, reason: 'no release id' };
+  }
+  if (DSD_PILOT_RELEASE_RE.test(id)) {
+    return {
+      valid: true,
+      publicEligible: false,
+      reason: 'a pilot release is never public-eligible; build a versioned release instead',
+    };
+  }
+  const versioned = DSD_VERSIONED_RELEASE_RE.exec(id);
+  if (!versioned) {
+    return {
+      valid: false,
+      publicEligible: false,
+      reason: `release id '${id}' is not DSD-REL-PILOT-<date>-<hex> or DSD-REL-V<n>-<count>-<hex>`,
+    };
+  }
+  const entries = Number(versioned[2]);
+  if (entries < DSD_MIN_PUBLIC_ENTRIES) {
+    return {
+      valid: true,
+      publicEligible: false,
+      reason: `${entries} entries is below the ${DSD_MIN_PUBLIC_ENTRIES} required for public release`,
+    };
+  }
+  return { valid: true, publicEligible: true, reason: `${entries} entries` };
+}
+
 export const DSD_DEFAULT_DATABASE = 'dsd_corpus_db';
 export const DSD_MIGRATIONS_TABLE = 'dsd_migrations';
 
@@ -54,6 +109,8 @@ export interface DsdConnection {
 export interface DsdCorpusConfig {
   database: string;
   releaseChannel: DsdReleaseChannel;
+  /** Empty on the `off` channel, where it is ignored. */
+  activeReleaseId: string;
   connections: Partial<Record<DsdRole, DsdConnection>>;
   errors: string[];
 }
@@ -105,6 +162,24 @@ export function buildDsdCorpusConfig(
     );
   }
 
+  // Required for internal and public, ignored for off. A channel that serves
+  // content must be able to say which corpus it is serving.
+  const activeReleaseId = (env.DSD_ACTIVE_RELEASE_ID ?? '').trim();
+  if (releaseChannel !== 'off') {
+    const eligibility = assessReleaseId(activeReleaseId);
+    if (!eligibility.valid) {
+      errors.push(
+        `DSD_ACTIVE_RELEASE_ID is required for channel '${releaseChannel}': ${eligibility.reason}`,
+      );
+    } else if (releaseChannel === 'public' && !eligibility.publicEligible) {
+      // The refusal that cannot be worked around by editing the environment,
+      // because the scale is part of the identifier.
+      errors.push(
+        `release '${activeReleaseId}' cannot activate the public channel: ${eligibility.reason}`,
+      );
+    }
+  }
+
   const connections: Partial<Record<DsdRole, DsdConnection>> = {};
 
   for (const role of DSD_ROLES) {
@@ -133,7 +208,7 @@ export function buildDsdCorpusConfig(
     connections[role] = parsed;
   }
 
-  return { database, releaseChannel, connections, errors };
+  return { database, releaseChannel, activeReleaseId, connections, errors };
 }
 
 /**

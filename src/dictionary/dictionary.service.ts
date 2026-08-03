@@ -1,4 +1,4 @@
-import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -32,6 +32,10 @@ import {
   presentLearnerPronunciations,
   presentRawDefinitions,
 } from './dictionary-presenter';
+import { DSD_CORPUS_CONFIG } from '../dsd-corpus/dsd-corpus.module';
+import { DsdCorpusConfig } from '../dsd-corpus/dsd-corpus.config';
+import { DsdQueryService } from '../dsd-corpus/dsd-query.service';
+import { presentEntry, presentSearchHits } from '../dsd-corpus/dsd-presenter';
 
 @Injectable()
 export class DictionaryService {
@@ -73,6 +77,11 @@ export class DictionaryService {
     @InjectRepository(LearnerSenseTranslation)
     private learnerTranslationRepository: Repository<LearnerSenseTranslation>,
     private llmService: LlmService,
+    // Optional so the dictionary still constructs when the DSD module is absent
+    // or the channel is `off`. Absent means "serve nothing from DSD", never
+    // "fall back to legacy".
+    @Optional() private readonly dsdQueryService?: DsdQueryService,
+    @Optional() @Inject(DSD_CORPUS_CONFIG) private readonly dsdConfig?: DsdCorpusConfig,
   ) {
     this.llmFallbackEnabled = this.configService.get<boolean>('llm.enableFallback');
     this.commercialSafeMode =
@@ -87,16 +96,56 @@ export class DictionaryService {
     );
   }
 
+  /**
+   * The corpus a cached body came from.
+   *
+   * Part of every cache key, so a response cached before a mode or release
+   * change cannot be served after it. Without the release id, switching from
+   * legacy to DSD — or from one DSD release to the next — would keep serving the
+   * old bodies until they expired, which is how a "commercial-safe" deployment
+   * quietly serves reference data.
+   */
+  private get corpusTag(): string {
+    if (!this.commercialSafeMode) return 'reference';
+    const release = this.dsdConfig?.activeReleaseId;
+    return release ? `dsd:${release}` : 'commercial';
+  }
+
+  /**
+   * Whether a public request should be answered from DSD.
+   *
+   * Only on the `public` channel. On `off` and `internal` a public request gets
+   * nothing from DSD — and in commercial mode it gets nothing at all, because
+   * legacy is not a fallback.
+   */
+  private get dsdServesPublic(): boolean {
+    return (
+      this.dsdConfig?.releaseChannel === 'public'
+      && this.dsdQueryService?.available === true
+    );
+  }
+
   async searchWords(dto: SearchWordDto): Promise<SearchWordResponseDto> {
     try {
       const query = dto.q.toLowerCase();
       const limit = dto.limit || 15;
-      const cacheKey = `search:${this.commercialSafeMode ? 'commercial' : 'reference'}:${query}:${limit}`;
+      const cacheKey = `search:${this.corpusTag}:${query}:${limit}`;
 
       // Try Redis cache first
       return await this.cacheService.getOrSet(
         cacheKey,
         async () => {
+          // DSD first, and exclusively: in commercial mode a DSD miss is the
+          // whole answer. No legacy repository is touched below this branch.
+          if (this.dsdServesPublic) {
+            const hits = await this.dsdQueryService!.search(query, limit);
+            const suggestions = presentSearchHits(hits).map((hit) => ({
+              word: hit.word,
+              pos: hit.part_of_speech,
+            }));
+            return { suggestions, count: suggestions.length };
+          }
+
           if (this.commercialSafeMode) {
             const entries = await this.learnerEntryRepository.find({
               where: {
@@ -192,12 +241,42 @@ export class DictionaryService {
   async lookupWord(word: string): Promise<LookupWordResponseDto> {
     try {
       const normalizedWord = word.toLowerCase().trim();
-      const cacheKey = `word:${this.commercialSafeMode ? 'commercial' : 'reference'}:${normalizedWord}`;
+      const cacheKey = `word:${this.corpusTag}:${normalizedWord}`;
 
       // Try Redis cache first
       return await this.cacheService.getOrSet(
         cacheKey,
         async () => {
+          if (this.dsdServesPublic) {
+            const aggregate = await this.dsdQueryService!.findCompleteEntry(normalizedWord);
+            if (aggregate) {
+              const presented = presentEntry(aggregate, {
+                releaseId: this.dsdConfig!.activeReleaseId,
+                audioBaseUrl: process.env.DSD_AUDIO_PUBLIC_BASE_URL ?? '',
+              });
+              return {
+                word: presented.word,
+                pronunciations: presented.pronunciations.map((pronunciation) => ({
+                  ipa: pronunciation.ipa,
+                  audio_url: pronunciation.audio_url ?? undefined,
+                })),
+                definitions: presented.definitions.map((definition) => ({
+                  pos: definition.part_of_speech,
+                  meaning_en: definition.definition_en,
+                  meaning_vi: definition.definition_vi,
+                  examples: definition.examples,
+                })),
+                data_source: 'dsd',
+              } as unknown as LookupWordResponseDto;
+            }
+            // A DSD miss is a 404 even when legacy holds the word. Falling
+            // through to legacy here is the exact failure this task prevents.
+            throw new HttpException(
+              `Word "${word}" not found in dictionary`,
+              HttpStatus.NOT_FOUND,
+            );
+          }
+
           // Try to find word in database first
           const dbWord = await this.findWordInDatabase(normalizedWord);
           if (dbWord) {

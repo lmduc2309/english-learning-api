@@ -16,6 +16,9 @@ import { SearchIndexService } from '../common/search/search-index.service';
 import { RedisCacheService } from '../common/cache/redis-cache.service';
 import { LearnerEntry } from './entities/learner-entry.entity';
 import { LearnerSenseTranslation } from './entities/learner-sense-translation.entity';
+import { DSD_CORPUS_CONFIG } from '../dsd-corpus/dsd-corpus.module';
+import { DsdCorpusConfig } from '../dsd-corpus/dsd-corpus.config';
+import { DsdQueryService } from '../dsd-corpus/dsd-query.service';
 
 function emptyRepo() {
   return {
@@ -34,6 +37,8 @@ async function buildModule(overrides: {
   wordRepository?: ReturnType<typeof emptyRepo>;
   learnerEntryRepository?: ReturnType<typeof emptyRepo>;
   learnerTranslationRepository?: ReturnType<typeof emptyRepo>;
+  dsdQueryService?: Partial<DsdQueryService>;
+  dsdConfig?: Partial<DsdCorpusConfig>;
 } = {}) {
   const module = await Test.createTestingModule({
     providers: [
@@ -46,6 +51,25 @@ async function buildModule(overrides: {
       { provide: getRepositoryToken(Synonym), useValue: emptyRepo() },
       { provide: getRepositoryToken(LearnerEntry), useValue: overrides.learnerEntryRepository || emptyRepo() },
       { provide: getRepositoryToken(LearnerSenseTranslation), useValue: overrides.learnerTranslationRepository || emptyRepo() },
+      {
+        provide: DsdQueryService,
+        useValue: overrides.dsdQueryService ?? {
+          available: false,
+          findCompleteEntry: jest.fn().mockResolvedValue(null),
+          search: jest.fn().mockResolvedValue([]),
+        },
+      },
+      {
+        provide: DSD_CORPUS_CONFIG,
+        useValue: {
+          database: 'dsd_corpus_db',
+          releaseChannel: 'off',
+          activeReleaseId: '',
+          connections: {},
+          errors: [],
+          ...overrides.dsdConfig,
+        },
+      },
       {
         provide: ConfigService,
         useValue: {
@@ -78,6 +102,7 @@ async function buildModule(overrides: {
           // Pass-through cache: just execute the factory each time
           getOrSet: jest.fn(async (_key: string, factory: () => Promise<unknown>) => factory()),
           getWordDetailTTL: jest.fn().mockReturnValue(60),
+          getSearchTTL: jest.fn().mockReturnValue(60),
         },
       },
     ],
@@ -472,5 +497,193 @@ describe('DictionaryService.resolve — bilingual direction', () => {
       matches: [],
       translation: { translated_text: 'blue sky' },
     });
+  });
+});
+
+// ─── Task 15: commercial traffic goes to DSD, or nowhere ─────────────────────
+
+const DSD_ENTRY = {
+  entry: {
+    id: '11111111-1111-1111-1111-111111111111',
+    headword: 'rehearse',
+    headwordNormalized: 'rehearse',
+    language: 'en',
+    updatedAt: new Date('2026-08-03T09:00:00.000Z'),
+  },
+  senses: [
+    {
+      id: '22222222-2222-2222-2222-222222222222',
+      senseOrder: 1,
+      partOfSpeech: 'verb',
+      definitionEn: 'To practise beforehand.',
+      usageLabels: [],
+      translations: [{ id: 't1', locale: 'vi', text: 'diễn tập' }],
+      examples: [{ id: 'x1', exampleOrder: 1, exampleEn: 'They rehearse.', exampleVi: 'Họ diễn tập.' }],
+    },
+  ],
+  pronunciations: [{ id: 'p1', accent: 'en-US', ipa: 'rɪˈhɜːrs', priority: 1, audio: [] }],
+};
+
+/** A legacy word repository that would happily answer if it were asked. */
+function legacyRepoWithWord() {
+  const repo = emptyRepo();
+  repo.findOne = jest.fn().mockResolvedValue({
+    id: 42,
+    word: 'rehearse',
+    wordNormalized: 'rehearse',
+    definitions: [],
+    pronunciations: [],
+    wordForms: [],
+  });
+  repo.find = jest.fn().mockResolvedValue([{ id: 42, word: 'rehearse' }]);
+  return repo;
+}
+
+function dsdPublic(found: unknown = DSD_ENTRY) {
+  return {
+    dsdQueryService: {
+      available: true,
+      findCompleteEntry: jest.fn().mockResolvedValue(found),
+      search: jest.fn().mockResolvedValue(
+        found
+          ? [
+              {
+                id: DSD_ENTRY.entry.id,
+                headword: 'rehearse',
+                partOfSpeech: 'verb',
+                definitionEn: 'To practise beforehand.',
+                translationVi: 'diễn tập',
+              },
+            ]
+          : [],
+      ),
+    } as unknown as Partial<DsdQueryService>,
+    dsdConfig: {
+      releaseChannel: 'public' as const,
+      activeReleaseId: 'DSD-REL-V1-5000-a1b2c3d4',
+    },
+    config: { 'content.commercialSafeMode': true, 'llm.enableFallback': false },
+  };
+}
+
+describe('commercial mode routes to DSD only', () => {
+  it('serves a lookup from DSD', async () => {
+    const svc = await buildModule(dsdPublic());
+    const result: any = await svc.lookupWord('rehearse');
+    expect(result.word).toBe('rehearse');
+    expect(result.data_source).toBe('dsd');
+    expect(result.definitions[0].meaning_vi).toBe('diễn tập');
+  });
+
+  it('makes zero legacy repository calls', async () => {
+    // The assertion that matters: legacy holds the word and is never asked.
+    const wordRepository = legacyRepoWithWord();
+    const learnerEntryRepository = legacyRepoWithWord();
+    const svc = await buildModule({ ...dsdPublic(), wordRepository, learnerEntryRepository });
+
+    await svc.lookupWord('rehearse');
+
+    expect(wordRepository.findOne).not.toHaveBeenCalled();
+    expect(wordRepository.find).not.toHaveBeenCalled();
+    expect(learnerEntryRepository.findOne).not.toHaveBeenCalled();
+    expect(learnerEntryRepository.find).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 on a DSD miss even though legacy has the word', async () => {
+    const wordRepository = legacyRepoWithWord();
+    const svc = await buildModule({ ...dsdPublic(null), wordRepository });
+
+    await expect(svc.lookupWord('rehearse')).rejects.toThrow(/not found in dictionary/);
+    expect(wordRepository.findOne).not.toHaveBeenCalled();
+  });
+
+  it('keeps generated fallback disabled on a miss', async () => {
+    const lookupDictionaryWord = jest.fn();
+    const svc = await buildModule({
+      ...dsdPublic(null),
+      llmService: { lookupDictionaryWord } as unknown as Partial<LlmService>,
+    });
+
+    await expect(svc.lookupWord('rehearse')).rejects.toThrow(/not found/);
+    expect(lookupDictionaryWord).not.toHaveBeenCalled();
+  });
+
+  it('serves search from DSD and asks no legacy repository', async () => {
+    const learnerEntryRepository = legacyRepoWithWord();
+    const svc = await buildModule({ ...dsdPublic(), learnerEntryRepository });
+
+    const result = await svc.searchWords({ q: 'reh', limit: 5 } as any);
+    expect(result.suggestions[0].word).toBe('rehearse');
+    expect(learnerEntryRepository.find).not.toHaveBeenCalled();
+  });
+});
+
+describe('the off channel serves nothing from DSD, and never falls back', () => {
+  it('does not consult DSD when the channel is off', async () => {
+    const dsd = {
+      available: false,
+      findCompleteEntry: jest.fn().mockResolvedValue(DSD_ENTRY),
+      search: jest.fn().mockResolvedValue([]),
+    } as unknown as Partial<DsdQueryService>;
+    const svc = await buildModule({
+      dsdQueryService: dsd,
+      dsdConfig: { releaseChannel: 'off', activeReleaseId: '' },
+      config: { 'content.commercialSafeMode': true, 'llm.enableFallback': false },
+    });
+
+    await expect(svc.lookupWord('rehearse')).rejects.toThrow();
+    expect(dsd.findCompleteEntry).not.toHaveBeenCalled();
+  });
+
+  it('does not serve DSD content on the internal channel to a public request', async () => {
+    const routed = dsdPublic();
+    const svc = await buildModule({
+      ...routed,
+      dsdConfig: { releaseChannel: 'internal', activeReleaseId: 'DSD-REL-PILOT-20260803-a1b2c3d4' },
+    });
+
+    await expect(svc.lookupWord('rehearse')).rejects.toThrow();
+    expect(routed.dsdQueryService.findCompleteEntry).not.toHaveBeenCalled();
+  });
+});
+
+describe('cache keys cannot mix corpora', () => {
+  async function keyFor(overrides: Parameters<typeof buildModule>[0]) {
+    const keys: string[] = [];
+    const svc = await buildModule(overrides);
+    // Keep the TTL helpers the service asks for; only getOrSet is observed.
+    const real = (svc as any).cacheService;
+    (svc as any).cacheService = {
+      ...real,
+      getOrSet: jest.fn(async (key: string, factory: () => Promise<unknown>) => {
+        keys.push(key);
+        return factory();
+      }),
+      getWordDetailTTL: () => 3600,
+      getSearchTTL: () => 300,
+    };
+    await svc.lookupWord('rehearse').catch(() => undefined);
+    return keys[0];
+  }
+
+  it('names the release, so a body cached under another release is not reused', async () => {
+    const key = await keyFor(dsdPublic());
+    expect(key).toContain('DSD-REL-V1-5000-a1b2c3d4');
+  });
+
+  it('differs between two DSD releases', async () => {
+    const first = await keyFor(dsdPublic());
+    const second = await keyFor({
+      ...dsdPublic(),
+      dsdConfig: { releaseChannel: 'public', activeReleaseId: 'DSD-REL-V1-20000-99887766' },
+    });
+    expect(first).not.toBe(second);
+  });
+
+  it('differs between reference and commercial mode', async () => {
+    const reference = await keyFor({ config: { 'content.commercialSafeMode': false } });
+    const commercial = await keyFor(dsdPublic());
+    expect(reference).not.toBe(commercial);
+    expect(reference).toContain('reference');
   });
 });
