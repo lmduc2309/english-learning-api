@@ -119,7 +119,10 @@
     "dsd:similarity:calibrate": "ts-node scripts/dsd/similarity-calibrate.ts",
     "dsd:ipa:candidates": "python3 scripts/dsd/ipa-candidates.py",
     "dsd:ipa:review": "ts-node scripts/dsd/ipa-review.ts review",
-    "dsd:ipa:audit": "ts-node scripts/dsd/ipa-review.ts audit"
+    "dsd:ipa:audit": "ts-node scripts/dsd/ipa-review.ts audit",
+    "dsd:audio:generate": "ts-node scripts/dsd/audio-generate.ts",
+    "dsd:audio:review": "ts-node scripts/dsd/audio-review.ts",
+    "dsd:audio:audit": "ts-node scripts/dsd/audio-audit.ts"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",

@@ -2,6 +2,7 @@ import { MigrationInterface } from 'typeorm';
 import { CreateDsdCorpusCore1785628800000 } from './1785628800000-CreateDsdCorpusCore';
 import { AddDsdSimilarityAudit1785628900000 } from './1785628900000-AddDsdSimilarityAudit';
 import { AddDsdIpaCandidates1785629000000 } from './1785629000000-AddDsdIpaCandidates';
+import { AddDsdAudioAssets1785629100000 } from './1785629100000-AddDsdAudioAssets';
 
 /**
  * DSD migration list.
@@ -14,4 +15,5 @@ export const DSD_MIGRATIONS: Array<new () => MigrationInterface> = [
   CreateDsdCorpusCore1785628800000,
   AddDsdSimilarityAudit1785628900000,
   AddDsdIpaCandidates1785629000000,
+  AddDsdAudioAssets1785629100000,
 ];
