@@ -25,7 +25,7 @@ describe('LocalTtsClient', () => {
     const client = new LocalTtsClient(fakeConfig());
     const buf = await client.synthesize({
       engine: 'piper',
-      voice: 'en_US-ryan-medium',
+      voice: 'en_US-norman-medium',
       text: 'Hello.',
     });
     expect(buf).toBeInstanceOf(Buffer);
@@ -37,7 +37,7 @@ describe('LocalTtsClient', () => {
     expect(init.headers['Content-Type']).toBe('application/json');
     expect(JSON.parse(init.body)).toEqual({
       engine: 'piper',
-      voice: 'en_US-ryan-medium',
+      voice: 'en_US-norman-medium',
       text: 'Hello.',
     });
   });
@@ -50,7 +50,7 @@ describe('LocalTtsClient', () => {
     ) as unknown as typeof fetch;
     const client = new LocalTtsClient(fakeConfig());
     await expect(
-      client.synthesize({ engine: 'piper', voice: 'en_US-ryan-medium', text: 'hi' }),
+      client.synthesize({ engine: 'piper', voice: 'en_US-norman-medium', text: 'hi' }),
     ).rejects.toMatchObject({ name: 'LocalTtsError', status: 503 });
   });
 
@@ -62,7 +62,7 @@ describe('LocalTtsClient', () => {
     }) as unknown as typeof fetch;
     const client = new LocalTtsClient(fakeConfig());
     await expect(
-      client.synthesize({ engine: 'piper', voice: 'en_US-ryan-medium', text: 'hi' }),
+      client.synthesize({ engine: 'piper', voice: 'en_US-norman-medium', text: 'hi' }),
     ).rejects.toMatchObject({
       name: 'LocalTtsError',
       status: 503,
@@ -76,7 +76,7 @@ describe('LocalTtsClient', () => {
     ) as unknown as typeof fetch;
     const client = new LocalTtsClient(fakeConfig());
     await expect(
-      client.synthesize({ engine: 'piper', voice: 'en_US-ryan-medium', text: 'hi' }),
+      client.synthesize({ engine: 'piper', voice: 'en_US-norman-medium', text: 'hi' }),
     ).rejects.toMatchObject({
       name: 'LocalTtsError',
       status: 503,

@@ -40,7 +40,7 @@ describe('TtsService.synthesize', () => {
     await svc.synthesize('Hello.', 'en-guy');
     expect(client.synthesize).toHaveBeenCalledWith({
       engine: 'piper',
-      voice: 'en_US-ryan-medium',
+      voice: 'en_US-norman-medium',
       text: 'Hello.',
     });
   });
@@ -50,7 +50,7 @@ describe('TtsService.synthesize', () => {
     await svc.synthesize('Hello.', 'en-aria');
     expect(client.synthesize).toHaveBeenCalledWith({
       engine: 'piper',
-      voice: 'en_US-amy-medium',
+      voice: 'en_US-ljspeech-medium',
       text: 'Hello.',
     });
   });
@@ -108,7 +108,7 @@ describe('TtsService.synthesize', () => {
     await svc.synthesize('hello world', 'en-aria');
     expect(client.synthesize).toHaveBeenCalledWith({
       engine: 'piper',
-      voice: 'en_US-amy-medium',
+      voice: 'en_US-ljspeech-medium',
       text: 'hello world',
     });
   });
