@@ -1,0 +1,350 @@
+{
+  "manifest_version": 1,
+  "generated_at": "2026-08-03T17:31:22.251Z",
+  "approved_voices": [
+    "en_US-ljspeech-medium",
+    "en_US-norman-medium"
+  ],
+  "blocked_voices": [
+    "en_US-amy-medium",
+    "en_US-ryan-medium"
+  ],
+  "counts": {
+    "quarantine": 12,
+    "keep": 4,
+    "review": 20
+  },
+  "bytes": {
+    "quarantine": 127526305,
+    "keep": 127072698,
+    "review": 5830000
+  },
+  "entries": [
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/.piper-models/en_US-amy-medium.onnx",
+      "size": 63201294,
+      "sha256": "b3a6e47b57b8c7fbe6a0ce2518161a50f59a9cdd8a50835c02cb02bdd6206c18",
+      "detectedVoice": "en_US-amy-medium",
+      "classification": "blocked",
+      "proposedAction": "quarantine",
+      "reason": "en_US-amy-medium is blocked: its training dataset does not permit commercial use"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/.piper-models/en_US-amy-medium.onnx.json",
+      "size": 4882,
+      "sha256": "95a23eb4d42909d38df73bb9ac7f45f597dbfcde2d1bf9526fdeaf5466977d77",
+      "detectedVoice": "en_US-amy-medium",
+      "classification": "blocked",
+      "proposedAction": "quarantine",
+      "reason": "en_US-amy-medium is blocked: its training dataset does not permit commercial use"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/.piper-models/en_US-ljspeech-medium.onnx",
+      "size": 63531379,
+      "sha256": "6f52a751e2349abe7a76735eb09dc1875298c77ea2342ffd2fef79ff81b87f22",
+      "detectedVoice": "en_US-ljspeech-medium",
+      "classification": "approved",
+      "proposedAction": "keep",
+      "reason": "en_US-ljspeech-medium is an approved voice"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/.piper-models/en_US-ljspeech-medium.onnx.json",
+      "size": 4972,
+      "sha256": "141d612cc0a95ed7efc1ca936b845c2364967f2e9217c5dbfcf69fc4d6c65860",
+      "detectedVoice": "en_US-ljspeech-medium",
+      "classification": "approved",
+      "proposedAction": "keep",
+      "reason": "en_US-ljspeech-medium is an approved voice"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/.piper-models/en_US-norman-medium.onnx",
+      "size": 63531379,
+      "sha256": "b9739443232a80a59c7d18810dd856899bf16a7964725f5ab81ea49b1351cb71",
+      "detectedVoice": "en_US-norman-medium",
+      "classification": "approved",
+      "proposedAction": "keep",
+      "reason": "en_US-norman-medium is an approved voice"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/.piper-models/en_US-norman-medium.onnx.json",
+      "size": 4968,
+      "sha256": "6c2db7f558a4a8deb9fe822583c1c5105f6c4e834dd0f9de8ad17a888ee9fe1d",
+      "detectedVoice": "en_US-norman-medium",
+      "classification": "approved",
+      "proposedAction": "keep",
+      "reason": "en_US-norman-medium is an approved voice"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/.piper-models/en_US-ryan-medium.onnx",
+      "size": 63201294,
+      "sha256": "abf4c274862564ed647ba0d2c47f8ee7c9b717d27bdad9219100eb310db4047a",
+      "detectedVoice": "en_US-ryan-medium",
+      "classification": "blocked",
+      "proposedAction": "quarantine",
+      "reason": "en_US-ryan-medium is blocked: its training dataset does not permit commercial use"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/.piper-models/en_US-ryan-medium.onnx.json",
+      "size": 4883,
+      "sha256": "44034c056cb15681b2ad494307c7f3f2e4499d1253c700c711fa0a4607ffe78d",
+      "detectedVoice": "en_US-ryan-medium",
+      "classification": "blocked",
+      "proposedAction": "quarantine",
+      "reason": "en_US-ryan-medium is blocked: its training dataset does not permit commercial use"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out_piper/en_US-amy-medium__long.wav",
+      "size": 204332,
+      "sha256": "48ff614bff43b24f9ca51e0f86fb6c69857ae11d9abcfd7c9fdb8365ce7168e4",
+      "detectedVoice": "en_US-amy-medium",
+      "classification": "blocked",
+      "proposedAction": "quarantine",
+      "reason": "en_US-amy-medium is blocked: its training dataset does not permit commercial use"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out_piper/en_US-amy-medium__short.wav",
+      "size": 142892,
+      "sha256": "58e5a7a9794b3e0407d2364b07a4ffe1a18378e57476f4852ccae13cc62ee465",
+      "detectedVoice": "en_US-amy-medium",
+      "classification": "blocked",
+      "proposedAction": "quarantine",
+      "reason": "en_US-amy-medium is blocked: its training dataset does not permit commercial use"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out_piper/en_US-lessac-medium__long.wav",
+      "size": 166444,
+      "sha256": "179557aaa80501564bacb5b9e0728f984e8962e9296040871aff1fc5042085bf",
+      "detectedVoice": "en_US-lessac-medium",
+      "classification": "unapproved",
+      "proposedAction": "quarantine",
+      "reason": "en_US-lessac-medium is not in the voice lock, so it has no recorded provenance"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out_piper/en_US-lessac-medium__short.wav",
+      "size": 111660,
+      "sha256": "0d4006b1129a9b4fc5e4c1b8838049286e44cbdddcfac9b6fb52f21966e099b6",
+      "detectedVoice": "en_US-lessac-medium",
+      "classification": "unapproved",
+      "proposedAction": "quarantine",
+      "reason": "en_US-lessac-medium is not in the voice lock, so it has no recorded provenance"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out_piper/en_US-libritts_r-medium__long.wav",
+      "size": 141868,
+      "sha256": "4869be6d334626b8d577b1355febfc7897c631643a5b1da11629e331996893f6",
+      "detectedVoice": "en_US-libritts_r-medium",
+      "classification": "unapproved",
+      "proposedAction": "quarantine",
+      "reason": "en_US-libritts_r-medium is not in the voice lock, so it has no recorded provenance"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out_piper/en_US-libritts_r-medium__short.wav",
+      "size": 93740,
+      "sha256": "2973ae83c0fab5273d8ba9416878783d483257333087dbfae129ad4c2d88771f",
+      "detectedVoice": "en_US-libritts_r-medium",
+      "classification": "unapproved",
+      "proposedAction": "quarantine",
+      "reason": "en_US-libritts_r-medium is not in the voice lock, so it has no recorded provenance"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out_piper/en_US-ryan-medium__long.wav",
+      "size": 150060,
+      "sha256": "d8b6f29e44824687ba119f84dc095384e983afa2a919a13bfee19d5c33d24333",
+      "detectedVoice": "en_US-ryan-medium",
+      "classification": "blocked",
+      "proposedAction": "quarantine",
+      "reason": "en_US-ryan-medium is blocked: its training dataset does not permit commercial use"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out_piper/en_US-ryan-medium__short.wav",
+      "size": 102956,
+      "sha256": "158eead4d42acb9d14f7cf05e06105ea870671060b8bc63f533ccf9c1f63c84a",
+      "detectedVoice": "en_US-ryan-medium",
+      "classification": "blocked",
+      "proposedAction": "quarantine",
+      "reason": "en_US-ryan-medium is blocked: its training dataset does not permit commercial use"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out/__Bình_An___nam__giọng_điềm_đạm____Bình_An____long.wav",
+      "size": 376364,
+      "sha256": "b0221c5bd6c50cf1028b92562597a3169e8d0e93bdbac3d893afe2e742b150cc",
+      "detectedVoice": null,
+      "classification": "unknown",
+      "proposedAction": "review",
+      "reason": "no voice could be identified from the name; a person must decide"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out/__Bình_An___nam__giọng_điềm_đạm____Bình_An____short.wav",
+      "size": 199724,
+      "sha256": "80f613b9393b50202349813af3deabe45eaf425c358b44b632fcc6a3fee64e03",
+      "detectedVoice": null,
+      "classification": "unknown",
+      "proposedAction": "review",
+      "reason": "no voice could be identified from the name; a person must decide"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out/__Đức_Trí___nam__giọng_rõ_ràng____Đức_Trí____long.wav",
+      "size": 368684,
+      "sha256": "5ff9d977f0f5bac24d6fd21511c45f2bd5d0a84d356cbaa7f4b6b8b313e1e761",
+      "detectedVoice": null,
+      "classification": "unknown",
+      "proposedAction": "review",
+      "reason": "no voice could be identified from the name; a person must decide"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out/__Đức_Trí___nam__giọng_rõ_ràng____Đức_Trí____short.wav",
+      "size": 261164,
+      "sha256": "14b28f68f595b1e6e002452a245bc56917d45e71e4b743be790e8b78e90bbc43",
+      "detectedVoice": null,
+      "classification": "unknown",
+      "proposedAction": "review",
+      "reason": "no voice could be identified from the name; a person must decide"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out/__Gia_Bảo___nam__giọng_mượt_mà____Gia_Bảo____long.wav",
+      "size": 353324,
+      "sha256": "8d495695294ce274c406f2d5752780257a34d3683b8755eff2c8fbbe6d85d2e9",
+      "detectedVoice": null,
+      "classification": "unknown",
+      "proposedAction": "review",
+      "reason": "no voice could be identified from the name; a person must decide"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out/__Gia_Bảo___nam__giọng_mượt_mà____Gia_Bảo____short.wav",
+      "size": 222764,
+      "sha256": "c0b51a82ae65b936029ee477789c9200c013e1759840e4ea6a8040a1a0947d66",
+      "detectedVoice": null,
+      "classification": "unknown",
+      "proposedAction": "review",
+      "reason": "no voice could be identified from the name; a person must decide"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out/__Mỹ_Duyên___nữ__giọng_mượt_mà____Mỹ_Duyên____long.wav",
+      "size": 384044,
+      "sha256": "559aa3da5ddbe26effc8adbb0c70c0655d1a00ba4b60c41f83273a0b62c85846",
+      "detectedVoice": null,
+      "classification": "unknown",
+      "proposedAction": "review",
+      "reason": "no voice could be identified from the name; a person must decide"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out/__Mỹ_Duyên___nữ__giọng_mượt_mà____Mỹ_Duyên____short.wav",
+      "size": 199724,
+      "sha256": "96753492c83092d55cc173b9a09faf6cfb934118943fa5a065156d7d11609afc",
+      "detectedVoice": null,
+      "classification": "unknown",
+      "proposedAction": "review",
+      "reason": "no voice could be identified from the name; a person must decide"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out/__Ngọc_Lan___nữ__giọng_dịu_dàng____Ngọc_Lan____long.wav",
+      "size": 391724,
+      "sha256": "3e2e7fdf0ac354b3eb3b941be2b06119ddd455097ce433f470759dccf96ca415",
+      "detectedVoice": null,
+      "classification": "unknown",
+      "proposedAction": "review",
+      "reason": "no voice could be identified from the name; a person must decide"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out/__Ngọc_Lan___nữ__giọng_dịu_dàng____Ngọc_Lan____short.wav",
+      "size": 184364,
+      "sha256": "0dd2e7040f0738bebd6762b7ae46fece55141471f6fdc11bd5254c00cea32e2d",
+      "detectedVoice": null,
+      "classification": "unknown",
+      "proposedAction": "review",
+      "reason": "no voice could be identified from the name; a person must decide"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out/__Ngọc_Linh___nữ__giọng_tươi_sáng____Ngọc_Linh____long.wav",
+      "size": 337964,
+      "sha256": "75972881eefc7378b1ccbc940cae1f39ce9dfdee213b5d5cc09db812915f495d",
+      "detectedVoice": null,
+      "classification": "unknown",
+      "proposedAction": "review",
+      "reason": "no voice could be identified from the name; a person must decide"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out/__Ngọc_Linh___nữ__giọng_tươi_sáng____Ngọc_Linh____short.wav",
+      "size": 199724,
+      "sha256": "46c8bd8c36ca4ce578cc7c15900d70c248b967f0d9ea2544ed98d0f1e10cf5a8",
+      "detectedVoice": null,
+      "classification": "unknown",
+      "proposedAction": "review",
+      "reason": "no voice could be identified from the name; a person must decide"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out/__Thái_Sơn___nam__giọng_chắc_khỏe____Thái_Sơn____long.wav",
+      "size": 353324,
+      "sha256": "52cb5da2ee2d69cc1db55f1aaabce4b1e54803999371f436de0400d655e7f039",
+      "detectedVoice": null,
+      "classification": "unknown",
+      "proposedAction": "review",
+      "reason": "no voice could be identified from the name; a person must decide"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out/__Thái_Sơn___nam__giọng_chắc_khỏe____Thái_Sơn____short.wav",
+      "size": 222764,
+      "sha256": "b0d30e3e12423ccb5262063f2b85a6ffedc257fe6e0a8997728231f9a036020d",
+      "detectedVoice": null,
+      "classification": "unknown",
+      "proposedAction": "review",
+      "reason": "no voice could be identified from the name; a person must decide"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out/__Trọng_Hữu___nam__giọng_uyên_bác____Trọng_Hữu____long.wav",
+      "size": 361004,
+      "sha256": "11115b29bd87b55629dd0ccbcb1c71aad291b6979d7c0f2892cb79a2ce8704b2",
+      "detectedVoice": null,
+      "classification": "unknown",
+      "proposedAction": "review",
+      "reason": "no voice could be identified from the name; a person must decide"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out/__Trọng_Hữu___nam__giọng_uyên_bác____Trọng_Hữu____short.wav",
+      "size": 207404,
+      "sha256": "8295afe3a8455e168830aa35c2a42b0b639a0e9e9aed4291e831dea2416f7312",
+      "detectedVoice": null,
+      "classification": "unknown",
+      "proposedAction": "review",
+      "reason": "no voice could be identified from the name; a person must decide"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out/__Trúc_Ly___nữ__giọng_trẻ_trung____Trúc_Ly____long.wav",
+      "size": 345644,
+      "sha256": "30c23782fe9eb7bd93298b5c8b58bf6cc40aa3d75f4e697534ce908b429a9c11",
+      "detectedVoice": null,
+      "classification": "unknown",
+      "proposedAction": "review",
+      "reason": "no voice could be identified from the name; a person must decide"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out/__Trúc_Ly___nữ__giọng_trẻ_trung____Trúc_Ly____short.wav",
+      "size": 238124,
+      "sha256": "819a5b8ae91335ed87ef52925d1a0d465567c8b23988cd4a6a37a99fc87d7f0f",
+      "detectedVoice": null,
+      "classification": "unknown",
+      "proposedAction": "review",
+      "reason": "no voice could be identified from the name; a person must decide"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out/__Xuân_Vĩnh___nam__giọng_vui_tươi____Xuân_Vĩnh____long.wav",
+      "size": 391724,
+      "sha256": "bf9d8e84695d46382c1ff91fc2fffc8dddb2508806a018a52ce8faa050ca9b9a",
+      "detectedVoice": null,
+      "classification": "unknown",
+      "proposedAction": "review",
+      "reason": "no voice could be identified from the name; a person must decide"
+    },
+    {
+      "location": "/Users/ducleminh/games-and-tools/tts-service/out/__Xuân_Vĩnh___nam__giọng_vui_tươi____Xuân_Vĩnh____short.wav",
+      "size": 230444,
+      "sha256": "c827a2ed09314bc6fda204b3f9e841cd0da9a6dcb2861676d06e3848b6905c15",
+      "detectedVoice": null,
+      "classification": "unknown",
+      "proposedAction": "review",
+      "reason": "no voice could be identified from the name; a person must decide"
+    }
+  ],
+  "digest": "2ed710b22795226e98d4cac9d72814475117052c3e0d638a6d82dc87396039a4",
+  "hmac": null
+}

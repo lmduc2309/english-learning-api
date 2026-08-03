@@ -129,6 +129,13 @@ data/dsd/audio/
 data/dsd/exports/
 data/dsd/releases/
 
+# One exception: a quarantine manifest records what was retired and with what
+# hash. It has to survive the directory it describes, and it holds no audio —
+# only paths, sizes, digests and a proposed action.
+!data/dsd/audio/
+data/dsd/audio/*
+!data/dsd/audio/quarantine-*.json
+
 # Local backup dumps and manifests. Snapshot-bound and reproducible;
 # never committed. Off-host copies are the disaster-recovery path.
 backups/
