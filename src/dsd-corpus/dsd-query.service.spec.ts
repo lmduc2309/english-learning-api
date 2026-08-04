@@ -34,6 +34,7 @@ function aggregate(overrides: Partial<DsdEntryAggregate> = {}): DsdEntryAggregat
             exampleVi: 'Dàn hợp xướng diễn tập vào mỗi thứ Năm.',
           },
         ],
+        relations: [],
       },
     ],
     pronunciations: [

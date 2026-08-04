@@ -17,6 +17,12 @@ export interface DsdPublicExample {
   vi: string;
 }
 
+export interface DsdPublicRelation {
+  type: string;
+  word: string;
+  sense_id: string;
+}
+
 export interface DsdPublicDefinition {
   id: string;
   part_of_speech: string;
@@ -24,6 +30,8 @@ export interface DsdPublicDefinition {
   definition_vi: string;
   usage_labels: string[];
   examples: DsdPublicExample[];
+  /** Approved DSD relations only. Never a borrowed relation set. */
+  relations: DsdPublicRelation[];
 }
 
 export interface DsdPublicPronunciation {
@@ -95,6 +103,11 @@ export function presentEntry(
       examples: sense.examples.map((example) => ({
         en: example.exampleEn,
         vi: example.exampleVi,
+      })),
+      relations: (sense.relations ?? []).map((relation) => ({
+        type: relation.relationType,
+        word: relation.relatedHeadword,
+        sense_id: relation.relatedSenseId,
       })),
     })),
     data_source: 'dsd',

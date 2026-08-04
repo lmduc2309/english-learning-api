@@ -114,7 +114,7 @@ export class AddDsdServingViews1785629400000 implements MigrationInterface {
         FOREACH t IN ARRAY ARRAY[
           'dsd_entries', 'dsd_senses', 'dsd_translations', 'dsd_examples',
           'dsd_pronunciations', 'dsd_provenance_events', 'dsd_similarity_results',
-          'dsd_ipa_candidates', 'dsd_audio_assets'
+          'dsd_ipa_candidates', 'dsd_audio_assets', 'dsd_relations'
         ] LOOP
           IF EXISTS (SELECT 1 FROM pg_class WHERE relname = t) THEN
             EXECUTE format('REVOKE ALL ON %I FROM dsd_app', t);

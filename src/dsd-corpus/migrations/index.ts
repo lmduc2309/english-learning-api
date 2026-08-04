@@ -3,6 +3,7 @@ import { CreateDsdCorpusCore1785628800000 } from './1785628800000-CreateDsdCorpu
 import { AddDsdSimilarityAudit1785628900000 } from './1785628900000-AddDsdSimilarityAudit';
 import { AddDsdIpaCandidates1785629000000 } from './1785629000000-AddDsdIpaCandidates';
 import { AddDsdAudioAssets1785629100000 } from './1785629100000-AddDsdAudioAssets';
+import { AddDsdRelations1785629200000 } from './1785629200000-AddDsdRelations';
 import { AddDsdServingViews1785629400000 } from './1785629400000-AddDsdServingViews';
 
 /**
@@ -17,5 +18,6 @@ export const DSD_MIGRATIONS: Array<new () => MigrationInterface> = [
   AddDsdSimilarityAudit1785628900000,
   AddDsdIpaCandidates1785629000000,
   AddDsdAudioAssets1785629100000,
+  AddDsdRelations1785629200000,
   AddDsdServingViews1785629400000,
 ];

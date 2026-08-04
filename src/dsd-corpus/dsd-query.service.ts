@@ -26,6 +26,13 @@ export interface DsdEntryRow {
   updatedAt: Date;
 }
 
+export interface DsdRelationRow {
+  relationType: string;
+  /** The related sense, and the headword a client would show for it. */
+  relatedSenseId: string;
+  relatedHeadword: string;
+}
+
 export interface DsdSenseRow {
   id: string;
   senseOrder: number;
@@ -34,6 +41,11 @@ export interface DsdSenseRow {
   usageLabels: string[];
   translations: Array<{ id: string; locale: string; text: string }>;
   examples: Array<{ id: string; exampleOrder: number; exampleEn: string; exampleVi: string }>;
+  /**
+   * Published DSD relations only. Absent relations are normal — most senses
+   * have none — so this never affects completeness.
+   */
+  relations: DsdRelationRow[];
 }
 
 export interface DsdPronunciationRow {
@@ -86,7 +98,17 @@ const SENSES_SQL = `
                                              'exampleEn', x."example_en", 'exampleVi', x."example_vi")
                            ORDER BY x."example_order")
              FROM dsd_serving_examples x WHERE x."dsd_sense_id" = s."id"
-         ), '[]'::json) AS "examples"
+         ), '[]'::json) AS "examples",
+         COALESCE((
+           SELECT json_agg(json_build_object('relationType', r."relation_type",
+                                             'relatedSenseId', r."related_sense_id",
+                                             'relatedHeadword', re."headword")
+                           ORDER BY r."relation_type", re."headword")
+             FROM dsd_serving_relations r
+             JOIN dsd_serving_senses rs ON rs."id" = r."related_sense_id"
+             JOIN dsd_serving_entries re ON re."id" = rs."dsd_entry_id"
+            WHERE r."sense_id" = s."id"
+         ), '[]'::json) AS "relations"
     FROM dsd_serving_senses s
    WHERE s."dsd_entry_id" = $1
    ORDER BY s."sense_order"`;

@@ -24,6 +24,7 @@ function aggregate(): DsdEntryAggregate {
         usageLabels: [],
         translations: [{ id: 't1', locale: 'vi', text: 'diễn tập' }],
         examples: [{ id: 'x1', exampleOrder: 1, exampleEn: 'They rehearse.', exampleVi: 'Họ diễn tập.' }],
+        relations: [],
       },
     ],
     pronunciations: [

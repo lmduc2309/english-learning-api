@@ -15,6 +15,7 @@ import { DsdPronunciation } from './entities/dsd-pronunciation.entity';
 import { DsdProvenanceEvent } from './entities/dsd-provenance-event.entity';
 import { DsdSimilarityResult } from './entities/dsd-similarity-result.entity';
 import { DsdAudioAsset } from './entities/dsd-audio-asset.entity';
+import { DsdRelation } from './entities/dsd-relation.entity';
 
 /**
  * TypeORM data sources for the DSD corpus.
@@ -38,6 +39,7 @@ export const DSD_ENTITIES: DataSourceOptions['entities'] = [
   DsdProvenanceEvent,
   DsdSimilarityResult,
   DsdAudioAsset,
+  DsdRelation,
 ];
 
 export function dsdDataSourceOptions(

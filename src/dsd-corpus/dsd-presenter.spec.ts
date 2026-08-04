@@ -40,6 +40,13 @@ function aggregate(): DsdEntryAggregate & Record<string, unknown> {
         examples: [
           { id: 'x1', exampleOrder: 1, exampleEn: 'They rehearse on Tuesdays.', exampleVi: 'Họ diễn tập vào thứ Ba.' },
         ],
+        relations: [
+          {
+            relationType: 'synonym',
+            relatedSenseId: '66666666-6666-6666-6666-666666666666',
+            relatedHeadword: 'practise',
+          },
+        ],
         content_sha256: 'a'.repeat(64),
         reviewed_by: 'DSD-R-001',
         source_id: 'dsd-english-original',
@@ -70,6 +77,15 @@ describe('presentEntry', () => {
 
   it('keeps the field names clients already use', () => {
     const presented = presentEntry(aggregate(), OPTIONS);
+    expect(Object.keys(presented.definitions[0]).sort()).toEqual([
+      'definition_en',
+      'definition_vi',
+      'examples',
+      'id',
+      'part_of_speech',
+      'relations',
+      'usage_labels',
+    ]);
     expect(Object.keys(presented).sort()).toEqual([
       'corpus_release_id',
       'data_source',
@@ -176,5 +192,31 @@ describe('presentSearchHits', () => {
 
   it('emits nothing for no hits', () => {
     expect(presentSearchHits([])).toEqual([]);
+  });
+});
+
+describe('relations', () => {
+  it('presents an approved DSD relation with its headword', () => {
+    const relations = presentEntry(aggregate(), OPTIONS).definitions[0].relations;
+    expect(relations).toEqual([
+      {
+        type: 'synonym',
+        word: 'practise',
+        sense_id: '66666666-6666-6666-6666-666666666666',
+      },
+    ]);
+  });
+
+  it('presents an empty list when a sense has none', () => {
+    // Most senses have no relations, which is normal and not incompleteness.
+    const bare = aggregate();
+    (bare.senses[0] as any).relations = [];
+    expect(presentEntry(bare, OPTIONS).definitions[0].relations).toEqual([]);
+  });
+
+  it('tolerates the field being absent altogether', () => {
+    const bare = aggregate();
+    delete (bare.senses[0] as any).relations;
+    expect(presentEntry(bare, OPTIONS).definitions[0].relations).toEqual([]);
   });
 });

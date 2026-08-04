@@ -128,7 +128,10 @@
     "dsd:audio:storage:apply": "zsh scripts/dsd/provision-audio-storage.sh apply",
     "dsd:audio:storage:status": "zsh scripts/dsd/provision-audio-storage.sh status",
     "dsd:audio:storage:permissions": "jest --config jest.scripts.config.js --runInBand audio-storage-permissions",
-    "dsd:audio:quarantine": "ts-node scripts/dsd/audio-quarantine.ts"
+    "dsd:audio:quarantine": "ts-node scripts/dsd/audio-quarantine.ts",
+    "dsd:relations:validate": "ts-node scripts/dsd/relations.ts validate",
+    "dsd:relations:import": "ts-node scripts/dsd/relations.ts import",
+    "dsd:relations:audit": "ts-node scripts/dsd/relations.ts audit"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",
