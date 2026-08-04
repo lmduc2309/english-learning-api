@@ -52,7 +52,7 @@ describe('the API cannot reach candidates', () => {
     expect(names).toContain('DsdPronunciation');
   });
 
-  it('is queried by no application code', () => {
+  it('is queried by no serving code', () => {
     // The table is named in a comment on DsdPronunciation and in the migration
     // registry, which has to import the class to run it. Neither is a way to
     // read a row, so this looks for the shapes that are: a repository, an
@@ -64,6 +64,10 @@ describe('the API cannot reach candidates', () => {
       // Names the table in order to REVOKE access to it, which is the opposite
       // of querying it.
       'dsd-corpus/migrations/1785629400000-AddDsdServingViews.ts',
+      // The release audit reads candidates as dsd_auditor, to catch one being
+      // exposed as a final pronunciation. Detecting that failure requires
+      // seeing them; it is the opposite of serving them.
+      'dsd-corpus/release/gather.ts',
     ];
     const offenders: string[] = [];
 
