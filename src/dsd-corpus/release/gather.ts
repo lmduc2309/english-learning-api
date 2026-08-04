@@ -182,6 +182,27 @@ function readJsonIfPresent(file: string): any | null {
   return JSON.parse(fs.readFileSync(resolved, 'utf8'));
 }
 
+export interface AuditOptions {
+  releaseId: string;
+  channel: 'internal' | 'public';
+  territoriesFile: string;
+  signerKeyId?: string;
+}
+
+/**
+ * Gather and audit, returning the result.
+ *
+ * Separate from the CLI so the export can gate on it without shelling out or
+ * catching a process exit. The export must not proceed on anything but GO, and
+ * the cleanest way to guarantee that is to hand it the same result object the
+ * command prints.
+ */
+export async function runReleaseAuditForExport(
+  options: AuditOptions,
+): Promise<ReleaseAuditResult> {
+  return gatherAndAudit(options);
+}
+
 export async function runReleaseAudit(): Promise<void> {
   const releaseId = arg('release');
   const channel = arg('channel');
@@ -192,6 +213,33 @@ export async function runReleaseAudit(): Promise<void> {
     throw new Error('--channel must be internal or public');
   }
   if (!territoriesFile) throw new Error('--territories is required');
+
+  const result = await gatherAndAudit({
+    releaseId,
+    channel,
+    territoriesFile,
+    signerKeyId: arg('signer'),
+  });
+  report(result);
+
+  const output = arg('output');
+  if (output) {
+    const file = path.resolve(
+      process.cwd(),
+      output,
+      `audit-${releaseId}-${result.verdict.toLowerCase()}.json`,
+    );
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify(result, null, 2) + '\n');
+    console.log(`\nWrote ${file}`);
+  }
+
+  if (result.verdict === 'NO-GO') process.exit(1);
+}
+
+/** Collect every fact the audit needs, then decide. */
+async function gatherAndAudit(options: AuditOptions): Promise<ReleaseAuditResult> {
+  const { releaseId, channel, territoriesFile } = options;
 
   const config = buildDsdCorpusConfig();
   if (config.errors.length > 0) {
@@ -216,7 +264,7 @@ export async function runReleaseAudit(): Promise<void> {
   const backupProofDoc = readJsonIfPresent('data/dsd/releases/backup-proof.json');
   const signerRegistry = readJsonIfPresent('data/dsd/releases/signer-keys.json') ?? { keys: [] };
 
-  const signerKeyId = arg('signer') ?? process.env.DSD_RELEASE_SIGNER_KEY_ID ?? '';
+  const signerKeyId = options.signerKeyId ?? process.env.DSD_RELEASE_SIGNER_KEY_ID ?? '';
   const signerEntry = (signerRegistry.keys ?? []).find((key: any) => key.keyId === signerKeyId);
 
   // Read-only, as the auditor. This command cannot change what it inspects.
@@ -331,22 +379,7 @@ export async function runReleaseAudit(): Promise<void> {
     await ds.destroy();
   }
 
-  const result = auditRelease(input);
-  report(result);
-
-  const output = arg('output');
-  if (output) {
-    const file = path.resolve(
-      process.cwd(),
-      output,
-      `audit-${releaseId}-${result.verdict.toLowerCase()}.json`,
-    );
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, JSON.stringify(result, null, 2) + '\n');
-    console.log(`\nWrote ${file}`);
-  }
-
-  if (result.verdict === 'NO-GO') process.exit(1);
+  return auditRelease(input);
 }
 
 function report(result: ReleaseAuditResult): void {

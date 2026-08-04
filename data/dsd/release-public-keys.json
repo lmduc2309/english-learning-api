@@ -1,0 +1,23 @@
+{
+  "$schema": "https://dsdtech.site/schemas/dsd-release-public-keys.json",
+  "$comment": "The trust root for offline verification. A verifier trusts THIS file from a clean checkout, never the RELEASE-PUBLIC-KEY.pem bundled inside a package — anyone who can alter a manifest can alter a key sitting next to it. The bundled copy only has to match an entry here.",
+  "registry_version": 1,
+  "updated": "2026-08-04",
+  "keys": [],
+  "$keysComment": "Empty on purpose. No release signing key has been generated, and inventing a placeholder would make every verification appear to have a trust root when it has none. Until a key is added, dsd:export refuses to sign and dsd:release:verify reports key_id_unknown — both of which are correct.",
+  "rotation": {
+    "policy": "One active signing key at a time. Generate the replacement, add it here as active, re-sign nothing — existing packages stay valid under the key that signed them — then mark the previous key revoked once no in-support release depends on it.",
+    "keyLifetimeMonths": 12,
+    "privateKeyLocation": "release secret store; never in this repository, never in a package, never in an environment variable that is logged",
+    "generation": "openssl genpkey -algorithm ed25519 -out dsd-release-<id>.key && openssl pkey -in dsd-release-<id>.key -pubout"
+  },
+  "revocation": {
+    "policy": "Set status to revoked and record revokedReason. Revocation is deliberately retroactive: every package signed by a revoked key fails verification, because the reason a key is revoked is usually that somebody else may have been able to use it.",
+    "onCompromise": [
+      "Revoke here first, so verification starts failing before anything else is done.",
+      "Generate a replacement key and add it as active.",
+      "Re-export and re-sign every in-support release from its recorded SOURCE_DATE_EPOCH; a deterministic export reproduces identical bytes, so only the signature changes.",
+      "Publish the revocation with the reason. A silent revocation looks like a build error to whoever is verifying."
+    ]
+  }
+}

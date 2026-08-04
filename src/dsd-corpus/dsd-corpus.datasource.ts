@@ -16,6 +16,7 @@ import { DsdProvenanceEvent } from './entities/dsd-provenance-event.entity';
 import { DsdSimilarityResult } from './entities/dsd-similarity-result.entity';
 import { DsdAudioAsset } from './entities/dsd-audio-asset.entity';
 import { DsdRelation } from './entities/dsd-relation.entity';
+import { DsdReleaseBuild } from './entities/dsd-release-build.entity';
 
 /**
  * TypeORM data sources for the DSD corpus.
@@ -40,6 +41,7 @@ export const DSD_ENTITIES: DataSourceOptions['entities'] = [
   DsdSimilarityResult,
   DsdAudioAsset,
   DsdRelation,
+  DsdReleaseBuild,
 ];
 
 export function dsdDataSourceOptions(

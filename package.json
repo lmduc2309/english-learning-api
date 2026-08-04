@@ -133,7 +133,9 @@
     "dsd:relations:import": "ts-node scripts/dsd/relations.ts import",
     "dsd:relations:audit": "ts-node scripts/dsd/relations.ts audit",
     "dsd:release:audit": "ts-node scripts/dsd/release-audit.ts",
-    "dsd:release:audit:prod": "node dist/src/dsd-corpus/release/release-audit.js"
+    "dsd:release:audit:prod": "node dist/src/dsd-corpus/release/release-audit.js",
+    "dsd:export": "ts-node scripts/dsd/export.ts",
+    "dsd:release:verify": "ts-node scripts/dsd/verify-release.ts"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",
