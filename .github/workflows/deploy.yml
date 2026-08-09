@@ -10,6 +10,7 @@ on:
         type: choice
         options:
           - backup-only
+          - preflight-only
           - deploy
 
 concurrency:
@@ -113,6 +114,125 @@ jobs:
 
             backup_database "$LEGACY_DB"
             backup_database "$DSD_DB"
+
+  preflight-only:
+    name: Inspect DSD production readiness
+    if: inputs.operation == 'preflight-only'
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Inspect production without changing it
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          command_timeout: 15m
+          script: |
+            set -eu
+
+            ROOT=/var/www/sites/dsd-english
+            API_DIR="$ROOT/english-learning-api"
+            COMPOSE_FILE="$API_DIR/deploy/compose.yml"
+            ENV_FILE="$API_DIR/deploy/.env.production"
+            BACKUP_DIR="$ROOT/backups/manual-pre-import"
+            MISSING=0
+
+            test -d "$API_DIR/.git"
+            test -f "$COMPOSE_FILE"
+            test -f "$ENV_FILE"
+            cd "$API_DIR"
+
+            echo "server_api_head=$(git rev-parse HEAD)"
+            echo "server_api_branch=$(git branch --show-current)"
+            if test -n "$(git status --porcelain)"; then
+              echo "server_api_worktree=dirty"
+              MISSING=$((MISSING + 1))
+            else
+              echo "server_api_worktree=clean"
+            fi
+
+            COMPOSE="docker compose --env-file $ENV_FILE -f $COMPOSE_FILE"
+            POSTGRES_CONTAINER="$($COMPOSE ps -q postgres)"
+            test -n "$POSTGRES_CONTAINER"
+
+            REQUIRED_KEYS="
+            DSD_APP_DATABASE_URL
+            DSD_CURATOR_DATABASE_URL
+            DSD_AUDIT_DATABASE_URL
+            DSD_MIGRATOR_DATABASE_URL
+            DSD_BACKUP_DATABASE_URL
+            DSD_RESTORE_DATABASE_URL
+            LEGACY_AUDIT_DATABASE_URL
+            LEGACY_BACKUP_DATABASE_URL
+            DSD_BACKUP_S3_URI
+            DSD_BACKUP_KMS_KEY_ID
+            AWS_ACCESS_KEY_ID
+            AWS_SECRET_ACCESS_KEY
+            "
+            for KEY in $REQUIRED_KEYS; do
+              LINE="$(grep -E "^${KEY}=" "$ENV_FILE" | tail -n 1 || true)"
+              VALUE="${LINE#*=}"
+              case "$VALUE" in
+                ''|CHANGE_ME|replace-*)
+                  echo "$KEY=missing"
+                  MISSING=$((MISSING + 1))
+                  ;;
+                *) echo "$KEY=configured" ;;
+              esac
+            done
+
+            if grep -Eq '^COMMERCIAL_SAFE_MODE=true$' "$ENV_FILE"; then
+              echo "COMMERCIAL_SAFE_MODE=true"
+            else
+              echo "COMMERCIAL_SAFE_MODE=invalid_or_missing"
+              MISSING=$((MISSING + 1))
+            fi
+
+            DSD_DB="$(sed -n 's/^DSD_DB_DATABASE=//p' "$ENV_FILE" | tail -n 1)"
+            DSD_DB="${DSD_DB:-dsd_corpus_db}"
+            case "$DSD_DB" in
+              (*[!A-Za-z0-9_]*) echo "DSD_DB_DATABASE=unsafe"; exit 1 ;;
+            esac
+
+            DATABASE_LIST="$(docker exec "$POSTGRES_CONTAINER" sh -c \
+              'psql -U "$POSTGRES_USER" -d postgres -At -v ON_ERROR_STOP=1 -c "SELECT datname FROM pg_database"')"
+            if printf '%s\n' "$DATABASE_LIST" | grep -Fxq "$DSD_DB"; then
+              echo "DSD_DATABASE=present"
+            else
+              echo "DSD_DATABASE=missing"
+              MISSING=$((MISSING + 1))
+            fi
+
+            ROLE_LIST="$(docker exec "$POSTGRES_CONTAINER" sh -c \
+              'psql -U "$POSTGRES_USER" -d postgres -At -v ON_ERROR_STOP=1 -c "SELECT rolname FROM pg_roles"')"
+            for ROLE in dsd_owner dsd_migrator dsd_curator dsd_app dsd_auditor dsd_backup dsd_restore_operator dsd_similarity_reader legacy_backup; do
+              if printf '%s\n' "$ROLE_LIST" | grep -Fxq "$ROLE"; then
+                echo "role_${ROLE}=present"
+              else
+                echo "role_${ROLE}=missing"
+                MISSING=$((MISSING + 1))
+              fi
+            done
+
+            LATEST_DUMP="$(find "$BACKUP_DIR" -maxdepth 1 -type f -name 'english_learning_db-*.dump' -print 2>/dev/null | sort | tail -n 1)"
+            if [ -n "$LATEST_DUMP" ] && [ -f "$LATEST_DUMP.sha256" ] && sha256sum -c "$LATEST_DUMP.sha256" > /dev/null; then
+              echo "legacy_backup=verified"
+              echo "legacy_backup_path=$LATEST_DUMP"
+            else
+              echo "legacy_backup=missing_or_invalid"
+              MISSING=$((MISSING + 1))
+            fi
+
+            if [ "$MISSING" -eq 0 ]; then
+              echo "DSD_PRODUCTION_PREFLIGHT=GO"
+            else
+              echo "DSD_PRODUCTION_PREFLIGHT=NO-GO"
+              echo "blocking_findings=$MISSING"
+              exit 1
+            fi
 
   validate-api:
     name: Validate API
