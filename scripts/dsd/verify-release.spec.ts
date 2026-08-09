@@ -60,7 +60,15 @@ function writePackage(root: string, keys = KEYS, keyId = KEY_ID) {
       toolRegistrySha256: '2'.repeat(64),
       contributorRegistrySha256: '3'.repeat(64),
     },
-    counts: { entries: 1, senses: 0, translations: 0, examples: 0, relations: 0, audioAssets: 1 },
+    counts: {
+      entries: 1,
+      senses: 0,
+      translations: 0,
+      examples: 0,
+      pronunciations: 0,
+      relations: 0,
+      audioAssets: 1,
+    },
     territories: ['VN'],
     artifacts: [
       { path: '01_entries.csv', sha256: sha256(entriesCsv), bytes: entriesCsv.length },

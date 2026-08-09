@@ -282,11 +282,39 @@ describe('what the export refuses', () => {
     expect(code).toMatch(/hashes \$\{actual\.slice\(0, 12\)/);
   });
 
+  it('exports only audio bound to a published pronunciation of the same entry', () => {
+    expect(code).toMatch(
+      /JOIN dsd_pronunciations p[\s\S]*p\.id = a\.input_record_id[\s\S]*p\.dsd_entry_id = a\.dsd_entry_id/,
+    );
+    expect(code).toMatch(/a\.input_kind = 'pronunciation'/);
+  });
+
   it('verifies the package before recording the build', () => {
     const verifyAt = code.indexOf('verifyRelease({');
     const recordAt = code.indexOf('INSERT INTO dsd_release_builds');
     expect(verifyAt).toBeGreaterThan(-1);
     expect(verifyAt).toBeLessThan(recordAt);
+  });
+
+  it('records the exact manifest bytes and every exported record membership', () => {
+    expect(code).toMatch(/INSERT INTO dsd_release_builds[\s\S]*manifest_bytes/);
+    for (const table of [
+      'dsd_release_entries',
+      'dsd_release_senses',
+      'dsd_release_translations',
+      'dsd_release_examples',
+      'dsd_release_pronunciations',
+      'dsd_release_relations',
+      'dsd_release_audio_assets',
+    ]) {
+      expect(code).toContain(table);
+    }
+  });
+
+  it('counts authored relations once even when the serving view projects both directions', () => {
+    expect(code).toMatch(
+      /relations: new Set\(rows\.relations\.map\(\(relation\) => relation\.relation_id\)\)\.size/,
+    );
   });
 
   it('refuses a signer key absent from the reviewed registry', () => {

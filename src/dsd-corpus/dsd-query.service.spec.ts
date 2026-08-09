@@ -6,6 +6,8 @@ import {
   completenessProblems,
 } from './dsd-query.service';
 
+const RELEASE = 'DSD-REL-V1-5000-a1b2c3d4';
+
 /** A complete published entry, as the serving views would return it. */
 function aggregate(overrides: Partial<DsdEntryAggregate> = {}): DsdEntryAggregate {
   return {
@@ -45,10 +47,18 @@ function aggregate(overrides: Partial<DsdEntryAggregate> = {}): DsdEntryAggregat
         priority: 1,
         audio: [
           {
+            publicVoiceId: 'voice-a',
             storageKey: `dsd/audio/en-aria/${'a'.repeat(64)}.mp3`,
             mediaType: 'audio/mpeg',
             format: 'mp3',
             durationMs: 900,
+          },
+          {
+            publicVoiceId: 'voice-b',
+            storageKey: `dsd/audio/en-norman/${'b'.repeat(64)}.mp3`,
+            mediaType: 'audio/mpeg',
+            format: 'mp3',
+            durationMs: 910,
           },
         ],
       },
@@ -107,6 +117,18 @@ describe('completenessProblems', () => {
     );
   });
 
+  it('rejects a pronunciation with no releasable audio', () => {
+    const incomplete = aggregate();
+    incomplete.pronunciations[0].audio = [];
+    expect(completenessProblems(incomplete).map((p) => p.field)).toContain('audio');
+  });
+
+  it('requires two distinct public voices rather than two formats of one voice', () => {
+    const incomplete = aggregate();
+    incomplete.pronunciations[0].audio[1].publicVoiceId = 'voice-a';
+    expect(completenessProblems(incomplete).map((p) => p.field)).toContain('audio');
+  });
+
   it('reports every problem rather than the first', () => {
     const incomplete = aggregate({ pronunciations: [] });
     incomplete.senses[0].translations = [];
@@ -130,39 +152,39 @@ describe('DsdQueryService with no connection', () => {
 
   it('returns null rather than throwing, so the caller can 404', () => {
     // The off channel intentionally has no connection. That is not an error.
-    return expect(service.findEntry('rehearse')).resolves.toBeNull();
+    return expect(service.findEntry('rehearse', RELEASE)).resolves.toBeNull();
   });
 
   it('returns no search results', () => {
-    return expect(service.search('reh')).resolves.toEqual([]);
+    return expect(service.search('reh', 20, RELEASE)).resolves.toEqual([]);
   });
 });
 
 describe('DsdQueryService queries', () => {
   it('resolves a headword case-insensitively', async () => {
     const { dataSource, executed } = fakeDataSource([[aggregate().entry], [], []]);
-    await new DsdQueryService(dataSource).findEntry('REHEARSE');
-    expect(dataSource.query).toHaveBeenCalledWith(expect.any(String), [null, 'rehearse']);
+    await new DsdQueryService(dataSource).findEntry('REHEARSE', RELEASE);
+    expect(dataSource.query).toHaveBeenCalledWith(expect.any(String), [null, 'rehearse', RELEASE]);
     expect(executed[0]).toMatch(/dsd_serving_entries/);
   });
 
   it('resolves a DSD UUID as an id, not as a headword', async () => {
     const id = '11111111-1111-1111-1111-111111111111';
     const { dataSource } = fakeDataSource([[aggregate().entry], [], []]);
-    await new DsdQueryService(dataSource).findEntry(id);
-    expect(dataSource.query).toHaveBeenCalledWith(expect.any(String), [id, null]);
+    await new DsdQueryService(dataSource).findEntry(id, RELEASE);
+    expect(dataSource.query).toHaveBeenCalledWith(expect.any(String), [id, null, RELEASE]);
   });
 
   it('returns null for an unknown headword without querying further', async () => {
     const { dataSource, executed } = fakeDataSource([[]]);
-    expect(await new DsdQueryService(dataSource).findEntry('nope')).toBeNull();
+    expect(await new DsdQueryService(dataSource).findEntry('nope', RELEASE)).toBeNull();
     expect(executed).toHaveLength(1);
   });
 
   it('serves a complete entry', async () => {
     const full = aggregate();
     const { dataSource } = fakeDataSource([[full.entry], full.senses, full.pronunciations]);
-    const result = await new DsdQueryService(dataSource).findCompleteEntry('rehearse');
+    const result = await new DsdQueryService(dataSource).findCompleteEntry('rehearse', RELEASE);
     expect(result?.entry.headword).toBe('rehearse');
   });
 
@@ -170,21 +192,29 @@ describe('DsdQueryService queries', () => {
     // Serving a partial entry would also make the corpus look larger than it is.
     const full = aggregate();
     const { dataSource } = fakeDataSource([[full.entry], full.senses, []]);
-    expect(await new DsdQueryService(dataSource).findCompleteEntry('rehearse')).toBeNull();
+    expect(await new DsdQueryService(dataSource).findCompleteEntry('rehearse', RELEASE)).toBeNull();
   });
 
   it('clamps the search limit', async () => {
     const { dataSource } = fakeDataSource([[]]);
     const service = new DsdQueryService(dataSource);
-    await service.search('reh', 5000);
-    expect(dataSource.query).toHaveBeenLastCalledWith(expect.any(String), ['reh', 100]);
-    await service.search('reh', 0);
-    expect(dataSource.query).toHaveBeenLastCalledWith(expect.any(String), ['reh', 1]);
+    await service.search('reh', 5000, RELEASE);
+    expect(dataSource.query).toHaveBeenLastCalledWith(expect.any(String), ['reh', 100, RELEASE]);
+    await service.search('reh', 0, RELEASE);
+    expect(dataSource.query).toHaveBeenLastCalledWith(expect.any(String), ['reh', 1, RELEASE]);
+  });
+
+  it('scopes search translations to the signed release', async () => {
+    const { dataSource, executed } = fakeDataSource([[]]);
+    await new DsdQueryService(dataSource).search('reh', 20, RELEASE);
+    expect(executed[0]).toMatch(
+      /JOIN dsd_serving_release_records tr[\s\S]*tr\."record_kind" = 'translation'[\s\S]*tr\."release_id" = \$3/,
+    );
   });
 
   it('does not query at all for an empty search', async () => {
     const { dataSource } = fakeDataSource([[]]);
-    expect(await new DsdQueryService(dataSource).search('   ')).toEqual([]);
+    expect(await new DsdQueryService(dataSource).search('   ', 20, RELEASE)).toEqual([]);
     expect(dataSource.query).not.toHaveBeenCalled();
   });
 });
@@ -202,6 +232,12 @@ describe('what the service can reach', () => {
     expect(relations.length).toBeGreaterThan(0);
     for (const relation of relations) {
       expect(relation).toMatch(/^dsd_serving_|^dsd_servable_audio$/);
+    }
+  });
+
+  it('binds every child record kind to signed release membership', () => {
+    for (const kind of ['sense', 'translation', 'example', 'pronunciation', 'relation', 'audio']) {
+      expect(code).toContain(`"record_kind" = '${kind}'`);
     }
   });
 

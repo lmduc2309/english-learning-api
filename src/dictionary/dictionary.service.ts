@@ -2,7 +2,7 @@ import { HttpException, HttpStatus, Inject, Injectable, Logger, Optional } from 
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ILike, Like, Repository } from 'typeorm';
+import { Like, Repository } from 'typeorm';
 import { firstValueFrom } from 'rxjs';
 import {
   SearchWordDto,
@@ -42,7 +42,6 @@ export class DictionaryService {
   private readonly logger = new Logger(DictionaryService.name);
   private readonly llmFallbackEnabled: boolean;
   private readonly commercialSafeMode: boolean;
-  private readonly allowGeneratedContent: boolean;
 
   // Common English words for autocomplete (can be expanded)
   private readonly commonWords = [
@@ -86,8 +85,6 @@ export class DictionaryService {
     this.llmFallbackEnabled = this.configService.get<boolean>('llm.enableFallback');
     this.commercialSafeMode =
       this.configService.get<boolean>('content.commercialSafeMode') === true;
-    this.allowGeneratedContent =
-      this.configService.get<boolean>('content.allowGeneratedContent') === true;
     this.logger.log(
       `LLM fallback ${this.llmFallbackEnabled ? 'enabled' : 'disabled'}`,
     );
@@ -120,6 +117,8 @@ export class DictionaryService {
    */
   private get dsdServesPublic(): boolean {
     return (
+      this.commercialSafeMode
+      &&
       this.dsdConfig?.releaseChannel === 'public'
       && this.dsdQueryService?.available === true
     );
@@ -138,7 +137,11 @@ export class DictionaryService {
           // DSD first, and exclusively: in commercial mode a DSD miss is the
           // whole answer. No legacy repository is touched below this branch.
           if (this.dsdServesPublic) {
-            const hits = await this.dsdQueryService!.search(query, limit);
+            const hits = await this.dsdQueryService!.search(
+              query,
+              limit,
+              this.dsdConfig!.activeReleaseId,
+            );
             const suggestions = presentSearchHits(hits).map((hit) => ({
               word: hit.word,
               pos: hit.part_of_speech,
@@ -147,32 +150,7 @@ export class DictionaryService {
           }
 
           if (this.commercialSafeMode) {
-            const entries = await this.learnerEntryRepository.find({
-              where: {
-                status: 'published',
-                word: { word: ILike(`${query}%`) },
-              },
-              relations: [
-                'word',
-                'senses',
-                'senses.translations',
-                'pronunciations',
-              ],
-              take: limit,
-              order: { learnerRank: 'ASC', word: { word: 'ASC' } },
-            });
-            const suggestions = entries
-              .map((entry) => ({
-                entry,
-                definitions: presentLearnerDefinitions(entry),
-              }))
-              .filter(({ definitions }) => definitions.length > 0)
-              .map(({ entry, definitions }) => ({
-                word: entry.word.word,
-                ipa: presentLearnerPronunciations(entry)[0]?.ipa,
-                pos: definitions[0]?.pos,
-              }));
-            return { suggestions, count: suggestions.length };
+            return { suggestions: [], count: 0 };
           }
 
           // Use B+ tree search index for optimized prefix search
@@ -248,7 +226,10 @@ export class DictionaryService {
         cacheKey,
         async () => {
           if (this.dsdServesPublic) {
-            const aggregate = await this.dsdQueryService!.findCompleteEntry(normalizedWord);
+            const aggregate = await this.dsdQueryService!.findCompleteEntry(
+              normalizedWord,
+              this.dsdConfig!.activeReleaseId,
+            );
             if (aggregate) {
               const presented = presentEntry(aggregate, {
                 releaseId: this.dsdConfig!.activeReleaseId,
@@ -277,6 +258,13 @@ export class DictionaryService {
             );
           }
 
+          if (this.commercialSafeMode) {
+            throw new HttpException(
+              `Word "${word}" not found in dictionary`,
+              HttpStatus.NOT_FOUND,
+            );
+          }
+
           // Try to find word in database first
           const dbWord = await this.findWordInDatabase(normalizedWord);
           if (dbWord) {
@@ -287,7 +275,6 @@ export class DictionaryService {
           // Check if LLM fallback is enabled
           if (
             !this.llmFallbackEnabled
-            || (this.commercialSafeMode && !this.allowGeneratedContent)
           ) {
             this.logger.warn(`Word "${word}" not found in database and LLM fallback is disabled`);
             throw new HttpException(
@@ -326,6 +313,24 @@ export class DictionaryService {
     const normalizedQuery = query?.trim();
     if (!normalizedQuery) {
       throw new HttpException('Query is required', HttpStatus.BAD_REQUEST);
+    }
+
+    // The DSD serving API currently supports English headword lookup only.
+    // Never inspect legacy Vietnamese translations to infer or satisfy a
+    // reverse lookup in commercial mode.
+    if (this.commercialSafeMode) {
+      if (direction === 'vi-en') {
+        throw new HttpException(
+          'Vietnamese reverse lookup is not available in commercial-safe mode',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+      return {
+        kind: 'dictionary' as const,
+        direction: 'en-vi' as const,
+        query: normalizedQuery,
+        entry: await this.lookupWord(normalizedQuery),
+      };
     }
 
     const hasVietnameseMarks = /[ăâđêôơưàáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ]/i.test(normalizedQuery);
@@ -568,7 +573,7 @@ export class DictionaryService {
   }
 
   async translate(dto: TranslateDto): Promise<TranslateResponseDto> {
-    if (this.commercialSafeMode && !this.allowGeneratedContent) {
+    if (this.commercialSafeMode) {
       throw new HttpException(
         'Generated translation is disabled in commercial-safe mode',
         HttpStatus.FORBIDDEN,
@@ -608,6 +613,16 @@ export class DictionaryService {
   }
 
   getAttribution() {
+    if (this.commercialSafeMode) {
+      return {
+        commercial_safe_mode: true,
+        software_license: 'MIT',
+        data_policy:
+          'Only records from the active, signed DSD release are served. Legacy/reference corpus rows and generated fallbacks are excluded.',
+        sources: [],
+        release_id: this.dsdConfig?.activeReleaseId || null,
+      };
+    }
     return {
       commercial_safe_mode: this.commercialSafeMode,
       software_license: 'MIT',

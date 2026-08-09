@@ -23,6 +23,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
+import { QueryRunner } from 'typeorm';
 import { assessReleaseId, buildDsdCorpusConfig } from '../dsd-corpus.config';
 import { createDsdDataSource } from '../dsd-corpus.datasource';
 import {
@@ -42,6 +43,13 @@ import {
   policyHash,
   validatePolicy,
 } from '../similarity/similarity';
+import {
+  definitionHash,
+  exampleHash,
+  pronunciationHash,
+  relationHash,
+  translationHash,
+} from '../content-hash';
 
 dotenv.config();
 
@@ -87,16 +95,20 @@ const ENTRIES_SQL = `
 
 const SENSES_SQL = `
   SELECT s.id AS "senseId", s.dsd_entry_id AS "entryId", s.definition_en AS "definitionEn",
+         s.part_of_speech AS "partOfSpeech", s.usage_labels AS "usageLabels",
          s.authored_by AS "authoredBy", s.reviewed_by AS "reviewedBy",
          s.content_sha256 AS "contentSha256", s.source_id AS "sourceId",
+         s.rights_evidence_id AS "rightsEvidenceId",
          (SELECT count(*) FROM dsd_provenance_events pe
-           WHERE pe.entity_kind = 'sense' AND pe.entity_id = s.id)::int
+           WHERE pe.entity_kind = 'sense' AND pe.entity_id = s.id
+             AND pe.output_hash = s.content_sha256
+             AND pe.event_type IN ('approved','published'))::int
            AS "provenanceEventCount",
          (SELECT count(*) FROM dsd_translations t
            WHERE t.dsd_sense_id = s.id AND t.locale = 'vi'
-             AND t.status IN ('approved','published'))::int AS "approvedVietnameseCount",
+             AND t.status = 'published')::int AS "approvedVietnameseCount",
          (SELECT count(*) FROM dsd_examples x
-           WHERE x.dsd_sense_id = s.id AND x.status IN ('approved','published'))::int
+           WHERE x.dsd_sense_id = s.id AND x.status = 'published')::int
            AS "approvedExampleCount"
     FROM dsd_senses s
     JOIN dsd_entries e ON e.id = s.dsd_entry_id
@@ -105,7 +117,13 @@ const SENSES_SQL = `
 
 const PRONUNCIATIONS_SQL = `
   SELECT p.id AS "pronunciationId", p.dsd_entry_id AS "entryId", p.accent, p.ipa,
-         p.authored_by AS "authoredBy", p.reviewed_by AS "reviewedBy"
+         p.authored_by AS "authoredBy", p.reviewed_by AS "reviewedBy",
+         p.content_sha256 AS "contentSha256", p.source_id AS "sourceId",
+         p.rights_evidence_id AS "rightsEvidenceId",
+         (SELECT count(*) FROM dsd_provenance_events pe
+           WHERE pe.entity_kind = 'pronunciation' AND pe.entity_id = p.id
+             AND pe.output_hash = p.content_sha256
+             AND pe.event_type IN ('approved','published'))::int AS "provenanceEventCount"
     FROM dsd_pronunciations p
     JOIN dsd_entries e ON e.id = p.dsd_entry_id
    WHERE p.status = 'published' AND e.status = 'published'`;
@@ -128,14 +146,63 @@ const CANDIDATE_MATCH_SQL = `
 
 const AUDIO_SQL = `
   SELECT a.id AS "assetId", a.dsd_entry_id AS "entryId",
+         a.input_kind AS "inputKind", a.input_record_id AS "inputRecordId",
+         a.input_text_sha256 AS "inputTextSha256",
          a.engine_voice AS "engineVoice", a.public_voice_id AS "publicVoiceId",
          a.qa_findings AS "qaFindingsJson", a.reviewed_by AS "reviewedBy",
+         a.generator_actor AS "generatorActor",
+         a.release_runtime_digest AS "releaseRuntimeDigest",
+         a.voice_rights_evidence_id AS "voiceRightsEvidenceId",
          a.audio_sha256 AS "audioSha256",
          a.training_dataset_status AS "trainingDatasetStatus",
          a.review_status AS "reviewStatus"
     FROM dsd_audio_assets a
     JOIN dsd_entries e ON e.id = a.dsd_entry_id
-   WHERE e.status = 'published'`;
+   WHERE e.status = 'published'
+     AND a.review_status IN ('accepted','quarantined')`;
+
+const AUTHORED_RECORDS_SQL = `
+  SELECT t.id AS "recordId", 'translation' AS kind, t.authored_by AS "authoredBy",
+         t.reviewed_by AS "reviewedBy", t.content_sha256 AS "contentSha256",
+         t.source_id AS "sourceId", t.rights_evidence_id AS "rightsEvidenceId",
+         t.locale, t.text, NULL::text AS "exampleEn", NULL::text AS "exampleVi",
+         NULL::uuid AS "fromSenseId", NULL::uuid AS "toSenseId",
+         NULL::text AS "relationType",
+         (SELECT count(*) FROM dsd_provenance_events pe
+           WHERE pe.entity_kind = 'translation' AND pe.entity_id = t.id
+             AND pe.output_hash = t.content_sha256
+             AND pe.event_type IN ('approved','published'))::int AS "provenanceEventCount"
+    FROM dsd_translations t
+    JOIN dsd_senses s ON s.id = t.dsd_sense_id
+    JOIN dsd_entries e ON e.id = s.dsd_entry_id
+   WHERE t.status = 'published' AND s.status = 'published' AND e.status = 'published'
+  UNION ALL
+  SELECT x.id, 'example', x.authored_by, x.reviewed_by, x.content_sha256,
+         x.source_id, x.rights_evidence_id, NULL, NULL, x.example_en, x.example_vi,
+         NULL, NULL, NULL,
+         (SELECT count(*) FROM dsd_provenance_events pe
+           WHERE pe.entity_kind = 'example' AND pe.entity_id = x.id
+             AND pe.output_hash = x.content_sha256
+             AND pe.event_type IN ('approved','published'))::int
+    FROM dsd_examples x
+    JOIN dsd_senses s ON s.id = x.dsd_sense_id
+    JOIN dsd_entries e ON e.id = s.dsd_entry_id
+   WHERE x.status = 'published' AND s.status = 'published' AND e.status = 'published'
+  UNION ALL
+  SELECT r.id, 'relation', r.authored_by, r.reviewed_by, r.content_sha256,
+         r.source_id, r.rights_evidence_id, NULL, NULL, NULL, NULL,
+         r.from_sense_id, r.to_sense_id, r.relation_type,
+         (SELECT count(*) FROM dsd_provenance_events pe
+           WHERE pe.entity_kind = 'relation' AND pe.entity_id = r.id
+             AND pe.output_hash = r.content_sha256
+             AND pe.event_type IN ('approved','published'))::int
+    FROM dsd_relations r
+    JOIN dsd_senses fs ON fs.id = r.from_sense_id
+    JOIN dsd_senses ts ON ts.id = r.to_sense_id
+    JOIN dsd_entries fe ON fe.id = fs.dsd_entry_id
+    JOIN dsd_entries te ON te.id = ts.dsd_entry_id
+   WHERE r.status = 'published' AND fs.status = 'published' AND ts.status = 'published'
+     AND fe.status = 'published' AND te.status = 'published'`;
 
 const SIMILARITY_SQL = `
   SELECT entity_id AS "entityId", match_class AS "matchClass", decision,
@@ -189,6 +256,8 @@ export interface AuditOptions {
   signerKeyId?: string;
 }
 
+export type AuditQuery = (sql: string, parameters?: unknown[]) => Promise<any[]>;
+
 /**
  * Gather and audit, returning the result.
  *
@@ -199,8 +268,9 @@ export interface AuditOptions {
  */
 export async function runReleaseAuditForExport(
   options: AuditOptions,
+  query: AuditQuery,
 ): Promise<ReleaseAuditResult> {
-  return gatherAndAudit(options);
+  return gatherAndAudit(options, query);
 }
 
 export async function runReleaseAudit(): Promise<void> {
@@ -238,7 +308,10 @@ export async function runReleaseAudit(): Promise<void> {
 }
 
 /** Collect every fact the audit needs, then decide. */
-async function gatherAndAudit(options: AuditOptions): Promise<ReleaseAuditResult> {
+async function gatherAndAudit(
+  options: AuditOptions,
+  externalQuery?: AuditQuery,
+): Promise<ReleaseAuditResult> {
   const { releaseId, channel, territoriesFile } = options;
 
   const config = buildDsdCorpusConfig();
@@ -261,32 +334,46 @@ async function gatherAndAudit(options: AuditOptions): Promise<ReleaseAuditResult
 
   // Governance evidence lives in a committed file, so a GO can name it.
   const governance = readJsonIfPresent('data/dsd/releases/governance.json') ?? {};
-  const backupProofDoc = readJsonIfPresent('data/dsd/releases/backup-proof.json');
-  const signerRegistry = readJsonIfPresent('data/dsd/releases/signer-keys.json') ?? { keys: [] };
+  const backupProofDoc = readJsonIfPresent(
+    process.env.DSD_BACKUP_PROOF_FILE || 'data/dsd/releases/backup-proof.json',
+  );
+  // One reviewed trust root for audit, export, offline verification and
+  // runtime activation. Parallel signer registries would inevitably drift.
+  const signerRegistry = readJsonIfPresent('data/dsd/release-public-keys.json') ?? { keys: [] };
 
   const signerKeyId = options.signerKeyId ?? process.env.DSD_RELEASE_SIGNER_KEY_ID ?? '';
   const signerEntry = (signerRegistry.keys ?? []).find((key: any) => key.keyId === signerKeyId);
 
-  // Read-only, as the auditor. This command cannot change what it inspects.
-  const ds = createDsdDataSource('audit', config);
-  await ds.initialize();
+  // A standalone audit owns one repeatable-read snapshot. The exporter passes
+  // its own query runner, so the audit and exported bytes see the exact same
+  // snapshot instead of two merely-adjacent database states.
+  const ds = externalQuery ? null : createDsdDataSource('audit', config);
+  let runner: QueryRunner | null = null;
+  if (ds) {
+    await ds.initialize();
+    runner = ds.createQueryRunner();
+    await runner.connect();
+    await runner.query('BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
+  }
+  const query: AuditQuery = externalQuery ?? ((sql, parameters) => runner!.query(sql, parameters));
 
   let input: ReleaseAuditInput;
   try {
-    const [migration] = await ds.query(MIGRATION_SQL);
-    const senseColumns: Array<{ column_name: string }> = await ds.query(SENSE_COLUMNS_SQL);
-    const entryRows: Array<{ entryId: string; headword: string }> = await ds.query(ENTRIES_SQL);
-    const senseRows: any[] = await ds.query(SENSES_SQL);
-    const pronunciationRows: any[] = await ds.query(PRONUNCIATIONS_SQL);
-    const candidateMatches: Array<{ pronunciationId: string }> = await ds.query(CANDIDATE_MATCH_SQL);
-    const audioRows: any[] = await ds.query(AUDIO_SQL);
-    const similarityRows: any[] = await ds.query(SIMILARITY_SQL);
+    const [migration] = await query(MIGRATION_SQL);
+    const senseColumns: Array<{ column_name: string }> = await query(SENSE_COLUMNS_SQL);
+    const entryRows: Array<{ entryId: string; headword: string }> = await query(ENTRIES_SQL);
+    const senseRows: any[] = await query(SENSES_SQL);
+    const pronunciationRows: any[] = await query(PRONUNCIATIONS_SQL);
+    const candidateMatches: Array<{ pronunciationId: string }> = await query(CANDIDATE_MATCH_SQL);
+    const audioRows: any[] = await query(AUDIO_SQL);
+    const authoredRows: any[] = await query(AUTHORED_RECORDS_SQL);
+    const similarityRows: any[] = await query(SIMILARITY_SQL);
 
     // Composed here rather than imported from the operator script, so nothing
     // in src depends on scripts and the production build stays free of tooling.
-    const definitions = await ds.query(QUALITY_SQL.definitions);
-    const translations = await ds.query(QUALITY_SQL.translations);
-    const examples = await ds.query(QUALITY_SQL.examples);
+    const definitions = await query(QUALITY_SQL.definitions);
+    const translations = await query(QUALITY_SQL.translations);
+    const examples = await query(QUALITY_SQL.examples);
     const quality = [
       ...definitions.flatMap(checkDefinition),
       ...translations.flatMap(checkTranslation),
@@ -301,6 +388,7 @@ async function gatherAndAudit(options: AuditOptions): Promise<ReleaseAuditResult
       releaseId,
       channel,
       releaseIdIsPublicEligible: assessReleaseId(releaseId).publicEligible,
+      publishedEntryCount: entryRows.length,
       now: new Date().toISOString(),
       snapshot: {
         database: config.database,
@@ -318,13 +406,33 @@ async function gatherAndAudit(options: AuditOptions): Promise<ReleaseAuditResult
         headword: entry.headword,
         senses: senseRows
           .filter((sense) => sense.entryId === entry.entryId)
-          .map((sense) => ({ ...sense, fields: columnNames })),
+          .map((sense) => ({
+            ...sense,
+            contentHashMatches: sense.contentSha256 === definitionHash({
+              definitionEn: sense.definitionEn,
+              partOfSpeech: sense.partOfSpeech,
+              usageLabels: sense.usageLabels ?? [],
+            }),
+            fields: columnNames,
+          })),
         pronunciations: pronunciationRows
           .filter((pronunciation) => pronunciation.entryId === entry.entryId)
           .map((pronunciation) => ({
             ...pronunciation,
+            contentHashMatches:
+              pronunciation.contentSha256 === pronunciationHash(pronunciation),
             isGeneratedCandidate: candidateIds.has(pronunciation.pronunciationId),
           })),
+      })),
+      authoredRecords: authoredRows.map((record) => ({
+        ...record,
+        contentHashMatches: record.contentSha256 === (
+          record.kind === 'translation'
+            ? translationHash(record)
+            : record.kind === 'example'
+              ? exampleHash(record)
+              : relationHash(record)
+        ),
       })),
       audioAssets: audioRows.map((asset) => ({
         assetId: asset.assetId,
@@ -335,6 +443,15 @@ async function gatherAndAudit(options: AuditOptions): Promise<ReleaseAuditResult
         // The row exists because QA ran; findings are recorded separately.
         qaProof: asset.reviewStatus !== 'pending_qa',
         reviewedBy: asset.reviewedBy,
+        generatorActor: asset.generatorActor,
+        releaseRuntimeDigest: asset.releaseRuntimeDigest,
+        voiceRightsEvidenceId: asset.voiceRightsEvidenceId,
+        inputKind: asset.inputKind,
+        inputRecordId: asset.inputRecordId,
+        inputTextSha256: asset.inputTextSha256,
+        expectedInputTextSha256: audioInputHash(
+          entryRows.find((row) => row.entryId === asset.entryId)?.headword ?? '',
+        ),
         audioSha256: asset.audioSha256,
         // Filled by dsd:audio:storage:audit --verify-bytes, whose report is the
         // only evidence the bytes were actually checked.
@@ -351,6 +468,7 @@ async function gatherAndAudit(options: AuditOptions): Promise<ReleaseAuditResult
       toolArtifacts: readToolArtifacts(),
       approvedScopesBySource: readApprovedScopes(),
       approvedToolIds: readApprovedTools(),
+      approvedVoiceEvidenceByEngine: readApprovedVoiceEvidence(),
       contributorRightsEvidence: readContributorRights(),
       governance: {
         cleanRoomDeclarationId: governance.cleanRoomDeclarationId ?? '',
@@ -365,6 +483,7 @@ async function gatherAndAudit(options: AuditOptions): Promise<ReleaseAuditResult
             verifiedAt: backupProofDoc.verifiedAt ?? '',
             offHostCopy: backupProofDoc.offHostCopy === true,
             migrationVersion: backupProofDoc.migrationVersion ?? '',
+            databases: backupProofDoc.databases ?? [],
           }
         : null,
       restoreMaxAgeHours: Number(
@@ -375,8 +494,13 @@ async function gatherAndAudit(options: AuditOptions): Promise<ReleaseAuditResult
         registryStatus: signerEntry ? (signerEntry.status ?? 'revoked') : null,
       },
     };
+    if (runner) await runner.query('COMMIT');
+  } catch (error) {
+    if (runner) await runner.query('ROLLBACK');
+    throw error;
   } finally {
-    await ds.destroy();
+    if (runner) await runner.release();
+    if (ds) await ds.destroy();
   }
 
   return auditRelease(input);
@@ -433,6 +557,36 @@ function readApprovedTools(): string[] {
   return (registry.tools ?? [])
     .filter((tool: any) => tool.status === 'approved')
     .map((tool: any) => tool.id);
+}
+
+/** Approved evidence IDs keyed by exact engine voice alias. */
+function readApprovedVoiceEvidence(): Record<string, string[]> {
+  const registry = readJsonIfPresent('data/dsd/source-registry.json') ?? { sources: [] };
+  const result: Record<string, string[]> = {};
+  for (const source of registry.sources ?? []) {
+    const scopes = source.approvedScopes ?? [];
+    if (
+      source.status !== 'approved'
+      || !scopes.includes('audio_model')
+      || !scopes.includes('audio_training_data')
+    ) {
+      continue;
+    }
+    for (const alias of source.aliases ?? []) {
+      if (/^en_[A-Z]{2}-.+-medium$/.test(alias)) {
+        result[alias] = source.evidenceIds ?? [];
+      }
+    }
+  }
+  return result;
+}
+
+function audioInputHash(value: string): string {
+  const canonical = (value ?? '').normalize('NFC').replace(/\s+/g, ' ').trim();
+  return crypto
+    .createHash('sha256')
+    .update(`dsd.audio.input.v1 ${canonical}`, 'utf8')
+    .digest('hex');
 }
 
 function readContributorRights(): Record<string, string> {

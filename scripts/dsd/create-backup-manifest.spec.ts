@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   MANIFEST_SCHEMA_VERSION,
   BackupManifest,
@@ -6,6 +8,7 @@ import {
   compareManifests,
   assertScratchNameSafe,
   rowCountAndDigestSql,
+  backupConnectionForDatabase,
 } from './create-backup-manifest';
 
 function manifest(overrides: Partial<BackupManifest> = {}): BackupManifest {
@@ -182,5 +185,88 @@ describe('rowCountAndDigestSql', () => {
 
   it('quotes the table name', () => {
     expect(rowCountAndDigestSql('dsd_entries')).toContain('"dsd_entries"');
+  });
+});
+
+describe('backup credentials', () => {
+  const env = {
+    DB_DATABASE: 'english_learning_db',
+    DSD_DB_DATABASE: 'dsd_corpus_db',
+    LEGACY_BACKUP_DATABASE_URL:
+      'postgres://legacy_backup:legacy-secret@postgres:5432/english_learning_db',
+    DSD_BACKUP_DATABASE_URL:
+      'postgres://dsd_backup:dsd-secret@postgres:5432/dsd_corpus_db',
+  } as NodeJS.ProcessEnv;
+
+  it('selects the DSD backup role only for the DSD database', () => {
+    expect(backupConnectionForDatabase('dsd_corpus_db', env)).toMatchObject({
+      user: 'dsd_backup',
+      password: 'dsd-secret',
+    });
+  });
+
+  it('selects the legacy backup role only for the legacy database', () => {
+    expect(backupConnectionForDatabase('english_learning_db', env)).toMatchObject({
+      user: 'legacy_backup',
+      password: 'legacy-secret',
+    });
+  });
+
+  it('never falls back to the application credential', () => {
+    expect(() =>
+      backupConnectionForDatabase('dsd_corpus_db', {
+        ...env,
+        DSD_BACKUP_DATABASE_URL: undefined,
+        DB_USERNAME: 'dictionary_user',
+        DB_PASSWORD: 'secret',
+      }),
+    ).toThrow(/required; backup credentials never fall back/);
+  });
+
+  it('refuses a URL with the wrong database or role', () => {
+    expect(() =>
+      backupConnectionForDatabase('dsd_corpus_db', {
+        ...env,
+        DSD_BACKUP_DATABASE_URL:
+          'postgres://dsd_backup:x@postgres:5432/english_learning_db',
+      }),
+    ).toThrow(/targets.*expected/);
+    expect(() =>
+      backupConnectionForDatabase('dsd_corpus_db', {
+        ...env,
+        DSD_BACKUP_DATABASE_URL:
+          'postgres://dsd_owner:x@postgres:5432/dsd_corpus_db',
+      }),
+    ).toThrow(/uses.*expected 'dsd_backup'/);
+  });
+});
+
+describe('backup secret handling', () => {
+  it('passes only the PGPASSWORD name to docker, never its value in argv', () => {
+    const source = fs.readFileSync(
+      path.resolve(__dirname, 'create-backup-manifest.ts'),
+      'utf8',
+    );
+    expect(source).toContain("['exec', '-e', 'PGPASSWORD'");
+    expect(source).not.toContain('`PGPASSWORD=${password}`');
+  });
+
+  it('keeps provisioned role passwords out of the psql command line', () => {
+    const source = fs.readFileSync(
+      path.resolve(__dirname, 'provision-dsd-database.sh'),
+      'utf8',
+    );
+    expect(source).toContain('\\getenv dsd_provision_password');
+    expect(source).not.toContain("PASSWORD '$pw'");
+  });
+
+  it('keeps the workbench superuser password out of docker argv', () => {
+    const source = fs.readFileSync(
+      path.resolve(__dirname, 'create-workbench.sh'),
+      'utf8',
+    );
+    expect(source).toContain('docker exec -e PGPASSWORD');
+    expect(source).not.toContain('-e PGPASSWORD="$PW"');
+    expect(source).not.toContain("PASSWORD '$LOCAL_PW'");
   });
 });

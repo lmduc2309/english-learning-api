@@ -61,9 +61,11 @@ workbench with throwaway credentials.
 | `dsd_migrator` | DDL, via membership in `dsd_owner`. |
 | `dsd_curator` | Content workflow DML, provenance INSERT. No DDL, no grants. |
 | `dsd_app` | SELECT on published serving views only. |
-| `dsd_auditor` | DSD read, similarity decisions, provenance INSERT. |
-| `dsd_backup` | Read-only, for `pg_dump`. |
+| `dsd_auditor` | DSD read, similarity decisions, provenance INSERT, migration-ledger SELECT. |
+| `dsd_backup` | Read-only, for `pg_dump`, including the migration ledger. |
 | `dsd_similarity_reader` | One legacy view. Nothing else. |
+| `legacy_backup` | Read-only legacy access for `pg_dump`; no application writes. |
+| `dsd_restore_operator` | `CREATEDB` only, for guarded scratch restores; no corpus grant. |
 
 **No routine process authenticates as `dsd_owner`.** If a service needs owner
 rights, that is a design error, not a grant to widen.
@@ -117,6 +119,10 @@ backup manifests, or release artifacts.
 ```bash
 npm run dsd:backup -- --database dsd_corpus_db     --out-dir "$DSD_BACKUP_DIR"
 npm run dsd:backup -- --database english_learning_db --out-dir "$DSD_BACKUP_DIR"
+
+# Production path: snapshot, upload, and verify the exact remote versions.
+npm run dsd:backup:offhost -- --database dsd_corpus_db --out-dir "$DSD_BACKUP_DIR"
+npm run dsd:backup:offhost -- --database english_learning_db --out-dir "$DSD_BACKUP_DIR"
 ```
 
 Each run produces a custom-format dump and a manifest **captured from the same
@@ -133,7 +139,14 @@ inside the Postgres container, and developer machines generally have no client
 install.
 
 Local files are written `0600` in a `0700` directory. **A local dump is not
-disaster recovery**; off-host copies are, and they are still outstanding.
+disaster recovery.** `dsd:backup:offhost` uploads the dump and manifest to the
+configured prefix, then refuses success unless bucket versioning, exact object
+version IDs, SHA-256 metadata and native object checksums, KMS key ID, size, and
+Object Lock retention all verify through `HeadObject`.
+
+The bucket must have versioning and Object Lock enabled before the first run.
+Pin `DSD_BACKUP_KMS_KEY_ID` to the full key ARN. An alias is not accepted as an
+equivalent key because `HeadObject` returns the resolved key identifier.
 
 ### Retention
 
@@ -148,8 +161,12 @@ Never delete a backup that has not been superseded by a **verified** one.
 ## 5. Restore verification
 
 ```bash
-# Both databases: fresh backup, restore, compare.
+# Local/rehearsal: fresh local backup, restore, compare. This deliberately does
+# not create evidence acceptable to the commercial release gate.
 npm run dsd:verify-restores
+
+# Production/public release: download newest exact off-host versions first.
+DSD_VERIFY_OFF_HOST=true npm run dsd:verify-restores
 ```
 
 Restores into a uniquely named scratch database, recomputes the manifest, and
@@ -158,6 +175,16 @@ compares against the stored one. Verified at real scale: 4,935,244 rows across
 
 A **fresh** backup is taken first, deliberately. Verifying an old dump proves
 only that an old file still restores, not that today's backup is good.
+
+In off-host mode, the command instead lists object versions, downloads the
+newest complete pair for each database, rechecks KMS, retention, version IDs,
+size and both SHA-256 representations, then restores those downloaded bytes.
+Only after both databases compare cleanly does it write
+`DSD_BACKUP_PROOF_FILE`. The proof binds both remote version pairs and the DSD
+migration version. Each successful restore first writes a receipt bound to the
+exact manifest and dump hashes; the proof time is the older of the two actual
+restore times, so re-running only the proof command cannot make stale evidence
+look fresh. A local-only run cannot emit this proof.
 
 ### Scratch safety
 
@@ -267,9 +294,16 @@ possible by someone who was not there when it was built.
 | `DSD_AUDIT_DATABASE_URL` | Similarity audit, DSD side. |
 | `DSD_MIGRATOR_DATABASE_URL` | Migrations. |
 | `DSD_BACKUP_DATABASE_URL` | `pg_dump`. |
+| `LEGACY_BACKUP_DATABASE_URL` | Legacy `pg_dump`; must authenticate as `legacy_backup`. |
+| `DSD_RESTORE_DATABASE_URL` | Maintenance DB URL for `dsd_restore_operator`; never falls back. |
 | `LEGACY_AUDIT_DATABASE_URL` | Similarity audit, legacy side. One view only. |
 | `DSD_BACKUP_DIR` | Local backup directory, mode `0700`. |
+| `DSD_BACKUP_S3_URI` | Versioned, Object-Locked off-host prefix. |
+| `DSD_BACKUP_S3_REGION` | Backup bucket region. |
+| `DSD_BACKUP_S3_ENDPOINT` | Optional S3-compatible development endpoint. |
+| `DSD_BACKUP_KMS_KEY_ID` | Full KMS key ARN expected back from `HeadObject`. |
 | `DSD_BACKUP_RETENTION_DAYS` | Retention window. |
+| `DSD_BACKUP_PROOF_FILE` | Structured proof consumed by the release audit. |
 | `DSD_RESTORE_MAX_AGE_HOURS` | Maximum age of a restore proof at release. |
 | `DSD_PG_CONTAINER` | Run `pg_dump`/`pg_restore` inside this container. |
 
@@ -277,11 +311,10 @@ possible by someone who was not there when it was built.
 
 ## 9. Known environment issues
 
-**Container `/dev/shm` is 64 MB.** The Docker default is too small to back
-parallel workers over a million-row aggregate, and it already failed a count
-against the compliance view during development. The backup reader sets
-`max_parallel_workers_per_gather = 0` to avoid it, but production should raise
-`shm_size` in `deploy/compose.yml` rather than rely on that workaround.
+**Container shared memory.** The Docker default was too small to back parallel
+workers over a million-row aggregate. `deploy/compose.yml` now assigns Postgres
+256 MB, while the backup reader also disables parallel gather so a backup does
+not depend on that capacity.
 
 **`pg_dump` is absent from developer hosts.** Set `DSD_PG_CONTAINER`.
 
@@ -291,14 +324,23 @@ shared drive without encryption.
 
 ---
 
-## 10. Outstanding
+## 10. Automation and production preconditions
 
-These are required by Task 2A and not yet built. Until they exist, disaster
-recovery is incomplete — a local dump on the same host as the database it came
-from does not survive the loss of that host.
+`.github/workflows/deploy.yml` records both migration states, produces and
+verifies off-host backups of both databases before either migration, runs
+legacy and DSD migrations separately, and never starts the new application if
+any step fails. The privileged DSD migration URL exists only in the one-shot
+`dsd-migrator` container. Backup and restore credentials exist only in the
+one-shot `dsd-ops` container.
 
-- Off-host encrypted upload with KMS, bucket versioning, and `HeadObject`
-  verification (`scripts/dsd/upload-backup.ts`).
-- Deploy integration: backup both databases, run both migration steps
-  separately, record before/after versions, and stop safely on any failure.
-- Scheduled restore rehearsal (`.github/workflows/verify-dsd-backup.yml`).
+`.github/workflows/verify-dsd-backup.yml` runs daily and on demand. It creates
+today's two protected copies, downloads them back by exact object version,
+restores both to guarded scratch databases, compares their manifests, and
+writes the read-only runtime proof used by the release audit.
+
+The implementation does **not** prove that production infrastructure is ready.
+Before the first deploy, an operator must still provision the roles/database,
+create and policy the versioned Object-Locked bucket and KMS key, install the
+production secrets, run the permission suite against production, and obtain a
+successful scheduled-workflow proof. Until those real checks pass, public
+release remains blocked.

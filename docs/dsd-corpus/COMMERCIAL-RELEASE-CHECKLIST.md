@@ -67,10 +67,17 @@ not shippable.
 - [ ] Export is deterministic: two builds from the same inputs produce identical
       checksums.
 - [ ] Export did not overwrite an existing directory.
+- [ ] The immutable release build records exact membership for every entry,
+      sense, translation, example, pronunciation, relation, and audio asset.
+- [ ] API startup verifies the stored canonical manifest bytes and Ed25519
+      signature against an active key in the reviewed trust-root registry.
+- [ ] Detail and search results are both scoped to the exact signed release;
+      later-published child records cannot drift into it.
 - [ ] Commercial-safe dictionary tests pass with every legacy repository
       configured to throw on access.
-- [ ] A restore of `dsd_corpus_db` has been proven within the current rehearsal
-      window, with matching row counts and ordered digests.
+- [ ] Off-host copies of both `dsd_corpus_db` and `english_learning_db` have
+      been downloaded by exact object version and restored within the current
+      rehearsal window, with matching row counts and content digests.
 - [ ] `npm audit --omit=dev` reports zero high and zero critical.
 
 ## 7. Signatures

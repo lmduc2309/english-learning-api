@@ -51,6 +51,60 @@ export interface BackupManifest {
   tables: TableFingerprint[];
 }
 
+export interface BackupConnection {
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+}
+
+/** Select the one least-privilege credential for the requested database. */
+export function backupConnectionForDatabase(
+  database: string,
+  env: NodeJS.ProcessEnv = process.env,
+): BackupConnection {
+  const dsdDatabase = env.DSD_DB_DATABASE || 'dsd_corpus_db';
+  const legacyDatabase = env.DB_DATABASE || 'english_learning_db';
+  let variable: 'DSD_BACKUP_DATABASE_URL' | 'LEGACY_BACKUP_DATABASE_URL';
+  let expectedUser: 'dsd_backup' | 'legacy_backup';
+  if (database === dsdDatabase) {
+    variable = 'DSD_BACKUP_DATABASE_URL';
+    expectedUser = 'dsd_backup';
+  } else if (database === legacyDatabase) {
+    variable = 'LEGACY_BACKUP_DATABASE_URL';
+    expectedUser = 'legacy_backup';
+  } else {
+    throw new Error(
+      `database '${database}' is neither the configured DSD nor legacy database`,
+    );
+  }
+  const raw = env[variable];
+  if (!raw) throw new Error(`${variable} is required; backup credentials never fall back`);
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error(`${variable} is not a valid PostgreSQL URL`);
+  }
+  if (!['postgres:', 'postgresql:'].includes(parsed.protocol)) {
+    throw new Error(`${variable} must use postgres:// or postgresql://`);
+  }
+  const targetDatabase = decodeURIComponent(parsed.pathname.replace(/^\//, ''));
+  const user = decodeURIComponent(parsed.username);
+  if (targetDatabase !== database) {
+    throw new Error(`${variable} targets '${targetDatabase}', expected '${database}'`);
+  }
+  if (user !== expectedUser) {
+    throw new Error(`${variable} uses '${user}', expected '${expectedUser}'`);
+  }
+  return {
+    host: parsed.hostname,
+    port: parsed.port ? Number(parsed.port) : 5432,
+    user,
+    password: decodeURIComponent(parsed.password),
+  };
+}
+
 /**
  * Fields that legitimately differ between a dump and a restore of it. A
  * restored copy has another name, another creation time, and no dump of its
@@ -239,18 +293,39 @@ function pgDumpToFile(
   container: string | undefined,
 ): Promise<void> {
   const [command, argv] = container
-    ? ['docker', ['exec', '-e', `PGPASSWORD=${password}`, '-i', container, 'pg_dump', ...args]]
+    // Pass only the environment-variable name on argv. The secret remains in
+    // the child environment rather than being exposed in the process list.
+    ? ['docker', ['exec', '-e', 'PGPASSWORD', '-i', container, 'pg_dump', ...args]]
     : ['pg_dump', args];
 
   return new Promise((resolve, reject) => {
     const out = fs.createWriteStream(dumpPath, { mode: 0o600 });
+    let processComplete = false;
+    let streamComplete = false;
+    let settled = false;
+    const fail = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      reject(error);
+    };
+    const finish = () => {
+      if (!settled && processComplete && streamComplete) {
+        settled = true;
+        resolve();
+      }
+    };
     const child = spawn(command, argv as string[], {
       env: { ...process.env, PGPASSWORD: password },
       stdio: ['ignore', 'pipe', 'inherit'],
     });
     child.stdout.pipe(out);
+    out.on('error', fail);
+    out.on('finish', () => {
+      streamComplete = true;
+      finish();
+    });
     child.on('error', (error) =>
-      reject(
+      fail(
         new Error(
           `${command} could not be started (${error.message}). ` +
             'Install the PostgreSQL client tools or set DSD_PG_CONTAINER.',
@@ -258,8 +333,12 @@ function pgDumpToFile(
       ),
     );
     child.on('close', (code) => {
-      out.end();
-      code === 0 ? resolve() : reject(new Error(`pg_dump exited with ${code}`));
+      if (code !== 0) {
+        fail(new Error(`pg_dump exited with ${code}`));
+        return;
+      }
+      processComplete = true;
+      finish();
     });
   });
 }
@@ -379,13 +458,11 @@ async function main(): Promise<void> {
       : 'dsd_migrations',
   );
 
+  const connection = backupConnectionForDatabase(database);
   const result = await createBackup({
     database,
     outDir,
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '5432', 10),
-    user: process.env.DB_USERNAME || 'dictionary_user',
-    password: process.env.DB_PASSWORD || '',
+    ...connection,
     migrationsTable,
     container: process.env.DSD_PG_CONTAINER,
   });

@@ -53,7 +53,13 @@ export interface DsdPronunciationRow {
   accent: string;
   ipa: string;
   priority: number;
-  audio: Array<{ storageKey: string; mediaType: string; format: string; durationMs: number }>;
+  audio: Array<{
+    publicVoiceId: string;
+    storageKey: string;
+    mediaType: string;
+    format: string;
+    durationMs: number;
+  }>;
 }
 
 export interface DsdEntryAggregate {
@@ -74,6 +80,8 @@ const ENTRY_SQL = `
   SELECT e."id", e."headword", e."headword_normalized" AS "headwordNormalized",
          e."language", e."updated_at" AS "updatedAt"
     FROM dsd_serving_entries e
+    JOIN dsd_serving_release_entries release
+      ON release."entry_id" = e."id" AND release."release_id" = $3
    WHERE ($1::uuid IS NOT NULL AND e."id" = $1::uuid)
       OR ($2::varchar IS NOT NULL AND e."headword_normalized" = $2)
    LIMIT 1`;
@@ -91,13 +99,21 @@ const SENSES_SQL = `
          COALESCE((
            SELECT json_agg(json_build_object('id', t."id", 'locale', t."locale", 'text', t."text")
                            ORDER BY t."locale")
-             FROM dsd_serving_translations t WHERE t."dsd_sense_id" = s."id"
+             FROM dsd_serving_translations t
+             JOIN dsd_serving_release_records tr
+               ON tr."record_kind" = 'translation' AND tr."record_id" = t."id"
+              AND tr."release_id" = $2
+            WHERE t."dsd_sense_id" = s."id"
          ), '[]'::json) AS "translations",
          COALESCE((
            SELECT json_agg(json_build_object('id', x."id", 'exampleOrder', x."example_order",
                                              'exampleEn', x."example_en", 'exampleVi', x."example_vi")
                            ORDER BY x."example_order")
-             FROM dsd_serving_examples x WHERE x."dsd_sense_id" = s."id"
+             FROM dsd_serving_examples x
+             JOIN dsd_serving_release_records xr
+               ON xr."record_kind" = 'example' AND xr."record_id" = x."id"
+              AND xr."release_id" = $2
+            WHERE x."dsd_sense_id" = s."id"
          ), '[]'::json) AS "examples",
          COALESCE((
            SELECT json_agg(json_build_object('relationType', r."relation_type",
@@ -105,26 +121,45 @@ const SENSES_SQL = `
                                              'relatedHeadword', re."headword")
                            ORDER BY r."relation_type", re."headword")
              FROM dsd_serving_relations r
+             JOIN dsd_serving_release_records rr
+               ON rr."record_kind" = 'relation' AND rr."record_id" = r."id"
+              AND rr."release_id" = $2
              JOIN dsd_serving_senses rs ON rs."id" = r."related_sense_id"
+             JOIN dsd_serving_release_records rsr
+               ON rsr."record_kind" = 'sense' AND rsr."record_id" = rs."id"
+              AND rsr."release_id" = $2
              JOIN dsd_serving_entries re ON re."id" = rs."dsd_entry_id"
+             JOIN dsd_serving_release_entries release
+               ON release."entry_id" = re."id" AND release."release_id" = $2
             WHERE r."sense_id" = s."id"
          ), '[]'::json) AS "relations"
     FROM dsd_serving_senses s
+    JOIN dsd_serving_release_records sr
+      ON sr."record_kind" = 'sense' AND sr."record_id" = s."id"
+     AND sr."release_id" = $2
    WHERE s."dsd_entry_id" = $1
    ORDER BY s."sense_order"`;
 
 const PRONUNCIATIONS_SQL = `
   SELECT p."id", p."accent", p."ipa", p."priority",
          COALESCE((
-           SELECT json_agg(json_build_object('storageKey', a."storage_key",
+           SELECT json_agg(json_build_object('publicVoiceId', a."public_voice_id",
+                                             'storageKey', a."storage_key",
                                              'mediaType', a."media_type",
                                              'format', a."format",
                                              'durationMs', a."duration_ms")
                            ORDER BY a."format")
              FROM dsd_servable_audio a
+             JOIN dsd_serving_release_records ar
+               ON ar."record_kind" = 'audio' AND ar."record_id" = a."id"
+              AND ar."release_id" = $2
             WHERE a."input_kind" = 'pronunciation' AND a."input_record_id" = p."id"
+              AND a."dsd_entry_id" = p."dsd_entry_id"
          ), '[]'::json) AS "audio"
     FROM dsd_serving_pronunciations p
+    JOIN dsd_serving_release_records pr
+      ON pr."record_kind" = 'pronunciation' AND pr."record_id" = p."id"
+     AND pr."release_id" = $2
    WHERE p."dsd_entry_id" = $1
    ORDER BY p."priority"`;
 
@@ -132,10 +167,18 @@ const SEARCH_SQL = `
   SELECT e."id", e."headword", s."part_of_speech" AS "partOfSpeech",
          s."definition_en" AS "definitionEn",
          (SELECT t."text" FROM dsd_serving_translations t
+           JOIN dsd_serving_release_records tr
+             ON tr."record_kind" = 'translation' AND tr."record_id" = t."id"
+            AND tr."release_id" = $3
            WHERE t."dsd_sense_id" = s."id" AND t."locale" = 'vi'
            ORDER BY t."id" LIMIT 1) AS "translationVi"
     FROM dsd_serving_entries e
+    JOIN dsd_serving_release_entries release
+      ON release."entry_id" = e."id" AND release."release_id" = $3
     JOIN dsd_serving_senses s ON s."dsd_entry_id" = e."id"
+    JOIN dsd_serving_release_records sr
+      ON sr."record_kind" = 'sense' AND sr."record_id" = s."id"
+     AND sr."release_id" = $3
    WHERE e."headword_normalized" LIKE $1 || '%'
    ORDER BY length(e."headword_normalized"), e."headword_normalized", s."sense_order"
    LIMIT $2`;
@@ -172,6 +215,15 @@ export function completenessProblems(aggregate: DsdEntryAggregate): Completeness
   if (aggregate.pronunciations.length === 0) {
     problems.push({ field: 'ipa', detail: 'no published pronunciation' });
   }
+  for (const pronunciation of aggregate.pronunciations) {
+    const voices = new Set(pronunciation.audio.map((audio) => audio.publicVoiceId));
+    if (voices.size < 2) {
+      problems.push({
+        field: 'audio',
+        detail: `pronunciation ${pronunciation.id} has ${voices.size}/2 releasable voices`,
+      });
+    }
+  }
 
   return problems;
 }
@@ -199,7 +251,8 @@ export class DsdQueryService {
   }
 
   /** Resolve by DSD UUID or normalized headword. Never by legacy integer id. */
-  async findEntry(identifier: string): Promise<DsdEntryAggregate | null> {
+  async findEntry(identifier: string, releaseId: string): Promise<DsdEntryAggregate | null> {
+    if (!releaseId.trim()) return null;
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       identifier,
     );
@@ -208,13 +261,14 @@ export class DsdQueryService {
     const entries = await this.query<DsdEntryRow>(ENTRY_SQL, [
       isUuid ? identifier : null,
       isUuid ? null : normalized,
+      releaseId,
     ]);
     if (entries.length === 0) return null;
 
     const entry = entries[0];
     const [senses, pronunciations] = await Promise.all([
-      this.query<DsdSenseRow>(SENSES_SQL, [entry.id]),
-      this.query<DsdPronunciationRow>(PRONUNCIATIONS_SQL, [entry.id]),
+      this.query<DsdSenseRow>(SENSES_SQL, [entry.id, releaseId]),
+      this.query<DsdPronunciationRow>(PRONUNCIATIONS_SQL, [entry.id, releaseId]),
     ]);
 
     return { entry, senses, pronunciations };
@@ -226,8 +280,8 @@ export class DsdQueryService {
    * The distinction matters: `findEntry` is what exists, this is what may be
    * served. Callers that serve content use this one.
    */
-  async findCompleteEntry(identifier: string): Promise<DsdEntryAggregate | null> {
-    const aggregate = await this.findEntry(identifier);
+  async findCompleteEntry(identifier: string, releaseId: string): Promise<DsdEntryAggregate | null> {
+    const aggregate = await this.findEntry(identifier, releaseId);
     if (!aggregate) return null;
 
     const problems = completenessProblems(aggregate);
@@ -241,9 +295,13 @@ export class DsdQueryService {
     return aggregate;
   }
 
-  async search(query: string, limit = 20): Promise<DsdSearchHit[]> {
+  async search(query: string, limit = 20, releaseId: string): Promise<DsdSearchHit[]> {
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return [];
-    return this.query<DsdSearchHit>(SEARCH_SQL, [normalized, Math.min(Math.max(limit, 1), 100)]);
+    if (!normalized || !releaseId.trim()) return [];
+    return this.query<DsdSearchHit>(SEARCH_SQL, [
+      normalized,
+      Math.min(Math.max(limit, 1), 100),
+      releaseId,
+    ]);
   }
 }

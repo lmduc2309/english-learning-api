@@ -1,4 +1,4 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { DsdContentBase } from './dsd-content-base';
 import { DsdEntry } from './dsd-entry.entity';
 import { DsdTranslation } from './dsd-translation.entity';
@@ -6,8 +6,6 @@ import { DsdExample } from './dsd-example.entity';
 
 /** A DSD-authored English definition. Authored from a blank template. */
 @Entity('dsd_senses')
-@Index('UQ_dsd_sense_entry_key', ['entryId', 'senseKey'], { unique: true })
-@Index('UQ_dsd_sense_entry_order', ['entryId', 'senseOrder'], { unique: true })
 export class DsdSense extends DsdContentBase {
   @PrimaryGeneratedColumn('uuid')
   id: string;

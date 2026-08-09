@@ -27,7 +27,12 @@ import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { buildDsdCorpusConfig } from '../../src/dsd-corpus/dsd-corpus.config';
 import { createDsdDataSource } from '../../src/dsd-corpus/dsd-corpus.datasource';
-import { RegistrySnapshot, loadRegistries, snapshotRegistries } from './lib/registry';
+import {
+  LoadedRegistries,
+  RegistrySnapshot,
+  loadRegistries,
+  snapshotRegistries,
+} from './lib/registry';
 
 dotenv.config();
 
@@ -227,13 +232,19 @@ export interface AudioAssetRow {
   audioSha256: string;
   reviewStatus: string;
   generatorActor: string;
+  engineVoice: string;
   trainingDatasetStatus: string;
   qaFindings: Array<{ rule: string; detail: string }>;
   hasQuarantinedConflict: boolean;
 }
 
 export interface AudioReviewPlan {
-  toApply: Array<{ assetId: string; status: 'accepted' | 'rejected'; notes: string | null }>;
+  toApply: Array<{
+    assetId: string;
+    status: 'accepted' | 'rejected';
+    notes: string | null;
+    voiceRightsEvidenceId: string | null;
+  }>;
   blocked: string[];
   reviewerId: string;
 }
@@ -242,6 +253,7 @@ export interface AudioReviewPlan {
 export function planAudioReview(
   doc: AudioDecisionsFile,
   rows: AudioAssetRow[],
+  voiceRightsEvidence: Record<string, string>,
 ): AudioReviewPlan {
   const plan: AudioReviewPlan = { toApply: [], blocked: [], reviewerId: doc.reviewer_id };
   const byId = new Map(rows.map((row) => [row.assetId, row]));
@@ -286,11 +298,20 @@ export function planAudioReview(
       );
       continue;
     }
+    const rightsEvidenceId = voiceRightsEvidence[row.engineVoice] ?? null;
+    if (decision.decision === 'accept' && !rightsEvidenceId) {
+      plan.blocked.push(
+        `${where}: ${row.engineVoice} has no approved model/training-data rights evidence`,
+      );
+      continue;
+    }
 
     plan.toApply.push({
       assetId: decision.asset_id,
       status: decision.decision === 'accept' ? 'accepted' : 'rejected',
       notes: (decision.notes ?? '').trim() || null,
+      voiceRightsEvidenceId:
+        decision.decision === 'accept' ? rightsEvidenceId : null,
     });
   }
 
@@ -317,6 +338,7 @@ const QUEUE_SQL = `
 const ASSET_ROWS_SQL = `
   SELECT a.id AS "assetId", a.audio_sha256 AS "audioSha256",
          a.review_status AS "reviewStatus", a.generator_actor AS "generatorActor",
+         a.engine_voice AS "engineVoice",
          a.training_dataset_status AS "trainingDatasetStatus",
          a.qa_findings AS "qaFindings",
          EXISTS (
@@ -326,6 +348,28 @@ const ASSET_ROWS_SQL = `
          ) AS "hasQuarantinedConflict"
     FROM dsd_audio_assets a
    WHERE a.id = ANY($1::uuid[])`;
+
+/** Only a source approved for both model and training-data use can clear audio. */
+export function approvedVoiceRightsEvidence(
+  loaded: LoadedRegistries,
+): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const source of loaded.sources) {
+    const scopes = source.approvedScopes ?? [];
+    if (
+      source.status !== 'approved'
+      || !scopes.includes('audio_model')
+      || !scopes.includes('audio_training_data')
+      || source.evidenceIds.length === 0
+    ) {
+      continue;
+    }
+    for (const alias of source.aliases ?? []) {
+      if (/^en_[A-Z]{2}-.+-medium$/.test(alias)) result[alias] = source.evidenceIds[0];
+    }
+  }
+  return result;
+}
 
 async function main(): Promise<void> {
   const command = process.argv[2] ?? 'queue';
@@ -381,7 +425,7 @@ async function main(): Promise<void> {
     const rows: AudioAssetRow[] = await ds.query(ASSET_ROWS_SQL, [
       doc.decisions.map((d) => d.asset_id),
     ]);
-    const plan = planAudioReview(doc, rows);
+    const plan = planAudioReview(doc, rows, approvedVoiceRightsEvidence(loaded));
 
     console.log(`  apply    ${plan.toApply.length}`);
     console.log(`  blocked  ${plan.blocked.length}`);
@@ -402,9 +446,15 @@ async function main(): Promise<void> {
         await manager.query(
           `UPDATE dsd_audio_assets
               SET review_status = $1, reviewed_by = $2, reviewed_at = now(),
-                  review_notes = $3, updated_at = now()
-            WHERE id = $4 AND review_status = 'awaiting_review'`,
-          [decision.status, plan.reviewerId, decision.notes, decision.assetId],
+                  review_notes = $3, voice_rights_evidence_id = $4, updated_at = now()
+            WHERE id = $5 AND review_status = 'awaiting_review'`,
+          [
+            decision.status,
+            plan.reviewerId,
+            decision.notes,
+            decision.voiceRightsEvidenceId,
+            decision.assetId,
+          ],
         );
       }
     });

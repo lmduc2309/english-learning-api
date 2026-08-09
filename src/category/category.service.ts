@@ -70,7 +70,7 @@ export class CategoryService {
    * as lesson content is a licensing problem nobody notices.
    */
   private get categoriesUnavailableInCommercialMode(): boolean {
-    return this.dsdConfig?.releaseChannel === 'public' && this.commercialSafeMode;
+    return this.commercialSafeMode;
   }
 
   /**
@@ -206,6 +206,9 @@ export class CategoryService {
    * Get a single category by id or name
    */
   async getCategory(idOrName: string): Promise<Category> {
+    if (this.categoriesUnavailableInCommercialMode) {
+      throw new NotFoundException(`Category "${idOrName}" not found`);
+    }
     const isNumeric = /^\d+$/.test(idOrName);
     const category = isNumeric
       ? await this.categoryRepository.findOne({ where: { id: parseInt(idOrName, 10) } })
@@ -471,6 +474,9 @@ export class CategoryService {
    * Search categories with autocomplete
    */
   async searchCategories(query: string, limit: number = 15): Promise<any> {
+    if (this.categoriesUnavailableInCommercialMode) {
+      return { suggestions: [], count: 0 };
+    }
     const normalizedQuery = query.trim().toLowerCase();
     const cacheKey = `search:categories:${normalizedQuery}:${limit}`;
 
@@ -497,6 +503,9 @@ export class CategoryService {
    * Search topics with autocomplete
    */
   async searchTopics(query: string, limit: number = 15): Promise<any> {
+    if (this.categoriesUnavailableInCommercialMode) {
+      return { suggestions: [], count: 0 };
+    }
     const normalizedQuery = query.trim().toLowerCase();
     const cacheKey = `search:topics:${normalizedQuery}:${limit}`;
 

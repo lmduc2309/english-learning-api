@@ -110,6 +110,10 @@ export class DsdAudioAsset {
   @Column({ name: 'release_runtime_digest', type: 'varchar', length: 80, nullable: true })
   releaseRuntimeDigest: string | null;
 
+  /** Evidence that this specific voice/model is cleared for target use. */
+  @Column({ name: 'voice_rights_evidence_id', type: 'varchar', length: 64, nullable: true })
+  voiceRightsEvidenceId: string | null;
+
   @Column({ name: 'review_status', type: 'varchar', length: 24 })
   reviewStatus:
     | 'pending_qa'

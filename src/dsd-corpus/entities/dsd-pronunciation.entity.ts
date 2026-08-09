@@ -1,4 +1,4 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { DsdContentBase } from './dsd-content-base';
 import { DsdEntry } from './dsd-entry.entity';
 
@@ -7,7 +7,6 @@ import { DsdEntry } from './dsd-entry.entity';
  * dsd_ipa_candidates and cannot be presented as pronunciation content.
  */
 @Entity('dsd_pronunciations')
-@Index('UQ_dsd_pronunciation_entry_accent_priority', ['entryId', 'accent', 'priority'], { unique: true })
 export class DsdPronunciation extends DsdContentBase {
   @PrimaryGeneratedColumn('uuid')
   id: string;

@@ -5,6 +5,16 @@ dist
 coverage
 data/*
 !data/commercial-source-registry.json
+!data/dsd/
+data/dsd/*
+!data/dsd/source-registry.json
+!data/dsd/tool-registry.json
+!data/dsd/contributor-registry.json
+!data/dsd/release-public-keys.json
+!data/dsd/similarity/
+!data/dsd/similarity/**
+!data/dsd/tools/
+!data/dsd/tools/**
 reports
 uploads
 .env*

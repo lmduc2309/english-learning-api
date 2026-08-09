@@ -23,7 +23,9 @@
  */
 import * as crypto from 'crypto';
 
-export const MANIFEST_VERSION = 1;
+// v2 adds pronunciation counts so signed release membership can cover every
+// serving record family, not only entries/senses/audio.
+export const MANIFEST_VERSION = 2;
 export const SIGNATURE_ALGORITHM = 'ed25519';
 
 /** Artifacts the manifest describes, in the order they appear in the package. */
@@ -143,7 +145,15 @@ export interface ManifestInput {
     toolRegistrySha256: string;
     contributorRegistrySha256: string;
   };
-  counts: { entries: number; senses: number; translations: number; examples: number; relations: number; audioAssets: number };
+  counts: {
+    entries: number;
+    senses: number;
+    translations: number;
+    examples: number;
+    pronunciations: number;
+    relations: number;
+    audioAssets: number;
+  };
   territories: string[];
   artifacts: ManifestArtifact[];
   audio: ManifestArtifact[];
@@ -305,8 +315,14 @@ export function verifyRelease(input: VerifyInput): VerifyProblem[] {
         `signer key '${key.keyId}' is revoked${key.revokedReason ? `: ${key.revokedReason}` : ''}`,
       );
     }
-    if (key.notAfter && Date.parse(key.notAfter) < Date.parse(input.now)) {
-      fail('key_expired', `signer key '${key.keyId}' expired on ${key.notAfter}`);
+    if (key.notAfter) {
+      const expiry = Date.parse(key.notAfter);
+      const now = Date.parse(input.now);
+      if (!Number.isFinite(expiry) || !Number.isFinite(now)) {
+        fail('key_expired', `signer key '${key.keyId}' has an invalid expiry timestamp`);
+      } else if (expiry < now) {
+        fail('key_expired', `signer key '${key.keyId}' expired on ${key.notAfter}`);
+      }
     }
     if (key.algorithm !== SIGNATURE_ALGORITHM) {
       fail('key_algorithm', `signer key '${key.keyId}' is ${key.algorithm}, not ${SIGNATURE_ALGORITHM}`);

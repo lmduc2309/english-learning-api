@@ -40,7 +40,11 @@ export const DSD_CONTRIBUTOR_ROLES = [
   'linguistic_reviewer',
   'product_owner',
   'legal_reviewer',
+  'audio_reviewer',
 ] as const;
+
+export const DSD_CONTRIBUTOR_STATUSES = ['active', 'inactive'] as const;
+export const DSD_ENGAGEMENT_TYPES = ['employee', 'contractor', 'agency', 'volunteer'] as const;
 
 /**
  * Fields that must never appear in a committed contributor record. Store an
@@ -84,7 +88,9 @@ export interface DsdTool extends DsdSource {
 export interface DsdContributor {
   id: string;
   roles: string[];
-  languages?: string[];
+  languages: string[];
+  engagementType: string;
+  startDate: string;
   permissions?: string[];
   ipAssignmentEvidenceId?: string;
   status: string;
@@ -229,6 +235,30 @@ export function validateContributorRegistry(doc: {
       if (!(DSD_CONTRIBUTOR_ROLES as readonly string[]).includes(role)) {
         errors.push(`contributor '${entry.id}' has unknown role '${role}'`);
       }
+    }
+
+    if (!(DSD_CONTRIBUTOR_STATUSES as readonly string[]).includes(entry.status)) {
+      errors.push(`contributor '${entry.id}' has unknown status '${entry.status}'`);
+    }
+
+    if ((entry.roles ?? []).length === 0) {
+      errors.push(`contributor '${entry.id}' has no role`);
+    }
+
+    if (!Array.isArray(entry.languages) || entry.languages.length === 0) {
+      errors.push(`contributor '${entry.id}' has no language capability recorded`);
+    } else if (entry.languages.some((language) => !/^[a-z]{2,3}(?:-[A-Z]{2})?$/.test(language))) {
+      errors.push(`contributor '${entry.id}' has a malformed language tag`);
+    }
+
+    if (!(DSD_ENGAGEMENT_TYPES as readonly string[]).includes(entry.engagementType)) {
+      errors.push(
+        `contributor '${entry.id}' has unknown engagement type '${entry.engagementType}'`,
+      );
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(entry.startDate ?? '')) {
+      errors.push(`contributor '${entry.id}' has no valid YYYY-MM-DD start date`);
     }
 
     if (entry.status === 'active' && !(entry.ipAssignmentEvidenceId ?? '').trim()) {

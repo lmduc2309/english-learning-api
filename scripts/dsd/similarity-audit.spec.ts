@@ -16,6 +16,7 @@ import {
   auditRecord,
   authorReport,
   evaluateSimilarityGate,
+  validateDecisionRequest,
 } from './similarity-audit';
 
 function policy(): SimilarityPolicy {
@@ -317,5 +318,44 @@ describe('authoring commands stay away from legacy', () => {
       /from 'pg'/.test(fs.readFileSync(path.resolve(__dirname, f), 'utf8')),
     );
     expect(offenders).toEqual(['similarity-audit.ts']);
+  });
+});
+
+describe('manual compliance decisions', () => {
+  const valid = () => ({
+    entityId: '11111111-1111-1111-1111-111111111111',
+    decision: 'independently_authored_cleared',
+    reviewer: 'DSD-C-001',
+    reason: 'independent_process_evidence',
+    evidenceId: 'EV-COMPLIANCE-001',
+    contributor: {
+      status: 'active',
+      roles: ['compliance_reviewer'],
+      rightsEvidenceId: 'EV-IP-020',
+    },
+  });
+
+  it('accepts a controlled decision bound to external evidence', () => {
+    expect(validateDecisionRequest(valid())).toEqual([]);
+  });
+
+  it('refuses an unregistered reviewer or one without the compliance role', () => {
+    expect(validateDecisionRequest({ ...valid(), contributor: undefined }).join(' ')).toMatch(
+      /not active/,
+    );
+    expect(
+      validateDecisionRequest({
+        ...valid(),
+        contributor: { status: 'active', roles: ['author'], rightsEvidenceId: 'EV-IP-1' },
+      }).join(' '),
+    ).toMatch(/does not have the compliance_reviewer role/);
+  });
+
+  it('allows only controlled reasons so legacy wording cannot enter the DSD row', () => {
+    expect(
+      validateDecisionRequest({ ...valid(), reason: 'Looks close to the legacy definition' }).join(
+        ' ',
+      ),
+    ).toMatch(/reason.*must be/);
   });
 });

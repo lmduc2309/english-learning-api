@@ -1,0 +1,59 @@
+name: Verify DSD off-host backups
+
+on:
+  schedule:
+    # Keeps the default 24-hour release-proof gate satisfiable while still
+    # requiring every public release to inspect the newest proof explicitly.
+    - cron: "17 18 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: dsd-english-production
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Back up, download, and restore both databases
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Run recovery rehearsal on the VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script_stop: true
+          command_timeout: 90m
+          script: |
+            set -eu
+
+            ROOT=/var/www/sites/dsd-english
+            API_DIR="$ROOT/english-learning-api"
+            COMPOSE_FILE="$API_DIR/deploy/compose.yml"
+            ENV_FILE="$API_DIR/deploy/.env.production"
+
+            test -d "$API_DIR/.git"
+            test -f "$ENV_FILE"
+            cd "$API_DIR"
+
+            COMPOSE="docker compose --profile operations --env-file $ENV_FILE -f $COMPOSE_FILE"
+            $COMPOSE config --quiet
+            $COMPOSE build dsd-ops
+            $COMPOSE up -d postgres
+
+            # Make today's protected copies first. The restore command then
+            # lists and downloads the newest exact versions from S3; it does
+            # not verify the local files that were just written.
+            $COMPOSE run --rm dsd-ops sh -c \
+              'npm run dsd:backup:offhost -- --database "$DB_DATABASE" --out-dir /backups'
+            $COMPOSE run --rm dsd-ops sh -c \
+              'npm run dsd:backup:offhost -- --database "$DSD_DB_DATABASE" --out-dir /backups'
+            $COMPOSE run --rm -e DSD_VERIFY_OFF_HOST=true dsd-ops \
+              npm run dsd:verify-restores -- /backups
+
+            test "$(docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" \
+              run --rm --no-deps -T api node -e \
+              "const fs=require('fs');const p=process.env.DSD_BACKUP_PROOF_FILE;const x=JSON.parse(fs.readFileSync(p));process.stdout.write(String(x.offHostCopy===true&&x.databases?.length===2))")" = true

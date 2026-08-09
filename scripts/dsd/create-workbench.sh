@@ -32,12 +32,22 @@ if [ "$(printf '%s' "$DSD_DB" | tr '[:upper:]' '[:lower:]' | xargs)" = \
   exit 1
 fi
 
-dex() { docker exec -e PGPASSWORD="$PW" -i "$CONTAINER" "$@"; }
+dex() { PGPASSWORD="$PW" docker exec -e PGPASSWORD -i "$CONTAINER" "$@"; }
 psql_db() { dex psql -U "$SUPERUSER" -d "$1" -X -q -v ON_ERROR_STOP=1 "${@:2}"; }
 
 # Local-only passwords. Production credentials come from the deploy secret
 # store via Task 2A, never from this script.
 LOCAL_PW="${DSD_LOCAL_ROLE_PASSWORD:-dsd_local_dev}"
+
+create_local_login_role() {
+  local role="$1"
+  PGPASSWORD="$PW" DSD_PROVISION_ROLE_PASSWORD="$LOCAL_PW" \
+    docker exec -e PGPASSWORD -e DSD_PROVISION_ROLE_PASSWORD -i "$CONTAINER" \
+    psql -U "$SUPERUSER" -d postgres -X -q -v ON_ERROR_STOP=1 <<SQL
+\getenv dsd_provision_password DSD_PROVISION_ROLE_PASSWORD
+CREATE ROLE $role LOGIN PASSWORD :'dsd_provision_password';
+SQL
+}
 
 # Literal list rather than a variable: npm invokes this with zsh, which does
 # not word-split unquoted parameters, so `for r in $ROLES` would pass the whole
@@ -57,11 +67,12 @@ case "${1:-create}" in
     END \$\$;"
 
     for role in "${DSD_LOGIN_ROLES[@]}"; do
-      psql_db postgres -c "DO \$\$ BEGIN
-        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='$role') THEN
-          CREATE ROLE $role LOGIN PASSWORD '$LOCAL_PW';
-        END IF;
-      END \$\$;"
+      if dex psql -U "$SUPERUSER" -d postgres -X -t -A \
+           -c "SELECT 1 FROM pg_roles WHERE rolname='$role'" | grep -q 1; then
+        :
+      else
+        create_local_login_role "$role"
+      fi
     done
 
     # dsd_migrator gets DDL through membership in the owner role rather than

@@ -39,6 +39,8 @@ function contributor(overrides: Record<string, unknown> = {}) {
     id: 'DSD-C-001',
     roles: ['author'],
     languages: ['en', 'vi'],
+    engagementType: 'contractor',
+    startDate: '2026-08-09',
     permissions: ['author_definition'],
     ipAssignmentEvidenceId: 'EV-IP-001',
     status: 'active',
@@ -212,6 +214,20 @@ describe('validateContributorRegistry', () => {
       contributors: [contributor({ ipAssignmentEvidenceId: '' })],
     });
     expect(errors.join(' ')).toMatch(/ip-assignment evidence/i);
+  });
+
+  it.each([
+    ['languages', []],
+    ['engagementType', 'informal-helper'],
+    ['startDate', 'soon'],
+    ['status', 'pending'],
+    ['roles', []],
+  ])('rejects an incomplete governance field %s', (field, value) => {
+    const errors = validateContributorRegistry({
+      version: 1,
+      contributors: [contributor({ [field]: value })],
+    });
+    expect(errors).not.toEqual([]);
   });
 
   it('rejects an unknown role', () => {

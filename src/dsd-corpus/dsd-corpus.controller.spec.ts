@@ -122,6 +122,20 @@ describe('channel internal', () => {
     const { controller } = build('internal', aggregate(), PILOT_RELEASE);
     expect(controller.health().release_id).toBe(PILOT_RELEASE);
   });
+
+  it('serves the authenticated reviewer endpoint from the active pilot', async () => {
+    const { controller, queryService } = build('internal', aggregate(), PILOT_RELEASE);
+    const result = await controller.internalLookup('rehearse');
+    expect(result.corpus_release_id).toBe(PILOT_RELEASE);
+    expect(queryService.findCompleteEntry).toHaveBeenCalledWith('rehearse', PILOT_RELEASE);
+  });
+
+  it('serves internal search only with the pilot release id', async () => {
+    const { controller, queryService } = build('internal', aggregate(), PILOT_RELEASE);
+    const result = await controller.internalSearch('reh');
+    expect(result.corpus_release_id).toBe(PILOT_RELEASE);
+    expect(queryService.search).toHaveBeenCalledWith('reh', 20, PILOT_RELEASE);
+  });
 });
 
 describe('channel public', () => {
@@ -162,13 +176,14 @@ describe('channel public', () => {
     await controller.lookup('11111111-1111-1111-1111-111111111111');
     expect(queryService.findCompleteEntry).toHaveBeenCalledWith(
       '11111111-1111-1111-1111-111111111111',
+      PUBLIC_RELEASE,
     );
   });
 
   it('defaults the search limit', async () => {
     const { controller, queryService } = build('public');
     await controller.search('reh');
-    expect(queryService.search).toHaveBeenCalledWith('reh', 20);
+    expect(queryService.search).toHaveBeenCalledWith('reh', 20, PUBLIC_RELEASE);
   });
 });
 

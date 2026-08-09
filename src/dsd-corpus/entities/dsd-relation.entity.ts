@@ -44,6 +44,12 @@ export class DsdRelation {
   @Column({ name: 'status', type: 'varchar', length: 16 })
   status: 'draft' | 'in_review' | 'approved' | 'published' | 'retired' | 'rejected';
 
+  @Column({ type: 'integer', default: 1 })
+  revision: number;
+
+  @Column({ name: 'supersedes_id', type: 'uuid', nullable: true })
+  supersedesId: string | null;
+
   @Column({ name: 'content_sha256', type: 'char', length: 64 })
   contentSha256: string;
 

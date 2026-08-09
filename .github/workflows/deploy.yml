@@ -28,6 +28,12 @@ jobs:
       - name: Run API tests
         run: npm test -- --runInBand --no-watchman
 
+      - name: Run corpus and operations script tests
+        run: npm run test:scripts -- --runInBand --no-watchman
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Build API
         run: npm run build
 
@@ -56,7 +62,6 @@ jobs:
             TTS_DIR="$ROOT/tts-service"
             COMPOSE_FILE="$API_DIR/deploy/compose.yml"
             ENV_FILE="$API_DIR/deploy/.env.production"
-            BACKUP_DIR="$ROOT/backups/postgres"
 
             for repo_dir in "$API_DIR" "$WEB_DIR" "$TTS_DIR"; do
               if [ ! -d "$repo_dir/.git" ]; then
@@ -75,27 +80,34 @@ jobs:
             git -C "$TTS_DIR" pull --ff-only origin main
 
             cd "$API_DIR"
-            docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" config --quiet
+            COMPOSE="docker compose --profile operations --env-file $ENV_FILE -f $COMPOSE_FILE"
+            $COMPOSE config --quiet
+            $COMPOSE build
+            $COMPOSE up -d postgres redis
 
-            mkdir -p "$BACKUP_DIR"
-            if docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" ps --status running --services | grep -qx postgres; then
-              BACKUP_SQL="$BACKUP_DIR/english-learning-$(date -u +%Y%m%dT%H%M%SZ).sql"
-              docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" exec -T postgres \
-                sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' > "$BACKUP_SQL"
-              test -s "$BACKUP_SQL"
-              gzip "$BACKUP_SQL"
-              BACKUP_FILE="$BACKUP_SQL.gz"
-              gzip -t "$BACKUP_FILE"
-              echo "Verified PostgreSQL backup: $BACKUP_FILE"
-            else
-              echo "PostgreSQL is not running yet; treating this as a first deployment."
-            fi
+            echo "=== migration state before backup ==="
+            $COMPOSE run --rm api npm run migration:show:prod
+            $COMPOSE run --rm dsd-migrator npm run dsd:migration:show:prod
 
-            docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" build
-            docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d postgres redis
-            docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" run --rm api npm run migration:show:prod
-            docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" run --rm api npm run migration:run:prod
-            docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" run --rm api npm run migration:show:prod
+            # Each command creates a snapshot-bound dump and manifest, uploads
+            # both to versioned KMS storage with retention, and verifies the
+            # exact remote object versions. set -e blocks all migrations if
+            # any local or off-host verification fails.
+            $COMPOSE run --rm dsd-ops sh -c \
+              'npm run dsd:backup:offhost -- --database "$DB_DATABASE" --out-dir /backups'
+            $COMPOSE run --rm dsd-ops sh -c \
+              'npm run dsd:backup:offhost -- --database "$DSD_DB_DATABASE" --out-dir /backups'
+
+            echo "=== applying legacy migrations ==="
+            $COMPOSE run --rm api npm run migration:run:prod
+            echo "=== applying DSD migrations ==="
+            $COMPOSE run --rm dsd-migrator npm run dsd:migration:run:prod
+
+            echo "=== migration state after migration ==="
+            $COMPOSE run --rm api npm run migration:show:prod
+            $COMPOSE run --rm dsd-migrator npm run dsd:migration:show:prod
+
+            # Profiles do not start one-shot operation services here.
             docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d
 
             curl -fS -H 'Host: eng.dsdtech.site' http://127.0.0.1/healthz

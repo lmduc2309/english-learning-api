@@ -50,6 +50,7 @@ import {
   policyHash,
   validatePolicy,
 } from './lib/similarity';
+import { loadRegistries, snapshotRegistries } from './lib/registry';
 
 dotenv.config();
 
@@ -316,10 +317,105 @@ const DSD_RECORDS_SQL = `
  * to compare, not to digest, not at all.
  */
 const LEGACY_CANDIDATES_SQL = `
-  SELECT text FROM ${LEGACY_AUDIT_VIEW} WHERE record_type = $1`;
+  SELECT content_en AS text
+    FROM ${LEGACY_AUDIT_VIEW}
+   WHERE record_kind = $1`;
+
+export type ManualSimilarityDecision =
+  | 'rewrite_required'
+  | 'independently_authored_cleared';
+
+const DECISION_REASONS: Record<ManualSimilarityDecision, string> = {
+  rewrite_required: 'rewrite_required_by_compliance',
+  independently_authored_cleared: 'independent_process_evidence',
+};
+
+export function validateDecisionRequest(input: {
+  entityId: string;
+  decision: string;
+  reviewer: string;
+  reason: string;
+  evidenceId: string;
+  contributor?: { status: string; roles: string[]; rightsEvidenceId: string };
+}): string[] {
+  const errors: string[] = [];
+  if (!/^[0-9a-f-]{36}$/i.test(input.entityId)) errors.push('entity must be a DSD UUID');
+  if (!(input.decision in DECISION_REASONS)) {
+    errors.push('decision must be rewrite_required or independently_authored_cleared');
+  } else if (input.reason !== DECISION_REASONS[input.decision as ManualSimilarityDecision]) {
+    errors.push(
+      `reason for ${input.decision} must be '${DECISION_REASONS[input.decision as ManualSimilarityDecision]}'`,
+    );
+  }
+  if (!input.evidenceId.trim()) errors.push('an external decision evidence id is required');
+  if (!input.contributor || input.contributor.status !== 'active') {
+    errors.push(`reviewer '${input.reviewer}' is not active in the contributor registry`);
+  } else {
+    if (!input.contributor.roles.includes('compliance_reviewer')) {
+      errors.push(`reviewer '${input.reviewer}' does not have the compliance_reviewer role`);
+    }
+    if (!input.contributor.rightsEvidenceId) {
+      errors.push(`reviewer '${input.reviewer}' has no IP-assignment evidence`);
+    }
+  }
+  return errors;
+}
+
+async function decide(
+  ds: ReturnType<typeof createDsdDataSource>,
+  currentPolicySha256: string,
+): Promise<void> {
+  const entityId = arg('entity') ?? '';
+  const decision = arg('decision') ?? '';
+  const reviewer = arg('reviewer') ?? '';
+  const reason = arg('reason') ?? '';
+  const evidenceId = arg('evidence') ?? '';
+  const loaded = loadRegistries();
+  if (loaded.errors.length > 0) {
+    throw new Error(`DSD registries are invalid:\n  - ${loaded.errors.join('\n  - ')}`);
+  }
+  const registry = snapshotRegistries(loaded);
+  const errors = validateDecisionRequest({
+    entityId,
+    decision,
+    reviewer,
+    reason,
+    evidenceId,
+    contributor: registry.contributors[reviewer],
+  });
+  if (errors.length > 0) {
+    throw new Error(`Invalid compliance decision:\n  - ${errors.join('\n  - ')}`);
+  }
+  if (!process.argv.includes('--write')) {
+    console.log('DRY RUN — decision is valid but was not recorded. Re-run with --write.');
+    return;
+  }
+
+  const rows = await ds.query(
+    `UPDATE dsd_similarity_results result
+        SET decision = $2, decision_reason = $3, decision_evidence_id = $4,
+            decided_by = $5, decided_at = now()
+      WHERE result.entity_id = $1::uuid
+        AND result.policy_sha256 = $6
+        AND result.content_sha256 = CASE result.entity_kind
+          WHEN 'sense' THEN (SELECT content_sha256 FROM dsd_senses WHERE id = result.entity_id)
+          WHEN 'example' THEN (SELECT content_sha256 FROM dsd_examples WHERE id = result.entity_id)
+        END
+        AND result.decision = 'manual_review'
+      RETURNING result.entity_id AS "entityId", result.match_class AS "matchClass"`,
+    [entityId, decision, reason, evidenceId, reviewer, currentPolicySha256],
+  );
+  if (rows.length !== 1) {
+    throw new Error(
+      'No current manual-review result was updated. The content/policy may be stale, ' +
+        'the result may already be decided, or the entity may not exist.',
+    );
+  }
+  console.log(`Recorded ${decision} for ${entityId} (${rows[0].matchClass}).`);
+}
 
 async function main(): Promise<void> {
-  const command = process.argv[2] === 'report' ? 'report' : 'audit';
+  const command = ['report', 'decide'].includes(process.argv[2]) ? process.argv[2] : 'audit';
   const auditor = arg('auditor');
   const policyPath = path.resolve(process.cwd(), arg('policy') ?? DEFAULT_POLICY_PATH);
 
@@ -338,6 +434,15 @@ async function main(): Promise<void> {
 
   const ds = createDsdDataSource('audit', config);
   await ds.initialize();
+
+  if (command === 'decide') {
+    try {
+      await decide(ds, policyHash(policy));
+    } finally {
+      await ds.destroy();
+    }
+    return;
+  }
 
   if (command === 'report') {
     try {

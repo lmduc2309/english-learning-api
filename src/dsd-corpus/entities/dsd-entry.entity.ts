@@ -1,11 +1,10 @@
-import { Column, CreateDateColumn, Entity, Index, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { DsdSense } from './dsd-sense.entity';
 import { DsdPronunciation } from './dsd-pronunciation.entity';
 import type { DsdStatus } from './dsd-content-base';
 
 /** An independently selected DSD headword. Carries no legacy identifier. */
 @Entity('dsd_entries')
-@Index('UQ_dsd_entry_language_headword', ['language', 'headwordNormalized'], { unique: true })
 export class DsdEntry {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -31,6 +30,12 @@ export class DsdEntry {
 
   @Column({ type: 'varchar', length: 16, default: 'draft' })
   status: DsdStatus;
+
+  @Column({ type: 'integer', default: 1 })
+  revision: number;
+
+  @Column({ name: 'supersedes_id', type: 'uuid', nullable: true })
+  supersedesId: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

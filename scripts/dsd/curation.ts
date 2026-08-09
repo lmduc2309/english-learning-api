@@ -645,12 +645,12 @@ async function main(): Promise<void> {
            FROM dsd_senses WHERE dsd_entry_id = ANY($1::uuid[])`,
         [entryIds],
       );
-    const presentByKey = new Map(present.map((p) => [`${p.dsdEntryId} ${p.senseKey}`, p]));
+    const presentByKey = new Map(present.map((p) => [`${p.dsdEntryId}\0${p.senseKey}`, p]));
 
     const toInsert: PlannedSense[] = [];
     let unchanged = 0;
     for (const sense of plan.senses) {
-      const current = presentByKey.get(`${sense.dsdEntryId} ${sense.senseKey}`);
+      const current = presentByKey.get(`${sense.dsdEntryId}\0${sense.senseKey}`);
       if (!current) {
         toInsert.push(sense);
       } else if (current.sha === sense.contentSha256) {
@@ -679,7 +679,7 @@ async function main(): Promise<void> {
       return;
     }
 
-    const insertKeys = new Set(toInsert.map((s) => `${s.dsdEntryId} ${s.senseKey}`));
+    const insertKeys = new Set(toInsert.map((s) => `${s.dsdEntryId}\0${s.senseKey}`));
 
     // One transaction: a batch lands completely or not at all.
     await ds.transaction(async (manager) => {
@@ -700,12 +700,12 @@ async function main(): Promise<void> {
             sense.sourceId, plan.batchId, sense.rightsEvidenceId,
           ],
         );
-        senseIds.set(`${sense.dsdEntryId} ${sense.senseKey}`, row.id);
+        senseIds.set(`${sense.dsdEntryId}\0${sense.senseKey}`, row.id);
         await recordImport(manager, 'sense', row.id, sense, plan.declarationId);
       }
 
       for (const translation of plan.translations) {
-        const key = `${translation.dsdEntryId} ${translation.senseKey}`;
+        const key = `${translation.dsdEntryId}\0${translation.senseKey}`;
         if (!insertKeys.has(key)) continue;
         const [row] = await manager.query(
           `INSERT INTO dsd_translations
@@ -722,7 +722,7 @@ async function main(): Promise<void> {
       }
 
       for (const example of plan.examples) {
-        const key = `${example.dsdEntryId} ${example.senseKey}`;
+        const key = `${example.dsdEntryId}\0${example.senseKey}`;
         if (!insertKeys.has(key)) continue;
         const [row] = await manager.query(
           `INSERT INTO dsd_examples

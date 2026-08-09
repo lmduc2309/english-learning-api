@@ -17,6 +17,13 @@ BACKUP_DIR="${1:-${DSD_BACKUP_DIR:-./backups}}"
 DSD_DB="${DSD_DB_DATABASE:-dsd_corpus_db}"
 LEGACY_DB="${DB_DATABASE:-english_learning_db}"
 PROOF_LOG="$BACKUP_DIR/restore-proof.log"
+PROOF_FILE="${DSD_BACKUP_PROOF_FILE:-$BACKUP_DIR/backup-proof.json}"
+OFF_HOST="${DSD_VERIFY_OFF_HOST:-false}"
+
+if [ "$OFF_HOST" != "true" ] && [ "$OFF_HOST" != "false" ]; then
+  echo "DSD_VERIFY_OFF_HOST must be true or false" >&2
+  exit 2
+fi
 
 mkdir -p "$BACKUP_DIR"
 chmod 700 "$BACKUP_DIR"
@@ -29,10 +36,16 @@ for db in "$DSD_DB" "$LEGACY_DB"; do
   echo ""
   echo "── $db ──"
 
-  # Back up and verify in one pass. Verifying a stale dump would prove only
-  # that an old file still restores, not that today's backup is good.
-  if ! npm run --silent dsd:backup -- --database "$db" --out-dir "$BACKUP_DIR"; then
-    echo "  BACKUP FAILED for $db" >&2
+  # Release/production rehearsal downloads the newest exact object versions
+  # from off-host storage. Local development can still create a fresh snapshot
+  # in place, but that mode never emits a commercial release proof.
+  if [ "$OFF_HOST" = "true" ]; then
+    prepare=(dsd:backup:download -- --database "$db" --out-dir "$BACKUP_DIR")
+  else
+    prepare=(dsd:backup -- --database "$db" --out-dir "$BACKUP_DIR")
+  fi
+  if ! npm run --silent "${prepare[@]}"; then
+    echo "  BACKUP PREPARATION FAILED for $db" >&2
     failed=1
     continue
   fi
@@ -53,3 +66,10 @@ fi
 
 echo "Restore rehearsal passed for both databases."
 echo "Proof recorded in $PROOF_LOG"
+
+if [ "$OFF_HOST" = "true" ]; then
+  npm run --silent dsd:backup:proof -- --dir "$BACKUP_DIR" --output "$PROOF_FILE"
+  echo "Commercial release proof recorded in $PROOF_FILE"
+else
+  echo "Local-only mode: no commercial release proof was emitted."
+fi

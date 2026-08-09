@@ -32,6 +32,7 @@ END $$;
 
 -- 2. A schema the legacy application does not use, owned by the legacy owner.
 CREATE SCHEMA IF NOT EXISTS dsd_compliance;
+ALTER SCHEMA dsd_compliance OWNER TO :"legacy_object_owner";
 
 -- 3. The only object this role may read.
 --
@@ -61,6 +62,8 @@ UNION ALL
   WHERE e.example_en IS NOT NULL
     AND btrim(e.example_en) <> '';
 
+ALTER VIEW dsd_compliance.english_similarity_input OWNER TO :"legacy_object_owner";
+
 COMMENT ON VIEW dsd_compliance.english_similarity_input IS
   'Sole legacy input for the DSD compliance similarity audit (Task 8). English only: '
   'no row IDs, no Vietnamese, no learner or cleanup tables. Widening this view '
@@ -70,19 +73,31 @@ COMMENT ON VIEW dsd_compliance.english_similarity_input IS
 --    grants below meaningless.
 REVOKE ALL ON SCHEMA dsd_compliance FROM PUBLIC;
 REVOKE ALL ON ALL TABLES IN SCHEMA dsd_compliance FROM PUBLIC;
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC;
+REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC;
 REVOKE ALL ON SCHEMA public FROM dsd_similarity_reader;
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM dsd_similarity_reader;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM dsd_similarity_reader;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM dsd_similarity_reader;
 
 -- Future legacy tables must not become readable by default.
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
+ALTER DEFAULT PRIVILEGES FOR ROLE :"legacy_object_owner" IN SCHEMA public
+  REVOKE ALL ON TABLES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE :"legacy_object_owner" IN SCHEMA public
+  REVOKE ALL ON SEQUENCES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE :"legacy_object_owner" IN SCHEMA public
+  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE :"legacy_object_owner" IN SCHEMA public
   REVOKE ALL ON TABLES FROM dsd_similarity_reader;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
+ALTER DEFAULT PRIVILEGES FOR ROLE :"legacy_object_owner" IN SCHEMA public
   REVOKE ALL ON SEQUENCES FROM dsd_similarity_reader;
+ALTER DEFAULT PRIVILEGES FOR ROLE :"legacy_object_owner" IN SCHEMA public
+  REVOKE EXECUTE ON FUNCTIONS FROM dsd_similarity_reader;
 
 -- 5. The complete allowlist: connect, see the compliance schema, read one view.
-GRANT CONNECT ON DATABASE english_learning_db TO dsd_similarity_reader;
+GRANT CONNECT ON DATABASE :"legacy_database" TO dsd_similarity_reader;
 GRANT USAGE   ON SCHEMA dsd_compliance        TO dsd_similarity_reader;
 GRANT SELECT  ON dsd_compliance.english_similarity_input TO dsd_similarity_reader;
 

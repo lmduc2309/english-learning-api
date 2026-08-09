@@ -8,9 +8,8 @@ import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
  * a customer ends up with a package nobody can tie back to a decision.
  *
  * Immutable by trigger: a package cannot be re-signed or re-attributed after the
- * fact. Building again produces a new row, and the unique constraint on
- * (release_id, manifest_sha256) means a deterministic re-export of identical
- * bytes does not accumulate one.
+ * fact. Building again uses a new release id; one public identifier can never
+ * be made to refer to two different manifests.
  */
 @Entity('dsd_release_builds')
 @Index('IDX_dsd_release_build_release', ['releaseId'])
@@ -31,6 +30,10 @@ export class DsdReleaseBuild {
 
   @Column({ name: 'manifest_sha256', type: 'char', length: 64 })
   manifestSha256: string;
+
+  /** Exact canonical bytes that were hashed and signed, stored as UTF-8 text. */
+  @Column({ name: 'manifest_bytes', type: 'text' })
+  manifestBytes: string;
 
   /** Detached Ed25519 signature over the canonical manifest bytes, base64. */
   @Column({ name: 'signature', type: 'text' })
@@ -76,6 +79,19 @@ export class DsdReleaseBuild {
 
   @Column({ name: 'sense_count', type: 'integer' })
   senseCount: number;
+
+  @Column({ name: 'translation_count', type: 'integer' })
+  translationCount: number;
+
+  @Column({ name: 'example_count', type: 'integer' })
+  exampleCount: number;
+
+  @Column({ name: 'pronunciation_count', type: 'integer' })
+  pronunciationCount: number;
+
+  /** Unique authored relation rows; the export may project symmetric rows twice. */
+  @Column({ name: 'relation_count', type: 'integer' })
+  relationCount: number;
 
   @Column({ name: 'audio_asset_count', type: 'integer' })
   audioAssetCount: number;

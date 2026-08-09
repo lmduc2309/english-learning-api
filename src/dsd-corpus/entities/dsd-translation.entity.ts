@@ -1,10 +1,9 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { DsdContentBase } from './dsd-content-base';
 import { DsdSense } from './dsd-sense.entity';
 
 /** A reviewed Vietnamese translation of one sense. */
 @Entity('dsd_translations')
-@Index('UQ_dsd_translation_sense_locale', ['senseId', 'locale'], { unique: true })
 export class DsdTranslation extends DsdContentBase {
   @PrimaryGeneratedColumn('uuid')
   id: string;

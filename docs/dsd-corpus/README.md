@@ -71,3 +71,12 @@ not something DSD can publish — which is the whole point of excluding OEWN.
 LJSpeech and Norman are selected technical candidates but remain blocked for
 public release: public-domain training recordings clear copyright, not
 performer, voice or personality rights. See `RIGHTS-MATRIX.md`.
+
+The engineering boundary is implemented fail-closed: commercial requests use
+only DSD serving views, signed releases record exact membership for every
+record and audio asset, startup verifies the canonical manifest and Ed25519
+signature, and release audit requires a current exact-version off-host restore
+proof for both databases. This does **not** turn the current registries or
+corpus into a commercial release. With blocked sources, no contributor-rights
+evidence, no trusted release key, and no production restore proof, the correct
+current result is `NO-GO`.

@@ -6,6 +6,7 @@ import {
   NotFoundException,
   Param,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { DSD_CORPUS_CONFIG } from './dsd-corpus.module';
 import { DsdCorpusConfig } from './dsd-corpus.config';
@@ -16,6 +17,8 @@ import {
   presentEntry,
   presentSearchHits,
 } from './dsd-presenter';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { DsdReviewerGuard } from './dsd-reviewer.guard';
 
 /**
  * The DSD serving surface.
@@ -93,7 +96,10 @@ export class DsdCorpusController {
       throw new NotFoundException('not_found');
     }
 
-    const aggregate = await this.queryService.findCompleteEntry(identifier);
+    const aggregate = await this.queryService.findCompleteEntry(
+      identifier,
+      this.config.activeReleaseId,
+    );
     if (!aggregate) {
       // Covers three cases on purpose — no such entry, not published, published
       // but incomplete — because distinguishing them would tell an outsider what
@@ -117,7 +123,46 @@ export class DsdCorpusController {
       return { results: [], corpus_release_id: null };
     }
 
-    const hits = await this.queryService.search(q ?? '', limit ? Number(limit) : 20);
+    const hits = await this.queryService.search(
+      q ?? '',
+      limit ? Number(limit) : 20,
+      this.config.activeReleaseId,
+    );
+    return {
+      results: presentSearchHits(hits),
+      corpus_release_id: this.config.activeReleaseId,
+    };
+  }
+
+  @Get('internal/entries/:identifier')
+  @UseGuards(JwtAuthGuard, DsdReviewerGuard)
+  async internalLookup(
+    @Param('identifier') identifier: string,
+  ): Promise<DsdPublicEntry> {
+    if (!this.canServe('reviewer')) throw new NotFoundException('not_found');
+    const aggregate = await this.queryService.findCompleteEntry(
+      identifier,
+      this.config.activeReleaseId,
+    );
+    if (!aggregate) throw new NotFoundException('not_found');
+    return presentEntry(aggregate, {
+      releaseId: this.config.activeReleaseId,
+      audioBaseUrl: process.env.DSD_AUDIO_PUBLIC_BASE_URL ?? '',
+    });
+  }
+
+  @Get('internal/search')
+  @UseGuards(JwtAuthGuard, DsdReviewerGuard)
+  async internalSearch(
+    @Query('q') q?: string,
+    @Query('limit') limit?: string,
+  ): Promise<{ results: DsdPublicSearchHit[]; corpus_release_id: string }> {
+    if (!this.canServe('reviewer')) throw new NotFoundException('not_found');
+    const hits = await this.queryService.search(
+      q ?? '',
+      limit ? Number(limit) : 20,
+      this.config.activeReleaseId,
+    );
     return {
       results: presentSearchHits(hits),
       corpus_release_id: this.config.activeReleaseId,

@@ -13,6 +13,8 @@ const ASSET = '11111111-1111-1111-1111-111111111111';
 const ASSET_B = '22222222-2222-2222-2222-222222222222';
 const HASH_A = 'a'.repeat(64);
 const HASH_B = 'b'.repeat(64);
+const VOICE = 'en_US-ljspeech-medium';
+const VOICE_RIGHTS = { [VOICE]: 'EV-AUDIO-LJSPEECH-RIGHTS-001' };
 
 function registry(overrides: Partial<RegistrySnapshot> = {}): RegistrySnapshot {
   return {
@@ -51,11 +53,16 @@ function row(overrides: Partial<AudioAssetRow> = {}): AudioAssetRow {
     audioSha256: HASH_A,
     reviewStatus: 'awaiting_review',
     generatorActor: 'DSD-G-001',
+    engineVoice: VOICE,
     trainingDatasetStatus: 'approved',
     qaFindings: [],
     hasQuarantinedConflict: false,
     ...overrides,
   };
+}
+
+function plan(doc: AudioDecisionsFile, rows: AudioAssetRow[]) {
+  return planAudioReview(doc, rows, VOICE_RIGHTS);
 }
 
 function queueAsset(overrides: Partial<QueueAsset> = {}): QueueAsset {
@@ -192,47 +199,51 @@ describe('validateAudioDecisions', () => {
 
 describe('planAudioReview', () => {
   it('applies a decision to an asset awaiting review', () => {
-    const plan = planAudioReview(file(), [row()]);
-    expect(plan.blocked).toEqual([]);
-    expect(plan.toApply[0]).toMatchObject({ assetId: ASSET, status: 'accepted' });
+    const result = plan(file(), [row()]);
+    expect(result.blocked).toEqual([]);
+    expect(result.toApply[0]).toMatchObject({
+      assetId: ASSET,
+      status: 'accepted',
+      voiceRightsEvidenceId: VOICE_RIGHTS[VOICE],
+    });
   });
 
   it('refuses a decision about bytes that are no longer the asset', () => {
     // Regenerated after the queue was built: the reviewer heard something else.
-    const plan = planAudioReview(file(), [row({ audioSha256: HASH_B })]);
-    expect(plan.toApply).toEqual([]);
-    expect(plan.blocked.join(' ')).toMatch(/stale/);
+    const result = plan(file(), [row({ audioSha256: HASH_B })]);
+    expect(result.toApply).toEqual([]);
+    expect(result.blocked.join(' ')).toMatch(/stale/);
   });
 
   it('refuses self-review by the generator', () => {
-    const plan = planAudioReview(file(), [row({ generatorActor: 'DSD-R-001' })]);
-    expect(plan.blocked.join(' ')).toMatch(/generated it and cannot review it/);
+    const result = plan(file(), [row({ generatorActor: 'DSD-R-001' })]);
+    expect(result.blocked.join(' ')).toMatch(/generated it and cannot review it/);
   });
 
   it('refuses an asset that already has a decision', () => {
-    expect(planAudioReview(file(), [row({ reviewStatus: 'accepted' })]).blocked.join(' ')).toMatch(
+    expect(plan(file(), [row({ reviewStatus: 'accepted' })]).blocked.join(' ')).toMatch(
       /not awaiting review/,
     );
   });
 
   it('refuses an asset with unresolved QA findings', () => {
-    const plan = planAudioReview(file(), [
+    const result = plan(file(), [
       row({ qaFindings: [{ rule: 'clipping', detail: '80 samples' }] }),
     ]);
-    expect(plan.blocked.join(' ')).toMatch(/unresolved QA findings \(clipping\)/);
+    expect(result.blocked.join(' ')).toMatch(/unresolved QA findings \(clipping\)/);
   });
 
   it('refuses an asset with a quarantined conflict', () => {
     expect(
-      planAudioReview(file(), [row({ hasQuarantinedConflict: true })]).blocked.join(' '),
+      plan(file(), [row({ hasQuarantinedConflict: true })]).blocked.join(' '),
     ).toMatch(/quarantined conflict/);
   });
 
   it('refuses acceptance while voice rights are unresolved', () => {
     // The honest state today: the TTS service blocks release eligibility.
-    const plan = planAudioReview(file(), [row({ trainingDatasetStatus: 'pending' })]);
-    expect(plan.toApply).toEqual([]);
-    expect(plan.blocked.join(' ')).toMatch(/voice rights are 'pending'/);
+    const result = plan(file(), [row({ trainingDatasetStatus: 'pending' })]);
+    expect(result.toApply).toEqual([]);
+    expect(result.blocked.join(' ')).toMatch(/voice rights are 'pending'/);
   });
 
   it('still allows a rejection while voice rights are unresolved', () => {
@@ -240,13 +251,14 @@ describe('planAudioReview', () => {
     const doc = file();
     doc.decisions[0].decision = 'reject';
     doc.decisions[0].notes = 'Wrong stress placement.';
-    const plan = planAudioReview(doc, [row({ trainingDatasetStatus: 'pending' })]);
-    expect(plan.blocked).toEqual([]);
-    expect(plan.toApply[0].status).toBe('rejected');
+    const result = plan(doc, [row({ trainingDatasetStatus: 'pending' })]);
+    expect(result.blocked).toEqual([]);
+    expect(result.toApply[0].status).toBe('rejected');
+    expect(result.toApply[0].voiceRightsEvidenceId).toBeNull();
   });
 
   it('refuses an asset that does not exist', () => {
-    expect(planAudioReview(file(), []).blocked.join(' ')).toMatch(/no such audio asset/);
+    expect(plan(file(), []).blocked.join(' ')).toMatch(/no such audio asset/);
   });
 
   it('reports every blocked decision rather than the first', () => {
@@ -256,10 +268,16 @@ describe('planAudioReview', () => {
         { asset_id: ASSET_B, audio_sha256: HASH_A, listened: true, decision: 'accept', notes: 'b' },
       ],
     });
-    const plan = planAudioReview(doc, [
+    const result = plan(doc, [
       row({ reviewStatus: 'accepted' }),
       row({ assetId: ASSET_B, generatorActor: 'DSD-R-001' }),
     ]);
-    expect(plan.blocked).toHaveLength(2);
+    expect(result.blocked).toHaveLength(2);
+  });
+
+  it('refuses acceptance when the source registry has no approved voice-rights evidence', () => {
+    const result = planAudioReview(file(), [row()], {});
+    expect(result.toApply).toEqual([]);
+    expect(result.blocked.join(' ')).toMatch(/no approved model\/training-data rights evidence/);
   });
 });

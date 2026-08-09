@@ -46,7 +46,15 @@ function manifestInput(overrides: Partial<ManifestInput> = {}): ManifestInput {
       toolRegistrySha256: '2'.repeat(64),
       contributorRegistrySha256: '3'.repeat(64),
     },
-    counts: { entries: 1, senses: 1, translations: 1, examples: 1, relations: 0, audioAssets: 2 },
+    counts: {
+      entries: 1,
+      senses: 1,
+      translations: 1,
+      examples: 1,
+      pronunciations: 1,
+      relations: 0,
+      audioAssets: 2,
+    },
     territories: ['VN', 'SG'],
     artifacts: [
       { path: '01_entries.csv', sha256: 'a'.repeat(64), bytes: 100 },
@@ -329,6 +337,26 @@ describe('verifyRelease — what it catches', () => {
       }),
     );
     expect(problems.map((p) => p.code)).toContain('key_expired');
+  });
+
+  it('an invalid key expiry, rather than treating it as never expiring', () => {
+    const problems = verifyRelease(
+      verifyInput({
+        trustedKeys: [
+          {
+            keyId: 'DSD-SIGN-001',
+            algorithm: 'ed25519',
+            publicKeyPem: KEYS.publicKeyPem,
+            status: 'active',
+            notAfter: 'not-a-date',
+          },
+        ],
+      }),
+    );
+    expect(problems).toContainEqual(expect.objectContaining({
+      code: 'key_expired',
+      detail: expect.stringContaining('invalid expiry'),
+    }));
   });
 
   it('a bundled key that does not match the reviewed registry', () => {

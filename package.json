@@ -101,8 +101,12 @@
     "dsd:provision:status": "zsh scripts/dsd/provision-dsd-database.sh status",
     "dsd:permissions:test": "jest --config jest.scripts.config.js --runInBand scripts/dsd/permissions.spec.ts",
     "dsd:backup": "ts-node scripts/dsd/create-backup-manifest.ts",
+    "dsd:backup:upload": "ts-node scripts/dsd/upload-backup.ts",
+    "dsd:backup:offhost": "ts-node scripts/dsd/backup-offhost.ts",
+    "dsd:backup:download": "ts-node scripts/dsd/download-backup.ts",
     "dsd:verify-restore": "ts-node scripts/dsd/verify-restore.ts",
     "dsd:verify-restores": "zsh scripts/dsd/verify-database-restores.sh",
+    "dsd:backup:proof": "ts-node scripts/dsd/record-backup-proof.ts",
     "dsd:inventory:validate": "ts-node scripts/dsd/inventory.ts validate",
     "dsd:inventory:import": "ts-node scripts/dsd/inventory.ts import",
     "dsd:inventory:stats": "ts-node scripts/dsd/inventory.ts stats",
@@ -116,6 +120,7 @@
     "dsd:quality:audit": "ts-node scripts/dsd/quality-audit.ts",
     "dsd:similarity:audit": "ts-node scripts/dsd/similarity-audit.ts audit",
     "dsd:similarity:report": "ts-node scripts/dsd/similarity-audit.ts report",
+    "dsd:similarity:decide": "ts-node scripts/dsd/similarity-audit.ts decide",
     "dsd:similarity:calibrate": "ts-node scripts/dsd/similarity-calibrate.ts",
     "dsd:ipa:candidates": "python3 scripts/dsd/ipa-candidates.py",
     "dsd:ipa:review": "ts-node scripts/dsd/ipa-review.ts review",
@@ -138,6 +143,7 @@
     "dsd:release:verify": "ts-node scripts/dsd/verify-release.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1106.0",
     "@nestjs/axios": "^4.0.1",
     "@nestjs/common": "^11.1.28",
     "@nestjs/config": "^4.0.4",
@@ -145,7 +151,7 @@
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.1.28",
-    "@nestjs/swagger": "11.4.5",
+    "@nestjs/swagger": "11.4.6",
     "@nestjs/typeorm": "^11.0.3",
     "@vitalets/google-translate-api": "^9.2.1",
     "axios": "^1.6.0",
@@ -180,6 +186,11 @@
     "ts-jest": "^29.4.10",
     "ts-node": "^10.9.0",
     "typescript": "^5.1.3"
+  },
+  "overrides": {
+    "@nestjs/swagger": {
+      "js-yaml": "5.2.3"
+    }
   },
   "jest": {
     "moduleFileExtensions": [

@@ -32,6 +32,10 @@ async function connect(user: string, password: string, database: string): Promis
   return client;
 }
 
+function quoteIdentifier(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
 async function probe(): Promise<string | null> {
   try {
     const client = await connect(SUPERUSER, SUPERPASS, LEGACY_DB);
@@ -58,8 +62,14 @@ beforeAll(async () => {
     path.resolve(__dirname, 'grant-legacy-similarity-reader.sql'),
     'utf8',
   );
-  // Strip psql meta-commands the driver cannot parse.
-  await admin.query(sql.replace(/^\\.*$/gm, ''));
+  // The production script is executed by psql, which expands :"name" safely as
+  // an SQL identifier. This spec executes through node-postgres, so perform the
+  // one equivalent substitution before stripping psql's meta-command.
+  const driverSql = sql
+    .replace(/:"legacy_database"/g, quoteIdentifier(LEGACY_DB))
+    .replace(/:"legacy_object_owner"/g, quoteIdentifier(SUPERUSER))
+    .replace(/^\\.*$/gm, '');
+  await admin.query(driverSql);
   await admin.query(`ALTER ROLE ${READER} LOGIN PASSWORD '${READER_PASS}'`);
 
   reader = await connect(READER, READER_PASS, LEGACY_DB);
@@ -171,7 +181,7 @@ describe('dsd_similarity_reader — denylist', () => {
 
   itDb('cannot issue DDL', async () => {
     await expect(reader.query('CREATE TABLE dsd_reader_probe (id int)')).rejects.toThrow(
-      /permission denied/i,
+      /permission denied|no schema has been selected/i,
     );
     await expect(reader.query('DROP VIEW ' + AUDIT_VIEW)).rejects.toThrow(/must be owner|permission denied/i);
   });
@@ -182,6 +192,17 @@ describe('dsd_similarity_reader — denylist', () => {
       await expectDenied('SELECT * FROM dsd_default_priv_probe LIMIT 1');
     } finally {
       await admin.query('DROP TABLE IF EXISTS dsd_default_priv_probe');
+    }
+  });
+
+  itDb('cannot inherit future SECURITY DEFINER functions through PUBLIC', async () => {
+    await admin.query(`CREATE OR REPLACE FUNCTION dsd_default_priv_probe_fn()
+      RETURNS text LANGUAGE sql SECURITY DEFINER
+      AS 'SELECT definition_en FROM definitions LIMIT 1'`);
+    try {
+      await expectDenied('SELECT dsd_default_priv_probe_fn()');
+    } finally {
+      await admin.query('DROP FUNCTION IF EXISTS dsd_default_priv_probe_fn()');
     }
   });
 });

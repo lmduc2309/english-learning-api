@@ -60,18 +60,21 @@ export const DSD_MIN_PUBLIC_ENTRIES = 5000;
 export interface ReleaseEligibility {
   valid: boolean;
   publicEligible: boolean;
+  /** Count encoded in a versioned id; null for pilots and malformed ids. */
+  declaredEntries: number | null;
   reason: string;
 }
 
 export function assessReleaseId(releaseId: string): ReleaseEligibility {
   const id = (releaseId ?? '').trim();
   if (!id) {
-    return { valid: false, publicEligible: false, reason: 'no release id' };
+    return { valid: false, publicEligible: false, declaredEntries: null, reason: 'no release id' };
   }
   if (DSD_PILOT_RELEASE_RE.test(id)) {
     return {
       valid: true,
       publicEligible: false,
+      declaredEntries: null,
       reason: 'a pilot release is never public-eligible; build a versioned release instead',
     };
   }
@@ -80,6 +83,7 @@ export function assessReleaseId(releaseId: string): ReleaseEligibility {
     return {
       valid: false,
       publicEligible: false,
+      declaredEntries: null,
       reason: `release id '${id}' is not DSD-REL-PILOT-<date>-<hex> or DSD-REL-V<n>-<count>-<hex>`,
     };
   }
@@ -88,10 +92,16 @@ export function assessReleaseId(releaseId: string): ReleaseEligibility {
     return {
       valid: true,
       publicEligible: false,
+      declaredEntries: entries,
       reason: `${entries} entries is below the ${DSD_MIN_PUBLIC_ENTRIES} required for public release`,
     };
   }
-  return { valid: true, publicEligible: true, reason: `${entries} entries` };
+  return {
+    valid: true,
+    publicEligible: true,
+    declaredEntries: entries,
+    reason: `${entries} entries`,
+  };
 }
 
 export const DSD_DEFAULT_DATABASE = 'dsd_corpus_db';

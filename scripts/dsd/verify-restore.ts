@@ -17,6 +17,7 @@
  *   npm run dsd:verify-restore -- --database dsd_corpus_db --dir ./backups
  */
 import { spawn } from 'child_process';
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Client } from 'pg';
@@ -55,11 +56,57 @@ export function newestBackup(
 
   const manifestPath = path.join(dir, manifests[0]);
   const manifest: BackupManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  if (manifest.database !== database) {
+    throw new Error(`manifest names '${manifest.database}', expected '${database}'`);
+  }
+  if (
+    path.basename(manifest.dumpFile) !== manifest.dumpFile
+    || !manifest.dumpFile.endsWith('.dump')
+  ) {
+    throw new Error(`manifest has unsafe dump filename '${manifest.dumpFile}'`);
+  }
   const dumpPath = path.join(dir, manifest.dumpFile);
   if (!fs.existsSync(dumpPath)) {
     throw new Error(`manifest references a missing dump: ${manifest.dumpFile}`);
   }
   return { dumpPath, manifestPath };
+}
+
+/** Refuse altered bytes before pg_restore has a chance to execute them. */
+export function assertDumpMatchesManifest(
+  dumpPath: string,
+  manifest: BackupManifest,
+): void {
+  const bytes = fs.readFileSync(dumpPath);
+  const digest = crypto.createHash('sha256').update(bytes).digest('hex');
+  if (bytes.length !== manifest.dumpBytes || digest !== manifest.dumpSha256) {
+    throw new Error('backup dump does not match its snapshot manifest');
+  }
+}
+
+export function restoreReceiptPath(manifestPath: string): string {
+  if (!manifestPath.endsWith('.manifest.json')) {
+    throw new Error(`unexpected manifest filename '${path.basename(manifestPath)}'`);
+  }
+  return manifestPath.replace(/\.manifest\.json$/, '.restore.json');
+}
+
+function writeRestoreReceipt(
+  database: string,
+  manifestPath: string,
+  dumpPath: string,
+): string {
+  const manifestBytes = fs.readFileSync(manifestPath);
+  const dumpBytes = fs.readFileSync(dumpPath);
+  const receiptPath = restoreReceiptPath(manifestPath);
+  fs.writeFileSync(receiptPath, JSON.stringify({
+    schemaVersion: 1,
+    database,
+    verifiedAt: new Date().toISOString(),
+    manifestSha256: crypto.createHash('sha256').update(manifestBytes).digest('hex'),
+    dumpSha256: crypto.createHash('sha256').update(dumpBytes).digest('hex'),
+  }, null, 2) + '\n', { mode: 0o600 });
+  return receiptPath;
 }
 
 function run(command: string, args: string[], input?: Buffer): Promise<void> {
@@ -77,6 +124,50 @@ function run(command: string, args: string[], input?: Buffer): Promise<void> {
       child.stdin.end();
     }
   });
+}
+
+export interface RestoreConnection {
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+}
+
+/** Restore rehearsal never borrows the application, backup, or owner credential. */
+export function restoreConnection(
+  env: NodeJS.ProcessEnv = process.env,
+): RestoreConnection {
+  const raw = env.DSD_RESTORE_DATABASE_URL;
+  if (!raw) {
+    throw new Error('DSD_RESTORE_DATABASE_URL is required; restore credentials never fall back');
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error('DSD_RESTORE_DATABASE_URL is not a valid PostgreSQL URL');
+  }
+  if (!['postgres:', 'postgresql:'].includes(parsed.protocol)) {
+    throw new Error('DSD_RESTORE_DATABASE_URL must use postgres:// or postgresql://');
+  }
+  const user = decodeURIComponent(parsed.username);
+  const database = decodeURIComponent(parsed.pathname.replace(/^\//, ''));
+  if (user !== 'dsd_restore_operator') {
+    throw new Error(
+      `DSD_RESTORE_DATABASE_URL uses '${user}', expected 'dsd_restore_operator'`,
+    );
+  }
+  if (database !== 'postgres') {
+    throw new Error(
+      `DSD_RESTORE_DATABASE_URL targets '${database}', expected maintenance database 'postgres'`,
+    );
+  }
+  return {
+    host: parsed.hostname,
+    port: parsed.port ? Number(parsed.port) : 5432,
+    user,
+    password: decodeURIComponent(parsed.password),
+  };
 }
 
 async function manifestOf(
@@ -124,10 +215,7 @@ async function main(): Promise<void> {
   const dir = path.resolve(process.cwd(), arg('dir', 'backups'));
   const container = process.env.DSD_PG_CONTAINER;
 
-  const host = process.env.DB_HOST || 'localhost';
-  const port = parseInt(process.env.DB_PORT || '5432', 10);
-  const user = process.env.DB_USERNAME || 'dictionary_user';
-  const password = process.env.DB_PASSWORD || '';
+  const { host, port, user, password } = restoreConnection();
 
   const protectedNames = [
     process.env.DSD_DB_DATABASE || 'dsd_corpus_db',
@@ -138,6 +226,7 @@ async function main(): Promise<void> {
   const started = Date.now();
   const { dumpPath, manifestPath } = newestBackup(dir, database);
   const stored: BackupManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  assertDumpMatchesManifest(dumpPath, stored);
 
   const scratch = `${SCRATCH_PREFIX}${Date.now()}`;
   assertScratchNameSafe(scratch, protectedNames);
@@ -164,11 +253,22 @@ async function main(): Promise<void> {
     if (container) {
       await run(
         'docker',
-        ['exec', '-e', `PGPASSWORD=${password}`, '-i', container, 'pg_restore', ...restoreArgs],
+        ['exec', '-e', 'PGPASSWORD', '-i', container, 'pg_restore', ...restoreArgs],
         dump,
       );
     } else {
-      await run('pg_restore', restoreArgs, dump);
+      await new Promise<void>((resolve, reject) => {
+        const child = spawn('pg_restore', restoreArgs, {
+          env: { ...process.env, PGPASSWORD: password },
+          stdio: ['pipe', 'inherit', 'inherit'],
+        });
+        child.on('error', reject);
+        child.on('close', (code) =>
+          code === 0 ? resolve() : reject(new Error(`pg_restore exited with ${code}`)),
+        );
+        child.stdin.write(dump);
+        child.stdin.end();
+      });
     }
 
     const check = new Client({ host, port, user, password, database: scratch });
@@ -200,6 +300,8 @@ async function main(): Promise<void> {
     // Drop only after the guard succeeds.
     await admin.query(`DROP DATABASE ${scratch}`);
     restored = false;
+    const receiptPath = writeRestoreReceipt(database, manifestPath, dumpPath);
+    console.log(`  restore receipt ${receiptPath}`);
   } finally {
     if (restored) {
       console.error(`note: scratch database '${scratch}' still exists`);

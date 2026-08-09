@@ -1,9 +1,22 @@
 # DSD Commercial Corpus Rebuild Implementation Plan
 
-> **Status:** Implementation-ready plan. Product decisions are recorded below.
-> This document does not itself authorize a production deployment or data
-> mutation. Engineering may start with Phase A; content production and public
-> release remain subject to the staffing, rights, backup, and release gates.
+> **Status:** Implementation in progress. The engineering boundary and tooling
+> described in the checkpoint below exist in the working tree; the human,
+> legal, infrastructure-evidence, and real-content programme is not complete.
+> This document does not itself authorize a production deployment, production
+> data mutation, or commercial release.
+>
+> **Implementation checkpoint 2026-08-09:** the fail-closed DSD data source and
+> API routing, schema/migrations, curation and similarity tooling, IPA/audio
+> gates, deterministic signed export, exact release membership, release audit,
+> and Task 2A backup/restore/deploy tooling are implemented in the working tree.
+> All migrations have been exercised on the empty local DSD workbench. This is
+> not a commercial `GO`: Task 2B's register, measurement protocol, and explicit
+> staffing-gate record are implemented, but the gate correctly remains
+> `BLOCKED / UNCOMMITTED` pending real contributor/IP evidence and human
+> approval. Source and voice-rights approvals, production
+> infrastructure/restore evidence, signing trust root, and Tasks 19–24 real
+> content remain incomplete or deliberately blocked.
 
 **Goal:** Build a new, commercially releasable English-learning corpus under the DSD name without importing expressive content or row identity from the legacy dictionary, and integrate it into the API behind a fail-closed commercial-safe boundary.
 
@@ -438,12 +451,21 @@ content is authored.
 - Create: `scripts/dsd/create-backup-manifest.spec.ts`
 - Create: `scripts/dsd/upload-backup.ts`
 - Create: `scripts/dsd/upload-backup.spec.ts`
+- Create: `scripts/dsd/backup-offhost.ts`
+- Create: `scripts/dsd/download-backup.ts`
+- Create: `scripts/dsd/download-backup.spec.ts`
+- Create: `scripts/dsd/record-backup-proof.ts`
+- Create: `scripts/dsd/record-backup-proof.spec.ts`
+- Create: `scripts/dsd/verify-restore.spec.ts`
 - Create: `scripts/dsd/verify-database-restores.sh`
 - Create: `scripts/dsd/permissions.spec.ts`
+- Create: `src/dsd-corpus/migrations/1785629600000-GrantDsdOperationalMetadata.ts`
+- Create: `src/dsd-corpus/migrations/1785629600000-GrantDsdOperationalMetadata.spec.ts`
 - Create: `docs/dsd-corpus/OPERATIONS.md`
 - Create: `.github/workflows/verify-dsd-backup.yml`
 - Modify: `.github/workflows/deploy.yml`
 - Modify: `deploy/compose.yml`
+- Modify: `Dockerfile`
 - Modify: `.env.example`
 - Modify: `package.json`
 
@@ -458,19 +480,27 @@ dsd_auditor            DSD read + similarity-result decisions + provenance INSER
 dsd_backup             read-only access required by pg_dump
 dsd_similarity_reader  SELECT on one legacy audit view only
 legacy_backup          read-only legacy access required by pg_dump
+dsd_restore_operator   CREATEDB only for guarded scratch restores; no corpus access
 ```
 
 Routine services never authenticate as `dsd_owner`. `dsd_curator` cannot alter
 schema, change role grants, mutate or delete provenance events, or bypass
 published-content guards. `dsd_auditor` cannot edit authored content.
+`dsd_auditor` and `dsd_backup` may read the TypeORM `dsd_migrations` ledger so
+an audit or backup can bind its evidence to the actual schema version; this
+operational metadata grant does not expose authored content to `dsd_app` or
+widen the legacy similarity boundary.
 
 **Operational interfaces:**
 
 ```text
 LEGACY_AUDIT_DATABASE_URL
 LEGACY_BACKUP_DATABASE_URL
+DSD_BACKUP_DATABASE_URL
+DSD_RESTORE_DATABASE_URL
 DSD_BACKUP_DIR
 DSD_BACKUP_S3_URI
+DSD_BACKUP_S3_REGION
 DSD_BACKUP_KMS_KEY_ID
 DSD_BACKUP_RETENTION_DAYS
 DSD_RESTORE_MAX_AGE_HOURS
@@ -516,8 +546,9 @@ Never compare an old dump with a live database that may have changed.
 *Off-host recovery.* Store local backups with directory mode `0700` and file
 mode `0600`, then upload encrypted copies with a pinned version of the
 Apache-2.0 `@aws-sdk/client-s3`, explicit KMS encryption, bucket versioning,
-and retention. Verify remote size, checksum metadata, encryption/key ID, and
-version ID through `HeadObject`. A local dump alone is not disaster recovery.
+and retention. Verify the exact remote object versions, size, checksum metadata,
+native object checksum, encryption/key ID, retention, and version ID through
+`HeadObject`. A local dump alone is not disaster recovery.
 Production migration is blocked if either dump, manifest, checksum
 verification, remote upload, or remote metadata check fails.
 
@@ -525,8 +556,11 @@ verification, remote upload, or remote metadata check fails.
 verify the newest eligible backup for each database, restore each to a uniquely
 named scratch database whose name is validated never to equal either production
 database, recompute its canonical manifest, and compare it with the stored
-snapshot manifest. Record duration and result, then remove a scratch database
-only after the guard succeeds.
+snapshot manifest. Only after **both** exact off-host database versions restore
+successfully may the tool write the structured proof consumed by the release
+audit. Bind that proof to both manifests, dump hashes, remote version IDs, and
+the DSD migration version. Record duration and result, then remove a scratch
+database only after the guard succeeds.
 
 **Tests:**
 
@@ -1450,9 +1484,9 @@ dsd:release:audit:prod --release <id> --channel internal|public --territories <f
 - Missing/invalid contributor-rights evidence, clean-room declaration, rights
   matrix approval, release-territory approval, or required legal sign-off.
 - Missing/corrupt audio object or database/object hash mismatch.
-- Latest verified database backup/restore proof is older than
-  `DSD_RESTORE_MAX_AGE_HOURS`, lacks its off-host copy, or does not cover the
-  release database migration version.
+- Latest verified two-database backup/restore proof is older than
+  `DSD_RESTORE_MAX_AGE_HOURS`, lacks exact off-host version evidence for either
+  database, or does not cover the release database migration version.
 - Release ID/channel policy violation, including any attempt to mark the
   500-entry pilot public.
 - Unknown configured signer key ID or missing/revoked public-key registry entry.
@@ -1547,10 +1581,18 @@ dist/dsd-corpus/<release-id>/
   verification trusts the reviewed `data/dsd/release-public-keys.json` from a
   clean checkout and requires the bundled key/key ID to match it.
 - Store the manifest hash, signature, signer key ID, source snapshot, policy
-  hashes, and release eligibility in `dsd_release_builds`.
+  hashes, release eligibility, exact canonical manifest bytes, and exact
+  membership of every exported entry, sense, translation, example,
+  pronunciation, relation, and audio asset in immutable release tables.
 - Export corpus rows under a repeatable-read, read-only transaction. After the
   package and detached signature verify, append the release-build record in a
   separate short write transaction; never make the export transaction writable.
+- The API reads through release-membership views for every record kind. Startup
+  recomputes the manifest hash, verifies the Ed25519 signature against the
+  reviewed public-key registry, checks manifest/channel/count metadata, and
+  refuses an incomplete or untrusted active release. Search and detail queries
+  are bound to the same signed membership; later-published rows cannot drift
+  into an older release.
 
 **Acceptance:**
 
@@ -1559,6 +1601,8 @@ dist/dsd-corpus/<release-id>/
 - Manifest verification detects any changed byte.
 - Signature verification works offline from a clean checkout and fails for a
   changed manifest, audio file, revoked key, or unknown key ID.
+- Runtime activation fails for missing child membership, changed manifest
+  bytes/signature, an untrusted signer, or release metadata mismatch.
 - A clean `npm ci` on the CI Node version loads `better-sqlite3` and creates the
   deterministic SQLite artifact without skipped tests.
 

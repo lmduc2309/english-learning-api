@@ -86,10 +86,14 @@ services:
       # serving role belongs in the API container.
       DSD_APP_DATABASE_URL: ${DSD_APP_DATABASE_URL:-}
       DSD_AUDIO_PUBLIC_BASE_URL: ${DSD_AUDIO_PUBLIC_BASE_URL:-}
+      DSD_REVIEWER_USER_IDS: ${DSD_REVIEWER_USER_IDS:-}
+      DSD_BACKUP_PROOF_FILE: /app/data/dsd/runtime/backup-proof.json
+      DSD_RESTORE_MAX_AGE_HOURS: ${DSD_RESTORE_MAX_AGE_HOURS:-24}
     expose:
       - "7474"
     volumes:
       - uploads:/app/uploads
+      - runtime_evidence:/app/data/dsd/runtime:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -105,6 +109,62 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+    networks:
+      - public
+      - private
+
+  # One-shot DSD migration process. The privileged URL exists here only and is
+  # never copied into the long-running API container.
+  dsd-migrator:
+    profiles: ["operations"]
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: runtime
+    environment:
+      NODE_ENV: production
+      COMMERCIAL_SAFE_MODE: "true"
+      DSD_RELEASE_CHANNEL: off
+      DSD_DB_DATABASE: ${DSD_DB_DATABASE:-dsd_corpus_db}
+      DB_DATABASE: ${POSTGRES_DB:-english_learning_db}
+      DSD_MIGRATOR_DATABASE_URL: ${DSD_MIGRATOR_DATABASE_URL:?Set DSD_MIGRATOR_DATABASE_URL in deploy/.env.production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - private
+    command: ["npm", "run", "dsd:migration:show:prod"]
+
+  # Backup and restore tooling is also one-shot. It has no published port and
+  # no restart policy. Dedicated credentials are required by the scripts.
+  dsd-ops:
+    profiles: ["operations"]
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: operations
+    environment:
+      NODE_ENV: production
+      DB_DATABASE: ${POSTGRES_DB:-english_learning_db}
+      DSD_DB_DATABASE: ${DSD_DB_DATABASE:-dsd_corpus_db}
+      LEGACY_BACKUP_DATABASE_URL: ${LEGACY_BACKUP_DATABASE_URL:?Set LEGACY_BACKUP_DATABASE_URL in deploy/.env.production}
+      DSD_BACKUP_DATABASE_URL: ${DSD_BACKUP_DATABASE_URL:?Set DSD_BACKUP_DATABASE_URL in deploy/.env.production}
+      DSD_RESTORE_DATABASE_URL: ${DSD_RESTORE_DATABASE_URL:?Set DSD_RESTORE_DATABASE_URL in deploy/.env.production}
+      DSD_BACKUP_S3_URI: ${DSD_BACKUP_S3_URI:?Set DSD_BACKUP_S3_URI in deploy/.env.production}
+      DSD_BACKUP_S3_REGION: ${DSD_BACKUP_S3_REGION:-ap-southeast-1}
+      DSD_BACKUP_S3_ENDPOINT: ${DSD_BACKUP_S3_ENDPOINT:-}
+      DSD_BACKUP_KMS_KEY_ID: ${DSD_BACKUP_KMS_KEY_ID:?Set DSD_BACKUP_KMS_KEY_ID in deploy/.env.production}
+      DSD_BACKUP_RETENTION_DAYS: ${DSD_BACKUP_RETENTION_DAYS:-30}
+      DSD_BACKUP_PROOF_FILE: /evidence/backup-proof.json
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
+    volumes:
+      - backup_data:/backups
+      - runtime_evidence:/evidence
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - public
       - private
@@ -134,6 +194,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-english_learning_db}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    shm_size: 256m
     healthcheck:
       test:
         - CMD-SHELL
@@ -162,6 +223,8 @@ volumes:
   postgres_data:
   redis_data:
   uploads:
+  backup_data:
+  runtime_evidence:
 
 networks:
   public:

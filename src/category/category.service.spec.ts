@@ -117,17 +117,15 @@ async function buildService(commercialSafeMode = false,
 }
 
 describe('CategoryService learner-only catalog', () => {
-  it('forces the learner-only predicate when commercial-safe mode is enabled', async () => {
+  it('serves no legacy or learner categories when commercial-safe mode is enabled', async () => {
     const { service, categoryRepository, cache } = await buildService(true);
     const qb = queryBuilder();
     categoryRepository.createQueryBuilder.mockReturnValue(qb);
 
     await service.getTopics(false);
 
-    expect(cache.getOrSet.mock.calls[0][0]).toBe('all:learner');
-    expect(qb.where).toHaveBeenCalledWith(
-      expect.stringContaining("learner_entry.status = 'published'"),
-    );
+    expect(cache.getOrSet).not.toHaveBeenCalled();
+    expect(categoryRepository.createQueryBuilder).not.toHaveBeenCalled();
   });
 
   it('partitions topic caches and applies the published learner predicate only when requested', async () => {
@@ -342,14 +340,10 @@ describe('categories on the public DSD channel', () => {
   });
 });
 
-describe('categories on the off channel keep working', () => {
-  it('still consults the catalog in commercial mode when DSD is not serving', async () => {
-    // The guard is about the public DSD channel, not commercial mode as such,
-    // so an off-channel deployment is unchanged. Evidenced by the repository
-    // being reached; this mock is not wired for the full query, which is why the
-    // call is allowed to fail after that point.
+describe('categories on the off channel fail closed', () => {
+  it('does not consult legacy categories in commercial mode', async () => {
     const { service, categoryRepository } = await buildService(true, 'off');
-    await service.getTopics().catch(() => undefined);
-    expect(categoryRepository.createQueryBuilder).toHaveBeenCalled();
+    expect(await service.getTopics()).toEqual([]);
+    expect(categoryRepository.createQueryBuilder).not.toHaveBeenCalled();
   });
 });

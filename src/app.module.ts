@@ -10,6 +10,8 @@ import { VerbalMappingModule } from './verbal-mapping/verbal-mapping.module';
 import { TtsModule } from './shared/tts/tts.module';
 import { LearningModule } from './learning/learning.module';
 import configuration from './config/configuration';
+import { LEGACY_ENTITIES } from './config/legacy-entities';
+import { DsdCorpusModule } from './dsd-corpus/dsd-corpus.module';
 
 @Module({
   imports: [
@@ -24,12 +26,15 @@ import configuration from './config/configuration';
       username: process.env.DB_USERNAME || 'dictionary_user',
       password: process.env.DB_PASSWORD || 'dictionary_pass',
       database: process.env.DB_DATABASE || 'english_learning_db',
-      entities: [__dirname + '/**/*.entity{.ts,.js}'],
+      entities: LEGACY_ENTITIES,
       // Migrations are the schema source of truth. Development schema sync must
       // be an explicit, temporary opt-in so it cannot pre-create migration tables.
       synchronize: process.env.TYPEORM_SYNCHRONIZE === 'true',
       logging: process.env.NODE_ENV === 'development',
     }),
+    // Register before dictionary/category so their optional DSD dependencies
+    // resolve whenever the release channel is active.
+    DsdCorpusModule.forRoot(),
     LlmModule,
     DictionaryModule,
     AuthModule,

@@ -10,6 +10,8 @@ const NOW = '2026-08-04T12:00:00.000Z';
 const POLICY_SHA = 'p'.repeat(64);
 const SENSE_HASH = 's'.repeat(64);
 const AUDIO_HASH = 'a'.repeat(64);
+const TRANSLATION_HASH = 't'.repeat(64);
+const EXAMPLE_HASH = 'e'.repeat(64);
 const ENTRY_ID = '11111111-1111-1111-1111-111111111111';
 const SENSE_ID = '22222222-2222-2222-2222-222222222222';
 
@@ -25,6 +27,7 @@ function clean(): ReleaseAuditInput {
     releaseId: 'DSD-REL-V1-5000-a1b2c3d4',
     channel: 'public',
     releaseIdIsPublicEligible: true,
+    publishedEntryCount: 5000,
     now: NOW,
     snapshot: { database: 'dsd_corpus_db', migrationVersion: '1785629400000', takenAt: NOW },
     registryDigests: { source: '1'.repeat(64), tool: '2'.repeat(64), contributor: '3'.repeat(64) },
@@ -44,7 +47,9 @@ function clean(): ReleaseAuditInput {
             authoredBy: 'DSD-A-001',
             reviewedBy: 'DSD-R-001',
             contentSha256: SENSE_HASH,
+            contentHashMatches: true,
             sourceId: 'dsd-english-original',
+            rightsEvidenceId: 'EV-IP-001',
             provenanceEventCount: 3,
             approvedVietnameseCount: 1,
             approvedExampleCount: 2,
@@ -58,19 +63,55 @@ function clean(): ReleaseAuditInput {
             ipa: 'rɪˈhɜːrs',
             authoredBy: 'DSD-A-002',
             reviewedBy: 'DSD-R-001',
+            contentSha256: 'i'.repeat(64),
+            contentHashMatches: true,
+            sourceId: 'dsd-ipa-original',
+            rightsEvidenceId: 'EV-IP-002',
+            provenanceEventCount: 2,
           },
         ],
+      },
+    ],
+    authoredRecords: [
+      {
+        recordId: '33333333-3333-3333-3333-333333333333',
+        kind: 'translation',
+        authoredBy: 'DSD-A-001',
+        reviewedBy: 'DSD-R-001',
+        contentSha256: TRANSLATION_HASH,
+        contentHashMatches: true,
+        sourceId: 'dsd-vietnamese-original',
+        rightsEvidenceId: 'EV-IP-001',
+        provenanceEventCount: 2,
+      },
+      {
+        recordId: '44444444-4444-4444-4444-444444444444',
+        kind: 'example',
+        authoredBy: 'DSD-A-001',
+        reviewedBy: 'DSD-R-001',
+        contentSha256: EXAMPLE_HASH,
+        contentHashMatches: true,
+        sourceId: 'dsd-english-original',
+        rightsEvidenceId: 'EV-IP-001',
+        provenanceEventCount: 2,
       },
     ],
     audioAssets: [
       {
         assetId: 'aud-ljspeech-0001',
         entryId: ENTRY_ID,
+        inputKind: 'pronunciation',
+        inputRecordId: 'p1',
         engineVoice: 'en_US-ljspeech-medium',
         publicVoiceId: 'en-aria',
         qaFindings: [],
         qaProof: true,
         reviewedBy: 'DSD-R-002',
+        generatorActor: 'DSD-G-001',
+        releaseRuntimeDigest: `sha256:${'c'.repeat(64)}`,
+        voiceRightsEvidenceId: 'EV-AUDIO-LJSPEECH-RIGHTS-001',
+        inputTextSha256: 'q'.repeat(64),
+        expectedInputTextSha256: 'q'.repeat(64),
         audioSha256: AUDIO_HASH,
         objectSha256: AUDIO_HASH,
         trainingDatasetStatus: 'approved',
@@ -79,11 +120,18 @@ function clean(): ReleaseAuditInput {
       {
         assetId: 'aud-norman-0001',
         entryId: ENTRY_ID,
+        inputKind: 'pronunciation',
+        inputRecordId: 'p1',
         engineVoice: 'en_US-norman-medium',
         publicVoiceId: 'en-guy',
         qaFindings: [],
         qaProof: true,
         reviewedBy: 'DSD-R-002',
+        generatorActor: 'DSD-G-001',
+        releaseRuntimeDigest: `sha256:${'c'.repeat(64)}`,
+        voiceRightsEvidenceId: 'EV-AUDIO-NORMAN-RIGHTS-001',
+        inputTextSha256: 'q'.repeat(64),
+        expectedInputTextSha256: 'q'.repeat(64),
         audioSha256: 'b'.repeat(64),
         objectSha256: 'b'.repeat(64),
         trainingDatasetStatus: 'approved',
@@ -98,21 +146,34 @@ function clean(): ReleaseAuditInput {
         contentSha256: SENSE_HASH,
         policySha256: POLICY_SHA,
       },
+      {
+        entityId: '44444444-4444-4444-4444-444444444444',
+        matchClass: 'low',
+        decision: 'clear',
+        contentSha256: EXAMPLE_HASH,
+        policySha256: POLICY_SHA,
+      },
     ],
     qualityFindings: [{ severity: 'warning', rule: 'defines_with_headword', entityId: SENSE_ID }],
     toolArtifacts: [
       { toolId: 'misaki', revision: 'fba1236', artifactSha256: 'c'.repeat(64), mutable: false },
     ],
     approvedScopesBySource: {
-      'dsd-english-original': ['definition', 'example'],
+      'dsd-english-original': ['definition', 'example', 'relation'],
       'dsd-vietnamese-original': ['translation'],
+      'dsd-ipa-original': ['pronunciation'],
     },
     approvedToolIds: ['misaki'],
+    approvedVoiceEvidenceByEngine: {
+      'en_US-ljspeech-medium': ['EV-AUDIO-LJSPEECH-RIGHTS-001'],
+      'en_US-norman-medium': ['EV-AUDIO-NORMAN-RIGHTS-001'],
+    },
     contributorRightsEvidence: {
       'DSD-A-001': 'EV-IP-001',
       'DSD-A-002': 'EV-IP-002',
       'DSD-R-001': 'EV-IP-010',
       'DSD-R-002': 'EV-IP-011',
+      'DSD-G-001': 'EV-IP-020',
     },
     governance: {
       cleanRoomDeclarationId: 'DSD-DECL-20260804-001',
@@ -126,6 +187,20 @@ function clean(): ReleaseAuditInput {
       verifiedAt: '2026-08-04T06:00:00.000Z',
       offHostCopy: true,
       migrationVersion: '1785629400000',
+      databases: [
+        {
+          database: 'dsd_corpus_db',
+          manifestSha256: 'a'.repeat(64),
+          dumpSha256: 'b'.repeat(64),
+          remoteVersionIds: ['dsd-dump-v1', 'dsd-manifest-v1'],
+        },
+        {
+          database: 'english_learning_db',
+          manifestSha256: 'c'.repeat(64),
+          dumpSha256: 'd'.repeat(64),
+          remoteVersionIds: ['legacy-dump-v1', 'legacy-manifest-v1'],
+        },
+      ],
     },
     restoreMaxAgeHours: 24,
     signer: { keyId: 'DSD-SIGN-001', registryStatus: 'active' },
@@ -158,7 +233,7 @@ describe('a clean corpus', () => {
       rightsMatrixApprovalId: 'EV-RIGHTS-001',
       legalSignOffId: 'EV-LEGAL-001',
       signerKeyId: 'DSD-SIGN-001',
-      entryCount: 1,
+      entryCount: 5000,
       senseCount: 1,
       audioAssetCount: 2,
     });
@@ -167,6 +242,15 @@ describe('a clean corpus', () => {
     expect(record.similarityPolicy.sha256).toBe(POLICY_SHA);
     // Sorted, so two audits of the same release produce the same record.
     expect(record.territories).toEqual(['SG', 'VN']);
+  });
+
+  it('keeps old similarity evidence without blocking a current re-audit', () => {
+    const input = clean();
+    input.similarityResults.push({
+      ...input.similarityResults[0],
+      policySha256: 'f'.repeat(64),
+    });
+    expect(auditRelease(input).verdict).toBe('GO');
   });
 
   it('carries no record on NO-GO', () => {
@@ -200,26 +284,41 @@ interface BlockerFixture {
 // passes its own `done` callback as the missing third argument.
 const BLOCKER_FIXTURES: BlockerFixture[] = [
   { code: 'no_published_entries', mutate: (i) => { i.entries = []; }, detail: 'no published entries' },
+  { code: 'release_entry_count_mismatch', mutate: (i) => { i.publishedEntryCount = 4999; }, detail: 'declares 5000 entries' },
   { code: 'unapproved_source', mutate: (i) => { i.entries[0].senses[0].sourceId = 'oewn-2025'; }, detail: 'not approved for definitions' },
   { code: 'unapproved_tool', mutate: (i) => { i.toolArtifacts[0].toolId = 'some-unvetted-g2p'; }, detail: 'is not approved' },
   { code: 'legacy_reference', mutate: (i) => { i.entries[0].senses[0].fields = ['id', 'word_id']; }, detail: "legacy field 'word_id'" },
   { code: 'missing_authorship', mutate: (i) => { i.entries[0].senses[0].reviewedBy = null; }, detail: 'a reviewer' },
   { code: 'missing_authorship', mutate: (i) => { i.entries[0].senses[0].provenanceEventCount = 0; }, detail: 'no provenance event' },
+  { code: 'content_hash_mismatch', mutate: (i) => { i.entries[0].senses[0].contentHashMatches = false; }, detail: 'does not match its recorded hash' },
   { code: 'same_author_and_reviewer', mutate: (i) => { i.entries[0].senses[0].reviewedBy = 'DSD-A-001'; }, detail: 'reviewed by its own author' },
   { code: 'missing_translation', mutate: (i) => { i.entries[0].senses[0].approvedVietnameseCount = 0; }, detail: 'no approved Vietnamese' },
   { code: 'missing_example', mutate: (i) => { i.entries[0].senses[0].approvedExampleCount = 0; }, detail: 'no approved bilingual example' },
   { code: 'missing_ipa', mutate: (i) => { i.entries[0].pronunciations = []; }, detail: 'no approved en-US IPA' },
   { code: 'missing_ipa', mutate: (i) => { i.entries[0].pronunciations[0].accent = 'en-GB'; }, detail: 'no approved en-US IPA' },
-  { code: 'missing_voice_audio', mutate: (i) => { i.audioAssets = i.audioAssets.filter((a) => a.engineVoice.includes('ljspeech')); }, detail: 'no en_US-norman-medium audio' },
-  { code: 'missing_voice_audio', mutate: (i) => { i.audioAssets = i.audioAssets.filter((a) => a.engineVoice.includes('norman')); }, detail: 'no en_US-ljspeech-medium audio' },
+  { code: 'unapproved_source', mutate: (i) => { i.entries[0].pronunciations[0].sourceId = 'oewn-2025'; }, detail: 'not approved for pronunciation' },
+  { code: 'missing_authorship', mutate: (i) => { i.authoredRecords[0].provenanceEventCount = 0; }, detail: 'no matching provenance event' },
+  { code: 'same_author_and_reviewer', mutate: (i) => { i.authoredRecords[0].reviewedBy = 'DSD-A-001'; }, detail: 'reviewed by its own author' },
+  { code: 'content_hash_mismatch', mutate: (i) => { i.authoredRecords[0].contentHashMatches = false; }, detail: 'does not match its recorded hash' },
+  { code: 'missing_voice_audio', mutate: (i) => { i.audioAssets = i.audioAssets.filter((a) => a.engineVoice.includes('ljspeech')); }, detail: 'no en_US-norman-medium/en-guy audio' },
+  { code: 'missing_voice_audio', mutate: (i) => { i.audioAssets = i.audioAssets.filter((a) => a.engineVoice.includes('norman')); }, detail: 'no en_US-ljspeech-medium/en-aria audio' },
+  { code: 'missing_voice_audio', mutate: (i) => { i.audioAssets[0].publicVoiceId = 'en-guy'; }, detail: 'no en_US-ljspeech-medium/en-aria audio' },
   { code: 'audio_missing_qa_proof', mutate: (i) => { i.audioAssets[0].qaProof = false; }, detail: 'no automated QA proof' },
   { code: 'audio_missing_qa_proof', mutate: (i) => { i.audioAssets[0].qaFindings = ['clipping']; }, detail: 'carries QA findings' },
   { code: 'audio_missing_listening_decision', mutate: (i) => { i.audioAssets[0].reviewedBy = null; }, detail: 'no individual human listening decision' },
   { code: 'audio_missing_listening_decision', mutate: (i) => { i.audioAssets[0].reviewStatus = 'awaiting_review'; }, detail: 'no individual human listening decision' },
+  { code: 'audio_self_review', mutate: (i) => { i.audioAssets[0].reviewedBy = 'DSD-G-001'; }, detail: 'accepted by its generator' },
+  { code: 'audio_unresolved_quarantine', mutate: (i) => { i.audioAssets[0].reviewStatus = 'quarantined'; }, detail: 'conflicts with another recording' },
+  { code: 'audio_unpinned_runtime', mutate: (i) => { i.audioAssets[0].releaseRuntimeDigest = null; }, detail: 'not produced by a pinned release runtime' },
+  { code: 'audio_unpinned_runtime', mutate: (i) => { i.audioAssets[0].releaseRuntimeDigest = 'latest'; }, detail: 'not produced by a pinned release runtime' },
+  { code: 'audio_stale_input', mutate: (i) => { i.audioAssets[0].expectedInputTextSha256 = 'z'.repeat(64); }, detail: 'other than the current headword' },
+  { code: 'audio_stale_input', mutate: (i) => { i.audioAssets[0].inputKind = 'headword'; }, detail: 'not a published pronunciation owned by its entry' },
+  { code: 'audio_stale_input', mutate: (i) => { i.audioAssets[0].inputRecordId = 'another-pronunciation'; }, detail: 'not a published pronunciation owned by its entry' },
   { code: 'audio_missing_object_hash', mutate: (i) => { i.audioAssets[0].audioSha256 = null; }, detail: 'no recorded object hash' },
   { code: 'audio_object_missing_or_corrupt', mutate: (i) => { i.audioAssets[0].objectSha256 = null; }, detail: 'object store was not verified' },
   { code: 'audio_object_missing_or_corrupt', mutate: (i) => { i.audioAssets[0].objectSha256 = 'f'.repeat(64); }, detail: 'database says' },
   { code: 'audio_missing_voice_rights', mutate: (i) => { i.audioAssets[0].trainingDatasetStatus = 'pending'; }, detail: "voice rights are 'pending'" },
+  { code: 'audio_missing_voice_rights', mutate: (i) => { i.audioAssets[0].voiceRightsEvidenceId = null; }, detail: 'no current approved voice-rights evidence' },
   { code: 'blocked_voice_evidence', mutate: (i) => { i.audioAssets[0].engineVoice = 'en_US-amy-medium'; }, detail: 'blocked voice' },
   { code: 'blocked_voice_evidence', mutate: (i) => { i.audioAssets[0].engineVoice = 'en_US-lessac-medium'; }, detail: 'blocked voice' },
   { code: 'similarity_exact', mutate: (i) => { i.similarityResults[0].matchClass = 'exact'; }, detail: 'exact match to legacy text' },
@@ -237,6 +336,7 @@ const BLOCKER_FIXTURES: BlockerFixture[] = [
   { code: 'mutable_tool_artifact', mutate: (i) => { i.toolArtifacts[0].artifactSha256 = null; }, detail: 'no artifact digest' },
   { code: 'candidate_exposed_as_content', mutate: (i) => { i.entries[0].pronunciations[0].isGeneratedCandidate = true; }, detail: 'generated IPA candidate is the final pronunciation record' },
   { code: 'missing_contributor_rights_evidence', mutate: (i) => { delete i.contributorRightsEvidence['DSD-A-001']; }, detail: 'no rights evidence on file' },
+  { code: 'missing_contributor_rights_evidence', mutate: (i) => { delete i.contributorRightsEvidence['DSD-R-002']; }, detail: 'has no active rights evidence' },
   { code: 'missing_clean_room_declaration', mutate: (i) => { i.governance.cleanRoomDeclarationId = ''; }, detail: 'no clean-room declaration' },
   { code: 'missing_rights_matrix_approval', mutate: (i) => { i.governance.rightsMatrixApprovalId = ''; }, detail: 'no recorded approval' },
   { code: 'missing_legal_signoff', mutate: (i) => { i.governance.legalSignOffId = ''; }, detail: 'no legal sign-off' },
@@ -244,7 +344,10 @@ const BLOCKER_FIXTURES: BlockerFixture[] = [
   { code: 'missing_territory_approval', mutate: (i) => { i.governance.targetTerritories = ['VN', 'US']; }, detail: 'territories not approved: US' },
   { code: 'backup_proof_missing', mutate: (i) => { i.backupProof = null; }, detail: 'no verified backup/restore proof' },
   { code: 'backup_proof_stale', mutate: (i) => { i.backupProof!.verifiedAt = '2026-08-01T06:00:00.000Z'; }, detail: 'older than the 24h limit' },
+  { code: 'backup_proof_future', mutate: (i) => { i.backupProof!.verifiedAt = '2026-08-05T06:00:00.000Z'; }, detail: 'verification time is in the future' },
+  { code: 'backup_proof_stale', mutate: (i) => { i.restoreMaxAgeHours = Number.NaN; }, detail: 'age limit is invalid' },
   { code: 'backup_proof_no_off_host_copy', mutate: (i) => { i.backupProof!.offHostCopy = false; }, detail: 'no off-host copy' },
+  { code: 'backup_proof_incomplete', mutate: (i) => { i.backupProof!.databases.pop(); }, detail: 'does not bind two complete remote database backups' },
   { code: 'backup_proof_migration_mismatch', mutate: (i) => { i.backupProof!.migrationVersion = '1785628800000'; }, detail: 'the proof covers migration' },
   { code: 'release_channel_policy_violation', mutate: (i) => { i.releaseIdIsPublicEligible = false; }, detail: 'not public-eligible' },
   { code: 'signer_key_unknown', mutate: (i) => { i.signer.registryStatus = null; }, detail: 'no entry in the public-key registry' },

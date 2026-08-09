@@ -1,10 +1,9 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { DsdContentBase } from './dsd-content-base';
 import { DsdSense } from './dsd-sense.entity';
 
 /** A DSD-authored bilingual example demonstrating one sense in use. */
 @Entity('dsd_examples')
-@Index('UQ_dsd_example_sense_order', ['senseId', 'exampleOrder'], { unique: true })
 export class DsdExample extends DsdContentBase {
   @PrimaryGeneratedColumn('uuid')
   id: string;

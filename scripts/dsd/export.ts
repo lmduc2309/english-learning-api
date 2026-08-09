@@ -146,14 +146,54 @@ const Q = {
            a.input_record_id AS pronunciation_id, a.public_voice_id AS voice,
            a.format, a.media_type, a.duration_ms, a.sample_rate,
            a.audio_sha256 AS sha256, a.storage_key
-      FROM dsd_audio_assets a JOIN dsd_entries e ON e.id = a.dsd_entry_id
+      FROM dsd_audio_assets a
+      JOIN dsd_entries e ON e.id = a.dsd_entry_id
+      JOIN dsd_pronunciations p
+        ON p.id = a.input_record_id AND p.dsd_entry_id = a.dsd_entry_id
      WHERE a.review_status = 'accepted' AND a.training_dataset_status = 'approved'
-       AND a.qa_findings = '[]'::jsonb AND e.status = 'published'
+       AND a.input_kind = 'pronunciation'
+       AND a.qa_findings = '[]'::jsonb
+       AND a.release_runtime_digest ~ '^sha256:[0-9a-f]{64}$'
+       AND a.voice_rights_evidence_id IS NOT NULL
+       AND length(btrim(a.voice_rights_evidence_id)) > 0
+       AND a.reviewed_by <> a.generator_actor
+       AND p.status = 'published' AND e.status = 'published'
      ORDER BY a.id`,
   provenance: `
     SELECT pe.entity_kind, pe.entity_id, pe.event_type, pe.actor,
            pe.output_hash, pe.occurred_at
       FROM dsd_provenance_events pe
+     WHERE (pe.entity_kind = 'entry' AND EXISTS (
+              SELECT 1 FROM dsd_entries e
+               WHERE e.id = pe.entity_id AND e.status = 'published'
+           ))
+        OR (pe.entity_kind = 'sense' AND EXISTS (
+              SELECT 1 FROM dsd_senses s JOIN dsd_entries e ON e.id = s.dsd_entry_id
+               WHERE s.id = pe.entity_id AND s.status = 'published' AND e.status = 'published'
+           ))
+        OR (pe.entity_kind = 'translation' AND EXISTS (
+              SELECT 1 FROM dsd_translations t
+              JOIN dsd_senses s ON s.id = t.dsd_sense_id
+              JOIN dsd_entries e ON e.id = s.dsd_entry_id
+               WHERE t.id = pe.entity_id AND t.status = 'published'
+                 AND s.status = 'published' AND e.status = 'published'
+           ))
+        OR (pe.entity_kind = 'example' AND EXISTS (
+              SELECT 1 FROM dsd_examples x
+              JOIN dsd_senses s ON s.id = x.dsd_sense_id
+              JOIN dsd_entries e ON e.id = s.dsd_entry_id
+               WHERE x.id = pe.entity_id AND x.status = 'published'
+                 AND s.status = 'published' AND e.status = 'published'
+           ))
+        OR (pe.entity_kind = 'pronunciation' AND EXISTS (
+              SELECT 1 FROM dsd_pronunciations p
+              JOIN dsd_entries e ON e.id = p.dsd_entry_id
+               WHERE p.id = pe.entity_id AND p.status = 'published' AND e.status = 'published'
+           ))
+        OR (pe.entity_kind = 'relation' AND EXISTS (
+              SELECT 1 FROM dsd_relations r
+               WHERE r.id = pe.entity_id AND r.status = 'published'
+           ))
      ORDER BY pe.entity_kind, pe.entity_id, pe.occurred_at, pe.id`,
   migration: `SELECT max(timestamp)::text AS version FROM dsd_migrations`,
 };
@@ -296,18 +336,6 @@ async function main(): Promise<void> {
   const smoke = smokeTestSqlite();
   console.log(`better-sqlite3 loaded (SQLite ${smoke.sqliteVersion}, Node ${process.version})`);
 
-  // Step 1: the audit gates the directory.
-  const { runReleaseAuditForExport } = await import('../../src/dsd-corpus/release/gather');
-  const audit = await runReleaseAuditForExport({ releaseId, channel, territoriesFile });
-  if (audit.verdict !== 'GO') {
-    console.error(`Release audit returned ${audit.verdict}; refusing to export.`);
-    for (const blocker of audit.blockers.slice(0, 20)) {
-      console.error(`  - ${blocker.code}: ${blocker.detail}`);
-    }
-    process.exit(1);
-  }
-  const record = audit.record!;
-
   // Step 4: a new directory or nothing.
   const outputDir = path.resolve(process.cwd(), OUTPUT_ROOT, releaseId);
   if (fs.existsSync(outputDir)) {
@@ -322,12 +350,31 @@ async function main(): Promise<void> {
   await ds.initialize();
 
   let rows: Record<string, any[]>;
+  let record: NonNullable<Awaited<ReturnType<
+    typeof import('../../src/dsd-corpus/release/gather')['runReleaseAuditForExport']
+  >>['record']>;
+  const runner = ds.createQueryRunner();
   try {
-    // Step 3: one repeatable-read, read-only snapshot for every row.
-    const runner = ds.createQueryRunner();
     await runner.connect();
     await runner.query('BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
     try {
+      // Step 1 and step 3 share this transaction. A row published between a
+      // separate audit and export can no longer enter a signed package unseen.
+      const { runReleaseAuditForExport } = await import(
+        '../../src/dsd-corpus/release/gather'
+      );
+      const audit = await runReleaseAuditForExport(
+        { releaseId, channel, territoriesFile },
+        (sql, parameters) => runner.query(sql, parameters),
+      );
+      if (audit.verdict !== 'GO') {
+        console.error(`Release audit returned ${audit.verdict}; refusing to export.`);
+        for (const blocker of audit.blockers.slice(0, 20)) {
+          console.error(`  - ${blocker.code}: ${blocker.detail}`);
+        }
+        throw new Error('release audit did not return GO');
+      }
+      record = audit.record!;
       rows = {
         entries: await runner.query(Q.entries),
         senses: await runner.query(Q.senses),
@@ -548,7 +595,8 @@ async function main(): Promise<void> {
       senses: rows.senses.length,
       translations: rows.translations.length,
       examples: rows.examples.length,
-      relations: rows.relations.length,
+      pronunciations: rows.pronunciations.length,
+      relations: new Set(rows.relations.map((relation) => relation.relation_id)).size,
       audioAssets: rows.audio.length,
     },
     territories: record.territories,
@@ -598,28 +646,65 @@ async function main(): Promise<void> {
   console.log(`  audio     ${audioArtifacts.length} file(s)`);
   console.log('\nVerified. Recording the build.');
 
-  // ── record the build, in a separate short write transaction ───────────────
+  // ── record the build and its exact membership atomically ─────────────────
   const writeDs = createDsdDataSource('curator', config);
   await writeDs.initialize();
   try {
-    await writeDs.query(
+    const runner = writeDs.createQueryRunner();
+    await runner.connect();
+    await runner.startTransaction();
+    try {
+      const inserted: Array<{ id: string }> = await runner.query(
       `INSERT INTO dsd_release_builds
-         (release_id, channel, public_eligible, manifest_sha256, signature, signer_key_id,
+         (release_id, channel, public_eligible, manifest_sha256, manifest_bytes,
+          signature, signer_key_id,
           source_database, source_migration, source_date_epoch, similarity_policy_sha256,
           source_registry_sha256, tool_registry_sha256, contributor_registry_sha256,
-          audit_version, entry_count, sense_count, audio_asset_count, territories, built_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
-       ON CONFLICT ON CONSTRAINT "UQ_dsd_release_build" DO NOTHING`,
+          audit_version, entry_count, sense_count, translation_count, example_count,
+          pronunciation_count, relation_count, audio_asset_count, territories, built_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+       RETURNING id`,
       [
-        releaseId, channel, channel === 'public', sha256(manifestBytes), signature, signerKeyId,
+        releaseId, channel, channel === 'public', sha256(manifestBytes),
+        manifestBytes.toString('utf8'), signature, signerKeyId,
         manifest.source.database, manifest.source.migration, sourceDateEpoch,
         manifest.source.similarityPolicySha256, manifest.source.sourceRegistrySha256,
         manifest.source.toolRegistrySha256, manifest.source.contributorRegistrySha256,
         manifest.audit_version, manifest.counts.entries, manifest.counts.senses,
+        manifest.counts.translations, manifest.counts.examples,
+        rows.pronunciations.length,
+        new Set(rows.relations.map((relation) => relation.relation_id)).size,
         manifest.counts.audioAssets, manifest.territories,
         arg('actor') ?? process.env.DSD_RELEASE_BUILT_BY ?? 'unknown',
       ],
-    );
+      );
+      if (inserted.length !== 1) {
+        throw new Error(`release build '${releaseId}' was not recorded`);
+      }
+      const memberships = [
+        ['dsd_release_entries', 'entry_id', rows.entries, 'entry_id'],
+        ['dsd_release_senses', 'sense_id', rows.senses, 'sense_id'],
+        ['dsd_release_translations', 'translation_id', rows.translations, 'translation_id'],
+        ['dsd_release_examples', 'example_id', rows.examples, 'example_id'],
+        ['dsd_release_pronunciations', 'pronunciation_id', rows.pronunciations, 'pronunciation_id'],
+        ['dsd_release_relations', 'relation_id', rows.relations, 'relation_id'],
+        ['dsd_release_audio_assets', 'audio_asset_id', rows.audio, 'asset_id'],
+      ] as Array<[string, string, any[], string]>;
+      for (const [table, column, source, key] of memberships) {
+        await runner.query(
+          `INSERT INTO ${table} (release_build_id, ${column})
+           SELECT $1::uuid, member_id
+             FROM unnest($2::uuid[]) AS member_id`,
+          [inserted[0].id, [...new Set(source.map((row) => row[key]))]],
+        );
+      }
+      await runner.commitTransaction();
+    } catch (error) {
+      await runner.rollbackTransaction();
+      throw error;
+    } finally {
+      await runner.release();
+    }
   } finally {
     await writeDs.destroy();
   }

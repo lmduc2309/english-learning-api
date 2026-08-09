@@ -322,8 +322,8 @@ async function sampleLegacyFalsePositives(
     const rates = {} as Record<RecordType, number>;
     for (const recordType of RECORD_TYPES) {
       const { rows } = await client.query<{ text: string }>(
-        `SELECT text FROM dsd_compliance.english_similarity_input
-          WHERE record_type = $1 ORDER BY text LIMIT $2`,
+        `SELECT content_en AS text FROM dsd_compliance.english_similarity_input
+          WHERE record_kind = $1 ORDER BY content_en LIMIT $2`,
         [recordType, limit],
       );
       // Independent DSD controls versus unrelated real text: any flag here is

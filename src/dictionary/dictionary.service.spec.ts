@@ -275,7 +275,7 @@ describe('DictionaryService.lookupWord — curated learner path', () => {
 });
 
 describe('DictionaryService — commercial-safe boundary', () => {
-  it('publishes durable attribution for every approved upstream data source', async () => {
+  it('reports only the active DSD release in commercial mode', async () => {
     const svc = await buildModule({
       config: { 'content.commercialSafeMode': true },
     });
@@ -283,10 +283,8 @@ describe('DictionaryService — commercial-safe boundary', () => {
     expect(svc.getAttribution()).toMatchObject({
       commercial_safe_mode: true,
       software_license: 'MIT',
-      sources: [
-        { name: 'Open English WordNet', license: 'CC BY 4.0' },
-        { name: 'New General Service List', license: 'CC BY-SA 4.0' },
-      ],
+      sources: [],
+      release_id: null,
     });
   });
 
@@ -311,7 +309,7 @@ describe('DictionaryService — commercial-safe boundary', () => {
     expect(llmService.lookupDictionaryWord).not.toHaveBeenCalled();
   });
 
-  it('does not inherit an unapproved legacy frequency rank', async () => {
+  it('does not inspect the learner overlay or inherit a legacy frequency rank', async () => {
     const wordRepository = emptyRepo();
     wordRepository.findOne.mockResolvedValue({
       id: 7,
@@ -344,10 +342,9 @@ describe('DictionaryService — commercial-safe boundary', () => {
       config: { 'content.commercialSafeMode': true },
     });
 
-    const result = await svc.lookupWord('study');
-
-    expect(result.data_source).toBe('curated');
-    expect(result.frequency_rank).toBeUndefined();
+    await expect(svc.lookupWord('study')).rejects.toMatchObject({ status: 404 });
+    expect(wordRepository.findOne).not.toHaveBeenCalled();
+    expect(learnerEntryRepository.findOne).not.toHaveBeenCalled();
   });
 
   it('blocks unapproved generated translation endpoints', async () => {
