@@ -134,13 +134,18 @@ these names, but `english-learning-api` must receive them separately or inherit
 organization-level secrets. Prefer a protected `production` environment with
 required approval.
 
-The manual workflow has three explicit operations:
+The manual workflow has four explicit operations:
 
 - `backup-only` creates custom-format dumps for each existing production
   database, verifies that `pg_restore` can read the archive, and records a
   SHA-256 file beside it. It does not pull, build, migrate, restart, or import.
 - `preflight-only` reads configuration/database/role readiness without changing
   production. Secret values are never printed; only `configured` or `missing`.
+- `stage-ai-pilot` requires the pinned verified legacy dump, validates the
+  selected Git commit, provisions the isolated DSD database and scoped roles,
+  imports the committed 50-entry AI pilot as drafts, audits it, and creates a
+  verified post-import DSD dump. It forces `DSD_RELEASE_CHANNEL=off`; it neither
+  approves/publishes content nor rebuilds/restarts the long-running services.
 - `deploy` runs the full validated deployment sequence below.
 
 Run `backup-only` before the first DSD provisioning attempt and preserve its
