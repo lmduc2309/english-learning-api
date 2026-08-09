@@ -197,6 +197,8 @@ export function validateToolRegistry(doc: { version?: number; tools?: DsdTool[] 
     // whose output informed a decision has to be identifiable later.
     if (!entry.revision) {
       errors.push(`tool '${entry.id}' has no revision pin`);
+    } else if (/^PENDING(?:-|$)/i.test(entry.revision.trim())) {
+      errors.push(`tool '${entry.id}' still has a placeholder revision '${entry.revision}'`);
     }
   }
   return errors;

@@ -165,6 +165,14 @@ describe('validateToolRegistry', () => {
     expect(errors.join(' ')).toMatch(/revision/i);
   });
 
+  it('rejects a placeholder revision that only looks pinned', () => {
+    const errors = validateToolRegistry({
+      version: 1,
+      tools: [tool({ revision: 'PENDING-PIN-AT-TASK-9' })],
+    });
+    expect(errors.join(' ')).toMatch(/placeholder revision/i);
+  });
+
   it('rejects a malformed sha256', () => {
     const errors = validateToolRegistry({
       version: 1,

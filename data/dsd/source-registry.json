@@ -40,8 +40,9 @@
       "approvedScopes": [],
       "evidenceIds": ["EV-AUDIO-LJSPEECH-CARD-001"],
       "url": "https://huggingface.co/rhasspy/piper-voices/blob/main/en/en_US/ljspeech/medium/MODEL_CARD",
-      "revision": "PENDING-PIN-AT-TASK-11",
-      "notes": "Public-domain dataset, trained from scratch per the model card. Pin the artifact revision and SHA-256 in Task 11."
+      "revision": "9f967d15e9ccdf43078586d1476ee70f314401bd",
+      "sha256": "6f52a751e2349abe7a76735eb09dc1875298c77ea2342ffd2fef79ff81b87f22",
+      "notes": "Public-domain dataset, trained from scratch per the model card. The revision and primary ONNX digest match tts-service/models/piper-voices.lock.json; legal voice/personality clearance is still unresolved."
     },
     {
       "id": "piper-norman-medium",
@@ -52,8 +53,9 @@
       "approvedScopes": [],
       "evidenceIds": ["EV-AUDIO-NORMAN-CARD-001"],
       "url": "https://huggingface.co/rhasspy/piper-voices/blob/main/en/en_US/norman/medium/MODEL_CARD",
-      "revision": "PENDING-PIN-AT-TASK-11",
-      "notes": "Public-domain LibriVox audio, trained from scratch per the model card."
+      "revision": "9f967d15e9ccdf43078586d1476ee70f314401bd",
+      "sha256": "b9739443232a80a59c7d18810dd856899bf16a7964725f5ab81ea49b1351cb71",
+      "notes": "Public-domain LibriVox audio, trained from scratch per the model card. The revision and primary ONNX digest match tts-service/models/piper-voices.lock.json; legal voice/personality clearance is still unresolved."
     },
 
     {

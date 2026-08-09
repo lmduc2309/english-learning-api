@@ -44,6 +44,19 @@ dotenv.config();
 
 export const CALIBRATION_PATH = 'data/dsd/similarity/v1-calibration.jsonl';
 export const POLICY_PATH = 'data/dsd/similarity/v1-policy.json';
+export const SAMPLE_EVIDENCE_PATH = 'data/dsd/similarity/v1-sample-evidence.json';
+
+/**
+ * Deterministic hash-order sampling avoids the severe alphabetic bias of
+ * `ORDER BY content_en LIMIT n` while remaining reproducible. The digest is
+ * computed inside the restricted view and never leaves PostgreSQL here.
+ */
+export const LEGACY_SAMPLE_SQL = `
+  SELECT content_en AS text, content_digest AS digest
+    FROM dsd_compliance.english_similarity_input
+   WHERE record_kind = $1
+   ORDER BY content_digest, content_en
+   LIMIT $2`;
 
 export const TARGETS = {
   exactRecall: 1,
@@ -297,6 +310,47 @@ function percent(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
 }
 
+export interface LegacySampleTypeResult {
+  requestedRows: number;
+  sampledRows: number;
+  independentProbes: number;
+  comparisons: number;
+  flags: number;
+  manualReviewRate: number;
+  /** SHA-256 over the ordered view digests, never over text written to disk. */
+  sampleDigestSha256: string;
+}
+
+export interface LegacySampleEvidence {
+  evidenceVersion: 1;
+  generatedAt: string;
+  readerRole: 'dsd_similarity_reader';
+  view: 'dsd_compliance.english_similarity_input';
+  ordering: 'content_digest, content_en';
+  containsLegacyWording: false;
+  policyCandidateSha256: string;
+  benchmarkSha256: string;
+  results: Record<RecordType, LegacySampleTypeResult>;
+}
+
+export function buildLegacySampleEvidence(
+  policy: SimilarityPolicy,
+  results: Record<RecordType, LegacySampleTypeResult>,
+  generatedAt = new Date().toISOString(),
+): LegacySampleEvidence {
+  return {
+    evidenceVersion: 1,
+    generatedAt,
+    readerRole: 'dsd_similarity_reader',
+    view: 'dsd_compliance.english_similarity_input',
+    ordering: 'content_digest, content_en',
+    containsLegacyWording: false,
+    policyCandidateSha256: policyHash(policy),
+    benchmarkSha256: policy.benchmarkSha256,
+    results,
+  };
+}
+
 /**
  * Measure the manual-review rate against real corpus text.
  *
@@ -307,7 +361,7 @@ async function sampleLegacyFalsePositives(
   limit: number,
   policy: SimilarityPolicy,
   scored: ScoredCase[],
-): Promise<Record<RecordType, number>> {
+): Promise<Record<RecordType, LegacySampleTypeResult>> {
   const url = process.env.LEGACY_AUDIT_DATABASE_URL;
   if (!url) throw new Error('LEGACY_AUDIT_DATABASE_URL is required to sample legacy text');
 
@@ -319,13 +373,12 @@ async function sampleLegacyFalsePositives(
       throw new Error(`legacy connection is '${user}', not dsd_similarity_reader`);
     }
 
-    const rates = {} as Record<RecordType, number>;
+    const results = {} as Record<RecordType, LegacySampleTypeResult>;
     for (const recordType of RECORD_TYPES) {
-      const { rows } = await client.query<{ text: string }>(
-        `SELECT content_en AS text FROM dsd_compliance.english_similarity_input
-          WHERE record_kind = $1 ORDER BY content_en LIMIT $2`,
-        [recordType, limit],
-      );
+      const { rows } = await client.query<{ text: string; digest: string }>(LEGACY_SAMPLE_SQL, [
+        recordType,
+        limit,
+      ]);
       // Independent DSD controls versus unrelated real text: any flag here is
       // a false positive by construction.
       const probes = scored.filter((c) => c.recordType === recordType && c.label === 'independent');
@@ -338,9 +391,20 @@ async function sampleLegacyFalsePositives(
           if (scores.exact || crossesBand(scores, policy.bands[recordType].medium)) flags++;
         }
       }
-      rates[recordType] = comparisons === 0 ? 0 : flags / comparisons;
+      results[recordType] = {
+        requestedRows: limit,
+        sampledRows: rows.length,
+        independentProbes: probes.length,
+        comparisons,
+        flags,
+        manualReviewRate: comparisons === 0 ? 0 : flags / comparisons,
+        sampleDigestSha256: crypto
+          .createHash('sha256')
+          .update(`${recordType}\0${rows.map((row) => row.digest).join('\n')}`, 'utf8')
+          .digest('hex'),
+      };
     }
-    return rates;
+    return results;
   } finally {
     await client.end();
   }
@@ -377,11 +441,31 @@ async function main(): Promise<void> {
   }
 
   const sample = arg('sample-legacy');
+  let sampleResults: Record<RecordType, LegacySampleTypeResult> | null = null;
   if (sample) {
-    const rates = await sampleLegacyFalsePositives(Number(sample), policy, scored);
+    const sampleSize = Number(sample);
+    if (!Number.isSafeInteger(sampleSize) || sampleSize < 1 || sampleSize > 100_000) {
+      throw new Error('--sample-legacy must be an integer from 1 to 100000');
+    }
+    sampleResults = await sampleLegacyFalsePositives(sampleSize, policy, scored);
     console.log('\nagainst sampled legacy text (rates only; no wording is retained)');
     for (const recordType of RECORD_TYPES) {
-      console.log(`  ${recordType.padEnd(11)} ${percent(rates[recordType])} would go to manual review`);
+      const result = sampleResults[recordType];
+      console.log(
+        `  ${recordType.padEnd(11)} ${percent(result.manualReviewRate)} would go to manual review ` +
+          `(${result.flags}/${result.comparisons} comparisons; ${result.sampledRows} rows)`,
+      );
+      if (result.sampledRows < sampleSize) {
+        failures.push(
+          `${recordType}: requested ${sampleSize} legacy rows but the view returned only ${result.sampledRows}`,
+        );
+      }
+      if (result.manualReviewRate > TARGETS.maxIndependentFlagRate) {
+        failures.push(
+          `${recordType}: sampled legacy manual-review rate ${percent(result.manualReviewRate)} ` +
+            `exceeds ${percent(TARGETS.maxIndependentFlagRate)}`,
+        );
+      }
     }
   }
 
@@ -395,11 +479,31 @@ async function main(): Promise<void> {
   }
 
   console.log('\nAll targets met.');
-  if (warnings.length > 0) {
+  if (warnings.length > 0 && !sampleResults) {
     console.log('\nNot yet ready to freeze:');
     for (const warning of warnings) console.log(`  ! ${warning}`);
+  } else if (warnings.length > 0) {
+    console.log(
+      '\nThe candidate has thresholds below the synthetic sanity floor, but the required ' +
+        'real-corpus sample completed within the 10% manual-review target. Review the ' +
+        'aggregate evidence before approval.',
+    );
   }
   console.log(`\nCandidate policy hash ${policyHash(policy)}`);
+
+  if (process.argv.includes('--write-evidence')) {
+    if (!sampleResults) {
+      throw new Error('--write-evidence requires --sample-legacy');
+    }
+    const evidence = buildLegacySampleEvidence(policy, sampleResults);
+    const evidencePath = path.resolve(
+      process.cwd(),
+      arg('evidence') ?? SAMPLE_EVIDENCE_PATH,
+    );
+    fs.mkdirSync(path.dirname(evidencePath), { recursive: true });
+    fs.writeFileSync(evidencePath, JSON.stringify(evidence, null, 2) + '\n');
+    console.log(`\nWrote aggregate-only sample evidence to ${path.relative(process.cwd(), evidencePath)}`);
+  }
 
   if (!process.argv.includes('--write')) {
     console.log('\nDRY RUN — policy not written. Re-run with --write.');

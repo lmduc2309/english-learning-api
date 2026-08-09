@@ -159,32 +159,39 @@ No real legacy text is committed here, and none ever will be. Legacy text is
 read at calibration time only through the restricted view, and only its
 aggregate effect on the manual-review rate leaves the process.
 
-## Status: candidate, not frozen
+## Status: sampled candidate, not frozen
 
-**This policy is not approved and publication is blocked.** Two things are
-outstanding.
+**This policy is not approved and publication is blocked.** Human approvals
+remain outstanding.
 
 **Approvals.** `approvers` is empty. The product owner, the linguistic reviewer
 and the legal/compliance reviewer must be recorded before `validatePolicy`
 passes. Until then `dsd:publish` reports the similarity gate as `not_run` and
 refuses.
 
-**Sampling against the real corpus.** The example band is anchored on eleven
-negative controls. That is enough to demonstrate the method and not enough to
-set a production threshold: several example thresholds land below the sanity
-floor the calibration tool reports, and at corpus scale they would flood manual
-review. Run
+**Sampling result.** On 2026-08-09 the candidate was measured through the
+restricted `dsd_similarity_reader` view against a deterministic digest-ordered
+sample of 2,000 current local legacy definitions and 2,000 examples. Across
+24,000 definition comparisons, 0 were flagged; across 22,000 example
+comparisons, 27 were flagged (0.123%). Both are below the 10% target. Only
+counts, rates, configuration, and aggregate sample digests were retained in
+`data/dsd/similarity/v1-sample-evidence.json`; no wording or row ID was written.
+
+Repeat the same command against the production audit view before approval if
+its corpus snapshot differs from the measured local database:
 
 ```
 npm run dsd:similarity:calibrate -- --sample-legacy 2000
 ```
 
-with `LEGACY_AUDIT_DATABASE_URL` set to the `dsd_similarity_reader` account
-before freezing. The tool reports the resulting rates and retains no wording.
+with `LEGACY_AUDIT_DATABASE_URL` set to the `dsd_similarity_reader` account.
+Use `--write-evidence` only for the reviewed run whose aggregate evidence is to
+be approved.
 
-The floors are reported, never applied. Silently raising a calibrated threshold
-would be the same quiet weakening the targets forbid, only in the other
-direction.
+The floors are reported, never applied. The measured sample resolves the
+synthetic-set warning for this corpus snapshot; it does not authorize the
+policy. Silently raising a calibrated threshold would be the same quiet
+weakening the targets forbid, only in the other direction.
 
 ## Changing the policy
 

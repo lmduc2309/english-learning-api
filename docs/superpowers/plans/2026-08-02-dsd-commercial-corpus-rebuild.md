@@ -959,6 +959,7 @@ dsd:publish --entry <uuid> [--write]
 
 - Create: `data/dsd/similarity/v1-calibration.jsonl`
 - Create: `data/dsd/similarity/v1-policy.json`
+- Create: `data/dsd/similarity/v1-sample-evidence.json`
 - Create: `data/dsd/schemas/similarity-policy.schema.json`
 - Create: `scripts/dsd/similarity-calibrate.ts`
 - Create: `scripts/dsd/similarity-calibrate.spec.ts`
@@ -1012,6 +1013,13 @@ The author only receives the state and DSD-specific rewrite instruction.
   publication fail until the record is re-audited.
 - Calibration reports contain scores, labels, aggregates, and digests but zero
   legacy wording or row IDs.
+
+**Implementation checkpoint 2026-08-09:** the deterministic 2,000-row-per-type
+sample completed against the current local legacy audit view. It measured 0 of
+24,000 definition comparisons and 27 of 22,000 example comparisons (0.123%)
+entering manual review. Aggregate-only evidence is recorded; the policy remains
+unapproved until the three required human approvers sign it, and the sample
+must be repeated against production if that corpus snapshot differs.
 
 **Review checkpoint B:** Run the full workflow on synthetic fixtures before any real DSD content is authored.
 

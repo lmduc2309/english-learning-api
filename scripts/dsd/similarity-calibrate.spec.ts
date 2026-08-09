@@ -3,9 +3,12 @@ import * as path from 'path';
 import { RECORD_TYPES, classify, crossesBand, policyHash, validatePolicy } from './lib/similarity';
 import {
   CALIBRATION_PATH,
+  LEGACY_SAMPLE_SQL,
   POLICY_PATH,
+  SAMPLE_EVIDENCE_PATH,
   TARGETS,
   buildCandidatePolicy,
+  buildLegacySampleEvidence,
   calibrateMediumBand,
   calibrationDigest,
   checkTargets,
@@ -93,6 +96,36 @@ describe('calibration meets its targets', () => {
 });
 
 describe('the search', () => {
+  it('samples legacy rows in deterministic digest order, not alphabetic text order', () => {
+    expect(LEGACY_SAMPLE_SQL).toMatch(/ORDER BY content_digest, content_en/);
+    expect(LEGACY_SAMPLE_SQL).toMatch(/content_digest AS digest/);
+    expect(LEGACY_SAMPLE_SQL).not.toMatch(/WHERE[\s\S]*ORDER BY content_en\s+LIMIT/);
+  });
+
+  it('builds aggregate sample evidence without retaining legacy wording', () => {
+    const result = {
+      requestedRows: 2000,
+      sampledRows: 2000,
+      independentProbes: 12,
+      comparisons: 24000,
+      flags: 1,
+      manualReviewRate: 1 / 24000,
+      sampleDigestSha256: 'a'.repeat(64),
+    };
+    const evidence = buildLegacySampleEvidence(
+      policy,
+      { definition: result, example: { ...result, independentProbes: 11 } },
+      '2026-08-09T00:00:00.000Z',
+    );
+    expect(evidence.containsLegacyWording).toBe(false);
+    expect(evidence.readerRole).toBe('dsd_similarity_reader');
+    expect(evidence.policyCandidateSha256).toBe(policyHash(policy));
+    expect(Object.keys(evidence.results.definition)).not.toEqual(
+      expect.arrayContaining(['text', 'rows', 'samples', 'wording']),
+    );
+    expect(SAMPLE_EVIDENCE_PATH).toMatch(/v1-sample-evidence\.json$/);
+  });
+
   it('is deterministic', () => {
     expect(buildCandidatePolicy(scored, 'x'.repeat(64), '2026-08-03')).toEqual(
       buildCandidatePolicy(scoreCases(parseCalibration(calibrationText)), 'x'.repeat(64), '2026-08-03'),

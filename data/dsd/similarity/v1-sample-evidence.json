@@ -1,0 +1,30 @@
+{
+  "evidenceVersion": 1,
+  "generatedAt": "2026-08-09T05:26:05.176Z",
+  "readerRole": "dsd_similarity_reader",
+  "view": "dsd_compliance.english_similarity_input",
+  "ordering": "content_digest, content_en",
+  "containsLegacyWording": false,
+  "policyCandidateSha256": "0c9dc11e09de7b2d43d705b7b152448b188b40277abcdfbb5a385d34d5004ba9",
+  "benchmarkSha256": "c72ea021355554fe8f29a6e568585a1e63fa508748ee0b87bbe764ad6a744fc8",
+  "results": {
+    "definition": {
+      "requestedRows": 2000,
+      "sampledRows": 2000,
+      "independentProbes": 12,
+      "comparisons": 24000,
+      "flags": 0,
+      "manualReviewRate": 0,
+      "sampleDigestSha256": "b2a141cb225fda95c673b8013aad179ced4222cc763080f525db2b692842f3f9"
+    },
+    "example": {
+      "requestedRows": 2000,
+      "sampledRows": 2000,
+      "independentProbes": 11,
+      "comparisons": 22000,
+      "flags": 27,
+      "manualReviewRate": 0.0012272727272727272,
+      "sampleDigestSha256": "16de0f06c4821a7a43b2cc9e9416d79251535fe17f70987788e9458795e55c08"
+    }
+  }
+}

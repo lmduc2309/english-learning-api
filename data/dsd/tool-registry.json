@@ -11,7 +11,7 @@
       "approvedScopes": [],
       "evidenceIds": ["EV-TOOL-MISAKI-001"],
       "url": "https://github.com/hexgrad/misaki",
-      "revision": "PENDING-PIN-AT-TASK-9",
+      "revision": "fba1236595f2d2bf21d414ba6e57d25256afada3",
       "notes": "Apache-2.0. American English with fallback=None. Produces IPA candidates only; a human authors the final pronunciation record."
     },
     {
@@ -23,7 +23,7 @@
       "approvedScopes": [],
       "evidenceIds": ["EV-TOOL-PHONETICMATCHING-001"],
       "url": "https://github.com/microsoft/PhoneticMatching",
-      "revision": "PENDING-PIN-AT-TASK-9",
+      "revision": "2de8b79776ee3d967d9624afa56bc53045ab4d59",
       "notes": "MIT. General English IPA. Old native dependencies require a feasibility check before adoption."
     },
     {
@@ -35,7 +35,8 @@
       "approvedScopes": [],
       "evidenceIds": ["EV-TOOL-PIPER-001"],
       "url": "https://github.com/rhasspy/piper",
-      "revision": "PENDING-PIN-AT-TASK-11",
+      "revision": "2023.11.14-2",
+      "sha256": "a50cb45f355b7af1f6d758c1b360717877ba0a398cc8cbe6d2a7a3a26e225992",
       "notes": "Internal build tool on DSD-controlled machines only. Not bundled into any customer-distributed client. eSpeak NG in the phonemization path is GPL; program output is not covered, but binary distribution is a separate question kept out of scope."
     }
   ]
