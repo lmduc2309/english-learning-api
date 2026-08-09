@@ -134,12 +134,26 @@ these names, but `english-learning-api` must receive them separately or inherit
 organization-level secrets. Prefer a protected `production` environment with
 required approval.
 
+The manual workflow has three explicit operations:
+
+- `backup-only` creates custom-format dumps for each existing production
+  database, verifies that `pg_restore` can read the archive, and records a
+  SHA-256 file beside it. It does not pull, build, migrate, restart, or import.
+- `preflight-only` reads configuration/database/role readiness without changing
+  production. Secret values are never printed; only `configured` or `missing`.
+- `deploy` runs the full validated deployment sequence below.
+
+Run `backup-only` before the first DSD provisioning attempt and preserve its
+reported path, UTC timestamp, size and SHA-256 in the production evidence log.
+A same-host manual dump protects the immediate change window, but does not
+satisfy Task 2A's off-host recovery gate by itself.
+
 The workflow deliberately does not clone repositories or create
 `deploy/.env.production`. Those are one-time server provisioning actions. On
 each manual run it:
 
 1. requires clean, already-provisioned sibling repositories;
 2. fast-forwards all three `main` branches;
-3. creates and verifies a PostgreSQL backup when a database already exists;
+3. creates, uploads and verifies snapshot-bound backups for both databases;
 4. builds the stack and runs compiled migrations;
 5. starts the services and runs local origin smoke checks.

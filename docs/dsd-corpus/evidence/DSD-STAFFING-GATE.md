@@ -12,6 +12,13 @@ The repository contains no active contributor backed by IP-assignment evidence.
 No person has therefore been authorized to author or review publishable DSD
 content. This is an explicit release block, not an administrative warning.
 
+On 2026-08-09 the product owner proposed acting as both author and reviewer and
+approving the data on the same date. One person may hold both roles in the
+register for different records, but cannot author and review the same record.
+The proposal therefore does not satisfy independent review and does not change
+this gate. No contributor identity or rights evidence was inferred from the
+proposal.
+
 ## Work allowed while blocked
 
 - Tasks 1–18 engineering, tests, schemas, and fail-closed release tooling.

@@ -176,7 +176,7 @@ jobs:
               LINE="$(grep -E "^${KEY}=" "$ENV_FILE" | tail -n 1 || true)"
               VALUE="${LINE#*=}"
               case "$VALUE" in
-                ''|CHANGE_ME|replace-*)
+                ''|*CHANGE_ME*|*replace-with*)
                   echo "$KEY=missing"
                   MISSING=$((MISSING + 1))
                   ;;
