@@ -3,6 +3,18 @@
   "description": "Content sources governed for the DSD corpus. A source is usable only when status is 'approved' AND the intended use appears in approvedScopes. Everything else is blocked by default.",
   "sources": [
     {
+      "id": "openai-dsd-generated-v1",
+      "aliases": ["DSD AI-generated text v1"],
+      "scopes": ["definition", "translation", "example"],
+      "status": "approved",
+      "approvedScopes": ["definition", "translation", "example"],
+      "evidenceIds": [
+        "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "EV-DSD-AI-POLICY-20260809-001"
+      ],
+      "notes": "Generated from blank headword prompts without legacy/source dictionary text. Records must name DSD-G-001 as the origin actor and require record-by-record approval by the human owner DSD-O-001. Output may not be unique and is not represented as exclusively copyrightable."
+    },
+    {
       "id": "dsd-english-original",
       "aliases": ["DSD English original content"],
       "scopes": ["inventory", "definition", "example", "relation"],

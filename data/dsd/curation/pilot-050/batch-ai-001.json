@@ -1,0 +1,672 @@
+{
+  "$schema": "https://dsdtech.site/schemas/dsd-curation-package.json",
+  "package_version": 1,
+  "batch_id": "DSD-AI-PILOT-050-B001",
+  "declaration_id": "DSD-AI-DECL-20260809-001",
+  "generation": {
+    "generator_actor_id": "DSD-G-001",
+    "generator_tool_id": "openai-codex-text-generation",
+    "generator_tool_revision": "effective-2026-01-01",
+    "generated_source_id": "openai-dsd-generated-v1",
+    "provider_id": "openai",
+    "product_id": "codex",
+    "runtime_model_id": "codex-runtime-undisclosed",
+    "generated_at": "2026-08-09T06:07:37Z",
+    "prompt_policy_id": "EV-DSD-AI-POLICY-20260809-001",
+    "input_sha256": "02a9fbfca3112a7178ea8e379266ec910e46c2110cf0cd5179dd07c94572552e",
+    "terms_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+    "legacy_input_used": false
+  },
+  "entries": [
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000001",
+      "headword": "accept",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To agree to receive something that another person offers.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "đồng ý nhận một thứ do người khác đề nghị", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "I accept your offer to help with the project.", "vi": "Tôi đồng ý nhận lời đề nghị giúp đỡ dự án của bạn.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000002",
+      "headword": "arrive",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To reach a place at the end of a journey or movement.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "đến một nơi sau khi kết thúc hành trình hoặc di chuyển", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "We arrive at the station before noon.", "vi": "Chúng tôi đến nhà ga trước buổi trưa.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000003",
+      "headword": "ask",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To say or write a question in order to get information.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "đặt câu hỏi bằng lời nói hoặc chữ viết để lấy thông tin", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "Please ask the teacher about the homework.", "vi": "Hãy hỏi giáo viên về bài tập về nhà.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000004",
+      "headword": "begin",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To start doing an activity or start a process.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "bắt đầu làm một hoạt động hoặc khởi đầu một quá trình", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "We begin the lesson with a short review.", "vi": "Chúng tôi bắt đầu bài học bằng phần ôn tập ngắn.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000005",
+      "headword": "borrow",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To take and use something that belongs to another person and return it later.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "mượn và sử dụng đồ của người khác rồi trả lại sau", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "Can I borrow your pen for a minute?", "vi": "Tôi có thể mượn bút của bạn một lát không?", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000006",
+      "headword": "bring",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To take a person or thing with you to a particular place.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "mang một người hoặc vật cùng mình đến một nơi cụ thể", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "Please bring your notebook to class.", "vi": "Vui lòng mang vở của bạn đến lớp.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000007",
+      "headword": "build",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To make something by joining materials or parts together.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "tạo ra một thứ bằng cách ghép các vật liệu hoặc bộ phận lại với nhau", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "They build simple tables in the workshop.", "vi": "Họ làm những chiếc bàn đơn giản trong xưởng.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000008",
+      "headword": "buy",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To obtain something by paying money for it.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "mua một thứ bằng cách trả tiền", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "I buy fresh fruit at the market.", "vi": "Tôi mua trái cây tươi ở chợ.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000009",
+      "headword": "call",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To contact someone by telephone.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "liên lạc với ai đó bằng điện thoại", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "I call my parents every Sunday.", "vi": "Tôi gọi điện cho bố mẹ vào mỗi Chủ nhật.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000010",
+      "headword": "carry",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To hold something and move it from one place to another.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "cầm hoặc mang một vật từ nơi này sang nơi khác", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "She can carry both bags by herself.", "vi": "Cô ấy có thể tự mang cả hai chiếc túi.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000011",
+      "headword": "choose",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To decide which person or thing you want from available options.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "quyết định lấy người hoặc vật nào trong các lựa chọn có sẵn", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "You may choose any seat near the window.", "vi": "Bạn có thể chọn bất kỳ chỗ ngồi nào gần cửa sổ.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000012",
+      "headword": "clean",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To remove dirt or unwanted material from something.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "loại bỏ bụi bẩn hoặc chất không mong muốn khỏi một vật", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "We clean the kitchen after dinner.", "vi": "Chúng tôi dọn sạch nhà bếp sau bữa tối.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000013",
+      "headword": "close",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To move something so that an opening is covered or blocked.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "di chuyển một vật để che hoặc chặn một chỗ mở", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "Please close the door quietly.", "vi": "Vui lòng đóng cửa nhẹ nhàng.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000014",
+      "headword": "cook",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To prepare food by heating it.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "chuẩn bị thức ăn bằng cách làm nóng", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "I cook rice for the family each evening.", "vi": "Tôi nấu cơm cho gia đình vào mỗi tối.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000015",
+      "headword": "decide",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To make a choice after thinking about the possibilities.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "đưa ra lựa chọn sau khi cân nhắc các khả năng", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "We decide where to eat before leaving.", "vi": "Chúng tôi quyết định ăn ở đâu trước khi rời đi.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000016",
+      "headword": "drink",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To take liquid into the mouth and swallow it.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "đưa chất lỏng vào miệng rồi nuốt", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "I drink a glass of water after exercise.", "vi": "Tôi uống một cốc nước sau khi tập thể dục.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000017",
+      "headword": "drive",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To control and operate a vehicle while it moves.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "điều khiển và vận hành một phương tiện khi nó di chuyển", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "I drive to work on rainy days.", "vi": "Tôi lái xe đi làm vào những ngày mưa.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000018",
+      "headword": "eat",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To put food in the mouth, chew it, and swallow it.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "đưa thức ăn vào miệng, nhai rồi nuốt", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "We eat lunch together at noon.", "vi": "Chúng tôi ăn trưa cùng nhau vào buổi trưa.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000019",
+      "headword": "explain",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To make an idea or situation clear by giving details.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "làm cho một ý tưởng hoặc tình huống trở nên rõ ràng bằng cách cung cấp chi tiết", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "Can you explain this rule in simple words?", "vi": "Bạn có thể giải thích quy tắc này bằng lời đơn giản không?", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000020",
+      "headword": "find",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To discover something after searching or by chance.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "phát hiện một thứ sau khi tìm kiếm hoặc do tình cờ", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "We find the missing keys under the table.", "vi": "Chúng tôi tìm thấy những chiếc chìa khóa bị mất dưới gầm bàn.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000021",
+      "headword": "finish",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To complete the last part of an activity or task.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "hoàn thành phần cuối của một hoạt động hoặc nhiệm vụ", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "We finish the report before the meeting.", "vi": "Chúng tôi hoàn thành báo cáo trước cuộc họp.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000022",
+      "headword": "give",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To let another person have something for them to keep or use.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "đưa một thứ cho người khác để họ giữ hoặc sử dụng", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "I give the ticket to my friend.", "vi": "Tôi đưa tấm vé cho bạn mình.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000023",
+      "headword": "help",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To make it easier for someone to do something or solve a problem.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "làm cho người khác dễ thực hiện việc gì đó hoặc giải quyết vấn đề hơn", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "I help my neighbor carry the boxes.", "vi": "Tôi giúp hàng xóm mang các thùng đồ.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000024",
+      "headword": "learn",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To gain knowledge or a skill through study or experience.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "tiếp thu kiến thức hoặc kỹ năng thông qua học tập hoặc trải nghiệm", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "Children learn new words through stories.", "vi": "Trẻ em học từ mới thông qua các câu chuyện.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000025",
+      "headword": "listen",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To pay attention to sounds in order to hear them.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "chú ý đến âm thanh để nghe chúng", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "Please listen to the instructions carefully.", "vi": "Vui lòng lắng nghe hướng dẫn thật cẩn thận.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000026",
+      "headword": "live",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To have your home in a particular place.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "có nơi ở tại một địa điểm cụ thể", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "They live in a small apartment downtown.", "vi": "Họ sống trong một căn hộ nhỏ ở trung tâm thành phố.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000027",
+      "headword": "look",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To direct your eyes toward someone or something.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "hướng mắt về phía một người hoặc một vật", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "Look at the map before we leave.", "vi": "Hãy nhìn vào bản đồ trước khi chúng ta rời đi.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000028",
+      "headword": "make",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To create or produce something.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "tạo ra hoặc sản xuất một thứ", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "We make breakfast together on weekends.", "vi": "Chúng tôi cùng làm bữa sáng vào cuối tuần.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000029",
+      "headword": "meet",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To come together with someone at an arranged or unexpected time.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "gặp một người vào thời điểm đã hẹn hoặc bất ngờ", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "We meet outside the library after class.", "vi": "Chúng tôi gặp nhau bên ngoài thư viện sau giờ học.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000030",
+      "headword": "need",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To require something because it is necessary.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "cần một thứ vì nó là điều thiết yếu", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "I need more time to check the numbers.", "vi": "Tôi cần thêm thời gian để kiểm tra các con số.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000031",
+      "headword": "open",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To move something so that it no longer covers or blocks an entrance.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "di chuyển một vật để nó không còn che hoặc chặn lối vào", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "Please open the window for some fresh air.", "vi": "Vui lòng mở cửa sổ để đón không khí trong lành.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000032",
+      "headword": "pay",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To give money for something you buy, use, or owe.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "trả tiền cho hàng hóa, dịch vụ hoặc khoản nợ", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "I pay the bill before leaving the cafe.", "vi": "Tôi thanh toán hóa đơn trước khi rời quán cà phê.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000033",
+      "headword": "plan",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To decide in advance what you will do and how you will do it.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "quyết định trước việc sẽ làm và cách thực hiện", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "We plan the trip several weeks ahead.", "vi": "Chúng tôi lên kế hoạch cho chuyến đi trước vài tuần.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000034",
+      "headword": "read",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To understand written words by looking at them.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "hiểu các từ được viết bằng cách nhìn vào chúng", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "I read one chapter before bed.", "vi": "Tôi đọc một chương trước khi đi ngủ.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000035",
+      "headword": "remember",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To have information from the past available in your mind.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "nhớ được thông tin từ quá khứ", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "I remember her address without checking my notes.", "vi": "Tôi nhớ địa chỉ của cô ấy mà không cần xem ghi chú.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000036",
+      "headword": "return",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To go or come back to a place or person.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "quay lại một nơi hoặc trở về với một người", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "We return home before it gets dark.", "vi": "Chúng tôi trở về nhà trước khi trời tối.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000037",
+      "headword": "save",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To keep something for future use instead of using it now.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "giữ một thứ để sử dụng trong tương lai thay vì dùng ngay", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "I save part of my salary each month.", "vi": "Tôi tiết kiệm một phần tiền lương mỗi tháng.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000038",
+      "headword": "send",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To arrange for something to travel or be delivered to another place.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "sắp xếp để một thứ được chuyển hoặc giao đến nơi khác", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "I send the document by email.", "vi": "Tôi gửi tài liệu qua thư điện tử.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000039",
+      "headword": "share",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To divide something between two or more people.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "chia một thứ cho hai hoặc nhiều người", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "We share the cost of the meal.", "vi": "Chúng tôi chia sẻ chi phí của bữa ăn.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000040",
+      "headword": "speak",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To use your voice to express words or ideas.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "dùng giọng nói để diễn đạt lời hoặc ý tưởng", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "Please speak slowly during the presentation.", "vi": "Vui lòng nói chậm trong phần thuyết trình.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000041",
+      "headword": "start",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To cause an activity or process to happen, or to begin doing it.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "làm cho một hoạt động hoặc quá trình diễn ra, hoặc bắt đầu thực hiện nó", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "We start the meeting at nine o'clock.", "vi": "Chúng tôi bắt đầu cuộc họp lúc chín giờ.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000042",
+      "headword": "study",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To spend time learning about a subject.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "dành thời gian học về một môn hoặc chủ đề", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "I study English for thirty minutes every day.", "vi": "Tôi học tiếng Anh ba mươi phút mỗi ngày.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000043",
+      "headword": "take",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To carry something with you when you go somewhere.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "mang một vật theo mình khi đi đâu đó", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "Please take an umbrella before you leave.", "vi": "Vui lòng cầm theo ô trước khi bạn rời đi.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000044",
+      "headword": "teach",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To help someone gain knowledge or learn a skill.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "giúp một người tiếp thu kiến thức hoặc học một kỹ năng", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "They teach children how to swim safely.", "vi": "Họ dạy trẻ em cách bơi an toàn.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000045",
+      "headword": "travel",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To go from one place to another, usually over some distance.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "đi từ nơi này đến nơi khác, thường qua một khoảng cách nhất định", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "We travel by train when possible.", "vi": "Chúng tôi đi lại bằng tàu hỏa khi có thể.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000046",
+      "headword": "try",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To make an effort to do or achieve something.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "nỗ lực thực hiện hoặc đạt được một điều gì đó", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "I try to speak English during lunch.", "vi": "Tôi cố gắng nói tiếng Anh trong bữa trưa.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000047",
+      "headword": "use",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To do something with an object, method, or ability for a purpose.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "dùng một vật, phương pháp hoặc khả năng để đạt một mục đích", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "We use this room for group practice.", "vi": "Chúng tôi sử dụng căn phòng này để luyện tập theo nhóm.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000048",
+      "headword": "wait",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To stay in one place or delay an action until something happens.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "ở lại một nơi hoặc trì hoãn hành động cho đến khi điều gì đó xảy ra", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "We wait near the entrance for the bus.", "vi": "Chúng tôi đợi xe buýt gần lối vào.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000049",
+      "headword": "walk",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To move forward on foot at a regular pace.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "di chuyển về phía trước bằng chân với tốc độ bình thường", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "I walk to the office when the weather is cool.", "vi": "Tôi đi bộ đến văn phòng khi thời tiết mát mẻ.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    },
+    {
+      "dsd_entry_id": "10000000-0000-4000-8000-000000000050",
+      "headword": "work",
+      "product_rationale": "Core daily action selected for the first DSD learning pilot.",
+      "senses": [{
+        "sense_key": "s1", "sense_order": 1, "part_of_speech": "verb",
+        "definition_en": "To perform an activity that requires effort in order to achieve a result.",
+        "usage_labels": ["general"], "authored_by": "DSD-G-001",
+        "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "translation": {"locale": "vi", "text": "thực hiện một hoạt động cần nỗ lực để đạt được kết quả", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"},
+        "examples": [{"example_order": 1, "en": "We work together to solve the problem.", "vi": "Chúng tôi làm việc cùng nhau để giải quyết vấn đề.", "authored_by": "DSD-G-001", "source_id": "openai-dsd-generated-v1", "rights_evidence_id": "EV-OPENAI-OUTPUT-TERMS-20260101"}]
+      }]
+    }
+  ]
+}

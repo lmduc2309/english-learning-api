@@ -1,6 +1,29 @@
 {
   "version": 1,
-  "description": "Pseudonymous contributor register. IDs here are the only identity that appears in Git or in dsd_provenance_events. Names, contact details, signatures and executed contracts live in the contract store and are referenced by evidence ID only. The validator rejects personal-data fields, so this rule is enforced rather than trusted.",
+  "description": "Pseudonymous workflow-actor register. Human identity data stays outside Git. AI actors are explicitly typed and may generate drafts but can never hold a reviewer role.",
   "idFormat": "DSD-<ROLE-LETTER>-<sequence>, e.g. DSD-A-001 for an author, DSD-R-001 for a reviewer",
-  "contributors": []
+  "contributors": [
+    {
+      "id": "DSD-G-001",
+      "actorType": "ai",
+      "roles": ["generator"],
+      "languages": ["en", "vi"],
+      "engagementType": "automation",
+      "startDate": "2026-08-09",
+      "permissions": ["generate_definition", "generate_translation", "generate_example"],
+      "outputRightsEvidenceId": "EV-OPENAI-OUTPUT-TERMS-20260101",
+      "status": "active"
+    },
+    {
+      "id": "DSD-O-001",
+      "actorType": "human",
+      "roles": ["reviewer", "linguistic_reviewer", "product_owner"],
+      "languages": ["en", "vi"],
+      "engagementType": "owner",
+      "startDate": "2026-08-09",
+      "permissions": ["review_text", "approve_inventory", "publish_release"],
+      "ipAssignmentEvidenceId": "EV-OWNER-DECLARATION-20260809-001",
+      "status": "active"
+    }
+  ]
 }

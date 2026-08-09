@@ -5,6 +5,7 @@ import {
   FORBIDDEN_PACKAGE_FIELDS,
   CurationPackage,
   validatePackage,
+  validatePackageQuality,
   planCurationImport,
 } from './curation';
 
@@ -16,12 +17,43 @@ function registry(overrides: Partial<RegistrySnapshot> = {}): RegistrySnapshot {
     approvedScopesBySource: {
       'dsd-english-original': ['definition', 'example'],
       'dsd-vietnamese-original': ['translation', 'example'],
+      'openai-dsd-generated-v1': ['definition', 'translation', 'example'],
+    },
+    approvedTools: {
+      'openai-codex-text-generation': {
+        revision: 'effective-2026-01-01',
+        evidenceIds: [
+          'EV-OPENAI-OUTPUT-TERMS-20260101',
+          'EV-DSD-AI-POLICY-20260809-001',
+        ],
+      },
     },
     contributors: {
       'DSD-A-001': { status: 'active', roles: ['author'], rightsEvidenceId: 'EV-IP-001' },
       'DSD-A-002': { status: 'active', roles: ['author'], rightsEvidenceId: 'EV-IP-002' },
+      'DSD-G-001': {
+        status: 'active', roles: ['generator'],
+        rightsEvidenceId: 'EV-OPENAI-OUTPUT-TERMS-20260101', actorType: 'ai',
+      },
     },
     ...overrides,
+  };
+}
+
+function generation(): NonNullable<CurationPackage['generation']> {
+  return {
+    generator_actor_id: 'DSD-G-001',
+    generator_tool_id: 'openai-codex-text-generation',
+    generator_tool_revision: 'effective-2026-01-01',
+    generated_source_id: 'openai-dsd-generated-v1',
+    provider_id: 'openai',
+    product_id: 'codex',
+    runtime_model_id: 'codex-runtime-undisclosed',
+    generated_at: '2026-08-09T05:45:00Z',
+    prompt_policy_id: 'EV-DSD-AI-POLICY-20260809-001',
+    input_sha256: '02a9fbfca3112a7178ea8e379266ec910e46c2110cf0cd5179dd07c94572552e',
+    terms_evidence_id: 'EV-OPENAI-OUTPUT-TERMS-20260101',
+    legacy_input_used: false,
   };
 }
 
@@ -33,6 +65,7 @@ function pkg(overrides: Partial<CurationPackage> = {}): CurationPackage {
     entries: [
       {
         dsd_entry_id: ENTRY_ID,
+        headword: 'rehearse',
         senses: [
           {
             sense_key: 'k1',
@@ -192,6 +225,56 @@ describe('validatePackage — contributor rights', () => {
     reg.contributors['DSD-A-001'].roles = ['reviewer'];
     expect(validatePackage(pkg(), reg).join(' ')).toMatch(/author role/i);
   });
+
+  it('accepts a registered AI generator without pretending it is human-authored', () => {
+    const generated = pkg({ generation: generation() });
+    for (const record of [
+      generated.entries[0].senses[0],
+      generated.entries[0].senses[0].translation!,
+      generated.entries[0].senses[0].examples[0],
+    ]) {
+      record.authored_by = 'DSD-G-001';
+      record.source_id = 'openai-dsd-generated-v1';
+      record.rights_evidence_id = 'EV-OPENAI-OUTPUT-TERMS-20260101';
+    }
+    expect(validatePackage(generated, registry())).toEqual([]);
+  });
+
+  it('rejects AI-origin content without the audited generation envelope', () => {
+    const generated = pkg();
+    for (const record of [
+      generated.entries[0].senses[0],
+      generated.entries[0].senses[0].translation!,
+      generated.entries[0].senses[0].examples[0],
+    ]) {
+      record.authored_by = 'DSD-G-001';
+      record.source_id = 'openai-dsd-generated-v1';
+      record.rights_evidence_id = 'EV-OPENAI-OUTPUT-TERMS-20260101';
+    }
+    expect(validatePackage(generated, registry()).join(' ')).toMatch(/generation metadata/i);
+  });
+
+  it('rejects generation that used legacy text as input', () => {
+    const generated = pkg({ generation: { ...generation(), legacy_input_used: true } });
+    expect(validatePackage(generated, registry()).join(' ')).toMatch(/legacy_input_used must be false/i);
+  });
+
+  it('rejects an unapproved tool revision or mismatched AI source', () => {
+    const generated = pkg({
+      generation: { ...generation(), generator_tool_revision: 'unreviewed-revision' },
+    });
+    for (const record of [
+      generated.entries[0].senses[0],
+      generated.entries[0].senses[0].translation!,
+      generated.entries[0].senses[0].examples[0],
+    ]) {
+      record.authored_by = 'DSD-G-001';
+      record.rights_evidence_id = 'EV-OPENAI-OUTPUT-TERMS-20260101';
+    }
+    const errors = validatePackage(generated, registry()).join(' ');
+    expect(errors).toMatch(/tool revision/i);
+    expect(errors).toMatch(/does not match generation source/i);
+  });
 });
 
 describe('planCurationImport — draft only', () => {
@@ -223,6 +306,19 @@ describe('planCurationImport — draft only', () => {
     expect(planCurationImport(pkg()).senses[0].contentSha256).toBe(
       planCurationImport(pkg()).senses[0].contentSha256,
     );
+  });
+});
+
+describe('validatePackageQuality — offline release-critical checks', () => {
+  it('accepts the well-formed package', () => {
+    expect(validatePackageQuality(pkg())).toEqual([]);
+  });
+
+  it('rejects an example that does not use the headword', () => {
+    const bad = pkg();
+    bad.entries[0].headword = 'rehearse';
+    bad.entries[0].senses[0].examples[0].en = 'They practise every Thursday.';
+    expect(validatePackageQuality(bad).join(' ')).toMatch(/lemma_missing/i);
   });
 });
 

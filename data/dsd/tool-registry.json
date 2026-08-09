@@ -1,7 +1,21 @@
 {
   "version": 1,
-  "description": "Software permitted in the DSD pipeline. Every tool is pinned by revision so any output can be reproduced and attributed later. Tool output is always a candidate: no tool listed here may produce publishable content directly.",
+  "description": "Software permitted in the DSD pipeline. Every tool is pinned by revision or effective terms version. Generated text remains draft until a human approves its exact hash; no tool can approve or publish content directly.",
   "tools": [
+    {
+      "id": "openai-codex-text-generation",
+      "aliases": ["OpenAI Codex text generator"],
+      "scopes": ["tool"],
+      "status": "approved",
+      "approvedScopes": ["tool"],
+      "evidenceIds": [
+        "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "EV-DSD-AI-POLICY-20260809-001"
+      ],
+      "url": "https://openai.com/policies/services-agreement/",
+      "revision": "effective-2026-01-01",
+      "notes": "Used to generate new learner definitions, Vietnamese renderings and bilingual examples from blank DSD prompts. The exact underlying runtime model identifier is not exposed to this session, so every batch records the visible product, generation date, prompt-policy ID and output hashes. No legacy text is supplied as input."
+    },
     {
       "id": "misaki",
       "aliases": ["Misaki G2P"],

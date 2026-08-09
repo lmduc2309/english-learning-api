@@ -2,60 +2,49 @@
 
 ## Decision
 
-- Gate status: **BLOCKED / UNCOMMITTED**
+- Gate status: **COMMITTED — AI-GENERATED / HUMAN-OWNER-APPROVED**
 - Assessment date: **2026-08-09**
-- Eligible author count: **0**
-- Eligible independent reviewer count: **0**
+- Active AI generator count: **1**
+- Eligible human owner-reviewer count: **1**
 - Contributor registry: `data/dsd/contributor-registry.json`
 
-The repository contains no active contributor backed by IP-assignment evidence.
-No person has therefore been authorized to author or review publishable DSD
-content. This is an explicit release block, not an administrative warning.
+On 2026-08-09 the product owner replaced the human-authored/two-person model
+with an AI-generated/human-owner-approved model. The AI actor `DSD-G-001`
+originates drafts and cannot review. The human owner `DSD-O-001` reviews the
+exact output hashes. The system does not claim that the owner authored the
+text, that output is unique, or that AI output is exclusively copyrightable.
 
-On 2026-08-09 the product owner proposed acting as both author and reviewer and
-approving the data on the same date. One person may hold both roles in the
-register for different records, but cannot author and review the same record.
-The proposal therefore does not satisfy independent review and does not change
-this gate. No contributor identity or rights evidence was inferred from the
-proposal.
+## Work allowed by this staffing decision
 
-## Work allowed while blocked
+- Tasks 19–20 inventory, generation, validation and human review.
+- Engineering, infrastructure, quality, similarity and release-drill work.
 
-- Tasks 1–18 engineering, tests, schemas, and fail-closed release tooling.
-- Task 19 inventory preparation after the pilot measurement protocol is
-  approved, because a bare headword inventory contains no publishable wording.
-- Legal review, infrastructure provisioning, tool evaluation, and signing-key
-  ceremony preparation.
+## Still prohibited
 
-## Work prohibited while blocked
+- Attribution of AI output to the human owner as human-authored work.
+- AI approval or automatic bulk approval.
+- Supplying legacy or blocked dictionary text to the generator.
+- Public/commercial release until infrastructure, quality, similarity, IPA,
+  audio-rights and release-signature gates separately pass.
 
-- Task 20 publishable definitions, translations, or examples.
-- Task 21 final IPA approval or audio listening approval.
-- Task 22 pilot release drill claiming `GO`.
-- Any public or commercial DSD release.
-- Any workaround that assigns two contributor IDs to the same person for
-  authorship and review of one record.
+## Evidence for this decision
 
-## Evidence required to change this decision
-
-- [ ] Counsel-approved contributor agreement template: `<evidence-id>`
-- [ ] At least one active author with executed assignment evidence.
-- [ ] At least one different active reviewer with executed assignment evidence.
-- [ ] Registry validation passes after both entries are added.
-- [ ] Product owner confirms committed capacity for the 500-entry pilot.
-- [ ] Legal reviewer confirms the agreements cover commercial licensing and
-      resale of the resulting corpus in the intended territories.
-- [ ] Pilot measurement protocol approved.
+- [x] OpenAI Services Agreement effective 2026-01-01:
+      `EV-OPENAI-OUTPUT-TERMS-20260101`.
+- [x] DSD AI content policy and owner instruction:
+      `EV-DSD-AI-POLICY-20260809-001`.
+- [x] AI generator and human owner-reviewer registry entries.
+- [x] Registry validation passes.
+- [ ] Record-by-record human review of generated pilot content.
 
 ## Sign-off
 
-These fields deliberately remain empty until real external approvals exist.
-
 | Role | Evidence ID | Date |
 | --- | --- | --- |
-| Product owner | — | — |
-| Legal reviewer | — | — |
+| Product owner | `EV-DSD-AI-POLICY-20260809-001` | 2026-08-09 |
+| Provider output terms | `EV-OPENAI-OUTPUT-TERMS-20260101` | 2026-08-09 |
 
-The gate changes to `COMMITTED` only in a reviewed edit that supplies every
-item above. A repository commit or verbal instruction alone is not rights
-evidence.
+This is a product/process decision, not a legal opinion. Provider terms assign
+OpenAI's interest in output to the customer to the extent permitted by law,
+while warning that output may not be unique and remains the customer's
+responsibility to evaluate.

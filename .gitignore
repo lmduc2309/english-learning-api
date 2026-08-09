@@ -101,6 +101,8 @@ data/dsd/schemas/*
 !data/dsd/curation/
 data/dsd/curation/*
 !data/dsd/curation/*.json
+!data/dsd/curation/**/
+!data/dsd/curation/**/*.json
 # Review queues and decisions. The provenance ledger has no free-text column,
 # so the reviewer's guidance lives here and the event points at it — these files
 # are the review record, not a working artifact.

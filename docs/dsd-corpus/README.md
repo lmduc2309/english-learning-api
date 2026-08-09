@@ -1,8 +1,8 @@
 # DSD Corpus
 
-The DSD corpus is an independently authored English–Vietnamese learner
-dictionary, built to be licensed or resold without a third-party
-data-attribution chain.
+The DSD corpus is a newly generated English–Vietnamese learner dictionary built
+without importing or adapting a third-party dictionary corpus. Textual v1 data
+uses an explicit AI-generated, human-owner-approved provenance model.
 
 It is **not** a cleanup of the legacy dictionary in `english_learning_db`. It
 shares no rows, no identifiers, and no expressive content with it.
@@ -62,11 +62,11 @@ Everything is blocked by default. A source is usable only when its `status` is
 
 ## Current state
 
-Every content source is `blocked`, including DSD's own authored content. That
-is correct and deliberate: `dsd-english-original` unblocks only when a
-counsel-approved contributor agreement exists and at least one IP-assignment
-evidence ID is recorded. Until DSD holds assigned rights, authored English is
-not something DSD can publish — which is the whole point of excluding OEWN.
+`openai-dsd-generated-v1` is approved for definitions, Vietnamese translations
+and examples under the recorded output-terms and DSD AI-policy evidence. Human
+authored sources remain blocked. Generated output may not be unique and DSD
+does not market it as exclusively copyrightable; commercial release still
+depends on human approval, quality, similarity and all other release gates.
 
 LJSpeech and Norman are selected technical candidates but remain blocked for
 public release: public-domain training recordings clear copyright, not

@@ -3,6 +3,20 @@
   "package_version": 1,
   "batch_id": "",
   "declaration_id": "",
+  "generation": {
+    "generator_actor_id": "",
+    "generator_tool_id": "",
+    "generator_tool_revision": "",
+    "generated_source_id": "",
+    "provider_id": "",
+    "product_id": "",
+    "runtime_model_id": "",
+    "generated_at": "",
+    "prompt_policy_id": "",
+    "input_sha256": "",
+    "terms_evidence_id": "",
+    "legacy_input_used": false
+  },
   "entries": [
     {
       "dsd_entry_id": "00000000-0000-0000-0000-000000000000",

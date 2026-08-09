@@ -1,26 +1,27 @@
 /**
  * DSD curation package tool.
  *
- * A curation package is how authored content enters the corpus: definitions,
- * Vietnamese translations and examples, written by a named contributor against
- * an inventory entry that already exists.
+ * A curation package is how newly created content enters the corpus:
+ * definitions, Vietnamese translations and examples, produced by a registered
+ * human author or AI generator against an inventory entry that already exists.
  *
  * Three properties matter more than convenience here:
  *
- *   1. The validator touches no database. Authors and reviewers run it on a
+ *   1. The validator touches no database. Generators and reviewers run it on a
  *      laptop against a JSON file, so a package can be checked before anyone
  *      has credentials to anything.
  *   2. The importer writes drafts and nothing else. It has no code path that
  *      sets a reviewer, an approval or a publication status — those come from
- *      the review workflow, by a different person, under a CHECK constraint
- *      that refuses self-review.
+ *      the review workflow. An AI actor can generate content but cannot review
+ *      or approve it; the human product owner owns those decisions.
  *   3. Content is hashed on the way in, onto the row and into the provenance
  *      ledger. The hash is what later binds an approval to the exact words a
  *      reviewer read.
  *
- * IPA, audio, similarity scores and any external provider or model field are
- * refused by name. Pronunciation is a separate workflow with a separate rights
- * basis, and DSD v1 admits no machine-generated content at all.
+ * IPA, audio, similarity scores and arbitrary provider/model fields are refused
+ * by name. Pronunciation is a separate workflow with a separate rights basis.
+ * AI generation is admitted only through the fixed package-level generation
+ * envelope, so model/tool metadata cannot be smuggled into individual records.
  *
  * USAGE:
  *   npm run dsd:curation:validate -- --file data/dsd/curation/batch-001.json
@@ -40,6 +41,16 @@ import {
   translationHash,
   exampleHash,
 } from './lib/content-hash';
+import {
+  DefinitionRecord,
+  ExampleRecord,
+  TranslationRecord,
+  checkCorpus,
+  checkDefinition,
+  checkExample,
+  checkTranslation,
+  criticalFindings,
+} from '../../src/dsd-corpus/quality/dsd-quality';
 
 dotenv.config();
 
@@ -77,7 +88,7 @@ export const FORBIDDEN_PACKAGE_FIELDS = [
   'published_at',
   'revision',
   'supersedes_id',
-  // No machine-generated content in DSD v1, and no third-party transfer.
+  // Generation metadata is allowed only in the audited package-level envelope.
   'provider',
   'model',
   'prompt',
@@ -89,7 +100,15 @@ export const FORBIDDEN_PACKAGE_FIELDS = [
   'similarity_source',
 ] as const;
 
-const PACKAGE_KEYS = ['$schema', 'package_version', 'batch_id', 'declaration_id', 'entries'];
+const PACKAGE_KEYS = [
+  '$schema', 'package_version', 'batch_id', 'declaration_id', 'generation', 'entries',
+];
+const GENERATION_KEYS = [
+  'generator_actor_id', 'generator_tool_id', 'generator_tool_revision',
+  'generated_source_id', 'provider_id', 'product_id', 'runtime_model_id',
+  'generated_at', 'prompt_policy_id', 'input_sha256', 'terms_evidence_id',
+  'legacy_input_used',
+];
 /** headword and product_rationale are authoring context: checked, never written. */
 const ENTRY_KEYS = ['dsd_entry_id', 'headword', 'product_rationale', 'senses'];
 const SENSE_KEYS = [
@@ -142,15 +161,31 @@ export interface CurationSense {
 
 export interface CurationEntry {
   dsd_entry_id: string;
-  headword?: string;
+  headword: string;
   product_rationale?: string;
   senses: CurationSense[];
+}
+
+export interface GenerationMetadata {
+  generator_actor_id: string;
+  generator_tool_id: string;
+  generator_tool_revision: string;
+  generated_source_id: string;
+  provider_id: string;
+  product_id: string;
+  runtime_model_id: string;
+  generated_at: string;
+  prompt_policy_id: string;
+  input_sha256: string;
+  terms_evidence_id: string;
+  legacy_input_used: boolean;
 }
 
 export interface CurationPackage {
   package_version: number;
   batch_id: string;
   declaration_id: string;
+  generation?: GenerationMetadata;
   entries: CurationEntry[];
 }
 
@@ -217,8 +252,8 @@ function checkContributor(
     errors.push(`${where}: contributor '${id}' is not active (status '${contributor.status}')`);
   }
 
-  if (!contributor.roles.includes('author')) {
-    errors.push(`${where}: contributor '${id}' does not hold the author role`);
+  if (!contributor.roles.includes('author') && !contributor.roles.includes('generator')) {
+    errors.push(`${where}: contributor '${id}' does not hold the author role or a generator role`);
   }
 
   if (!contributor.rightsEvidenceId) {
@@ -328,6 +363,53 @@ export function validatePackage(pkg: CurationPackage, registry: RegistrySnapshot
   const errors: string[] = [];
   checkKeys(pkg, PACKAGE_KEYS, 'package', errors);
 
+  const generation = pkg.generation;
+  if (generation) {
+    checkKeys(generation, GENERATION_KEYS, 'package generation', errors);
+    const actor = registry.contributors[(generation.generator_actor_id ?? '').trim()];
+    if (!actor || actor.actorType !== 'ai' || !actor.roles.includes('generator')) {
+      errors.push('package generation: generator_actor_id is not an active registered AI generator');
+    } else if (actor.status !== 'active') {
+      errors.push('package generation: AI generator is not active');
+    }
+    const tool = registry.approvedTools?.[generation.generator_tool_id];
+    if (!tool) {
+      errors.push(`package generation: tool '${generation.generator_tool_id}' is not approved`);
+    } else {
+      if (generation.generator_tool_revision !== tool.revision) {
+        errors.push(
+          `package generation: tool revision '${generation.generator_tool_revision}' does not ` +
+            `match approved revision '${tool.revision}'`,
+        );
+      }
+      for (const evidenceId of [generation.terms_evidence_id, generation.prompt_policy_id]) {
+        if (evidenceId && !tool.evidenceIds.includes(evidenceId)) {
+          errors.push(
+            `package generation: tool '${generation.generator_tool_id}' does not carry ` +
+              `evidence '${evidenceId}'`,
+          );
+        }
+      }
+    }
+    if (!/^[0-9a-f]{64}$/.test(generation.input_sha256 ?? '')) {
+      errors.push('package generation: input_sha256 is missing or malformed');
+    }
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(generation.generated_at ?? '')) {
+      errors.push('package generation: generated_at must be UTC ISO 8601 seconds');
+    }
+    for (const field of [
+      'generator_tool_revision', 'generated_source_id', 'provider_id', 'product_id',
+      'runtime_model_id', 'prompt_policy_id', 'terms_evidence_id',
+    ] as const) {
+      if (!(generation[field] ?? '').trim()) {
+        errors.push(`package generation: ${field} is required`);
+      }
+    }
+    if (generation.legacy_input_used !== false) {
+      errors.push('package generation: legacy_input_used must be false');
+    }
+  }
+
   if (pkg.package_version !== 1) {
     errors.push(`package: package_version must be 1, got '${pkg.package_version}'`);
   }
@@ -358,6 +440,10 @@ export function validatePackage(pkg: CurationPackage, registry: RegistrySnapshot
     }
     seenEntries.add(id.toLowerCase());
 
+    if (!normalizeContent(entry.headword ?? '')) {
+      errors.push(`${where}: headword is required for offline quality validation`);
+    }
+
     const senses = Array.isArray(entry.senses) ? entry.senses : [];
     if (senses.length === 0) {
       errors.push(`${where}: must have at least one sense`);
@@ -378,7 +464,102 @@ export function validatePackage(pkg: CurationPackage, registry: RegistrySnapshot
     });
   });
 
+  const aiActors = new Set<string>();
+  const aiSources = new Set<string>();
+  for (const entry of entries) {
+    for (const sense of entry.senses ?? []) {
+      for (const record of [
+        { actorId: sense.authored_by, sourceId: sense.source_id },
+        { actorId: sense.translation?.authored_by, sourceId: sense.translation?.source_id },
+        ...(sense.examples ?? []).map((example) => ({
+          actorId: example.authored_by,
+          sourceId: example.source_id,
+        })),
+      ]) {
+        if (record.actorId && registry.contributors[record.actorId]?.actorType === 'ai') {
+          aiActors.add(record.actorId);
+          if (record.sourceId) aiSources.add(record.sourceId);
+        }
+      }
+    }
+  }
+  if (aiActors.size > 0 && !generation) {
+    errors.push('package: AI-origin content requires package generation metadata');
+  } else if (generation) {
+    if (aiActors.size === 0) {
+      errors.push('package: generation metadata is present but no record has an AI origin actor');
+    }
+    for (const actorId of aiActors) {
+      if (actorId !== generation.generator_actor_id) {
+        errors.push(`package: AI actor '${actorId}' does not match generation metadata`);
+      }
+    }
+    for (const sourceId of aiSources) {
+      if (sourceId !== generation.generated_source_id) {
+        errors.push(
+          `package: AI source '${sourceId}' does not match generation source ` +
+            `'${generation.generated_source_id}'`,
+        );
+      }
+    }
+    if (generation.terms_evidence_id) {
+      for (const actorId of aiActors) {
+        if (registry.contributors[actorId]?.rightsEvidenceId !== generation.terms_evidence_id) {
+          errors.push(`package: AI actor '${actorId}' terms evidence does not match generation metadata`);
+        }
+      }
+    }
+  }
+
   return errors;
+}
+
+/** Run release-critical linguistic rules before a package can reach a database. */
+export function validatePackageQuality(pkg: CurationPackage): string[] {
+  const definitions: DefinitionRecord[] = [];
+  const translations: TranslationRecord[] = [];
+  const examples: ExampleRecord[] = [];
+
+  for (const entry of pkg.entries ?? []) {
+    for (const sense of entry.senses ?? []) {
+      const key = `${entry.dsd_entry_id}:${sense.sense_key}`;
+      definitions.push({
+        entityId: key,
+        headword: entry.headword ?? '',
+        partOfSpeech: sense.part_of_speech,
+        definitionEn: sense.definition_en,
+        usageLabels: sense.usage_labels,
+      });
+      if (sense.translation) {
+        translations.push({
+          entityId: `${key}:vi`,
+          headword: entry.headword ?? '',
+          definitionEn: sense.definition_en,
+          locale: sense.translation.locale,
+          text: sense.translation.text,
+        });
+      }
+      for (const example of sense.examples ?? []) {
+        examples.push({
+          entityId: `${key}:example:${example.example_order}`,
+          headword: entry.headword ?? '',
+          partOfSpeech: sense.part_of_speech,
+          exampleEn: example.en,
+          exampleVi: example.vi,
+        });
+      }
+    }
+  }
+
+  const findings = [
+    ...definitions.flatMap(checkDefinition),
+    ...translations.flatMap(checkTranslation),
+    ...examples.flatMap(checkExample),
+    ...checkCorpus({ definitions, examples }),
+  ];
+  return criticalFindings(findings).map(
+    (finding) => `${finding.entityId}: ${finding.rule}: ${finding.message}`,
+  );
 }
 
 // ─── planning ───────────────────────────────────────────────────────────────
@@ -430,6 +611,7 @@ export interface PlannedExample {
 export interface CurationPlan {
   batchId: string;
   declarationId: string;
+  generation?: GenerationMetadata;
   senses: PlannedSense[];
   translations: PlannedTranslation[];
   examples: PlannedExample[];
@@ -439,6 +621,7 @@ export function planCurationImport(pkg: CurationPackage): CurationPlan {
   const plan: CurationPlan = {
     batchId: pkg.batch_id,
     declarationId: pkg.declaration_id,
+    generation: pkg.generation,
     senses: [],
     translations: [],
     examples: [],
@@ -535,6 +718,7 @@ function validateFile(file: string): CurationPackage {
 
   const pkg = readPackage(file);
   const errors = validatePackage(pkg, snapshotRegistries(loaded));
+  if (errors.length === 0) errors.push(...validatePackageQuality(pkg));
   if (errors.length > 0) {
     reportErrors(errors, file);
     process.exit(1);
@@ -553,7 +737,21 @@ async function recordImport(
   entityId: string,
   row: { authoredBy: string; sourceId: string; contentSha256: string },
   declarationId: string,
+  generation?: GenerationMetadata,
 ): Promise<void> {
+  if (generation && row.authoredBy === generation.generator_actor_id) {
+    await manager.query(
+      `INSERT INTO dsd_provenance_events
+         (entity_kind, entity_id, event_type, actor, source_id, tool_id,
+          input_hash, output_hash, evidence_id, occurred_at)
+       VALUES ($1,$2,'generated',$3,$4,$5,$6,$7,$8,$9::timestamptz)`,
+      [
+        kind, entityId, row.authoredBy, row.sourceId, generation.generator_tool_id,
+        generation.input_sha256, row.contentSha256, generation.terms_evidence_id,
+        generation.generated_at,
+      ],
+    );
+  }
   await manager.query(
     `INSERT INTO dsd_provenance_events
        (entity_kind, entity_id, event_type, actor, source_id, output_hash, evidence_id)
@@ -701,7 +899,7 @@ async function main(): Promise<void> {
           ],
         );
         senseIds.set(`${sense.dsdEntryId}\0${sense.senseKey}`, row.id);
-        await recordImport(manager, 'sense', row.id, sense, plan.declarationId);
+        await recordImport(manager, 'sense', row.id, sense, plan.declarationId, plan.generation);
       }
 
       for (const translation of plan.translations) {
@@ -718,7 +916,9 @@ async function main(): Promise<void> {
             plan.batchId, translation.rightsEvidenceId,
           ],
         );
-        await recordImport(manager, 'translation', row.id, translation, plan.declarationId);
+        await recordImport(
+          manager, 'translation', row.id, translation, plan.declarationId, plan.generation,
+        );
       }
 
       for (const example of plan.examples) {
@@ -735,7 +935,7 @@ async function main(): Promise<void> {
             example.rightsEvidenceId,
           ],
         );
-        await recordImport(manager, 'example', row.id, example, plan.declarationId);
+        await recordImport(manager, 'example', row.id, example, plan.declarationId, plan.generation);
       }
     });
 

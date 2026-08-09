@@ -224,6 +224,35 @@ describe('validateContributorRegistry', () => {
     expect(errors.join(' ')).toMatch(/ip-assignment evidence/i);
   });
 
+  it('accepts an AI generator with output-rights evidence', () => {
+    expect(validateContributorRegistry({
+      version: 1,
+      contributors: [contributor({
+        id: 'DSD-G-001',
+        actorType: 'ai',
+        roles: ['generator'],
+        engagementType: 'automation',
+        ipAssignmentEvidenceId: undefined,
+        outputRightsEvidenceId: 'EV-OPENAI-OUTPUT-TERMS-20260101',
+      })],
+    })).toEqual([]);
+  });
+
+  it('never lets an AI actor approve content', () => {
+    const errors = validateContributorRegistry({
+      version: 1,
+      contributors: [contributor({
+        id: 'DSD-G-001',
+        actorType: 'ai',
+        roles: ['generator', 'reviewer'],
+        engagementType: 'automation',
+        ipAssignmentEvidenceId: undefined,
+        outputRightsEvidenceId: 'EV-OPENAI-OUTPUT-TERMS-20260101',
+      })],
+    });
+    expect(errors.join(' ')).toMatch(/cannot hold a reviewer role/i);
+  });
+
   it.each([
     ['languages', []],
     ['engagementType', 'informal-helper'],

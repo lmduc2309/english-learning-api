@@ -1,12 +1,13 @@
 # DSD Review Rubric
 
-Every publishable textual and IPA record needs a reviewer who is **not** the
-author (invariant 6). This is what the reviewer checks.
+Every publishable textual record needs a human reviewer who is not its recorded
+origin actor. In the AI workflow, `DSD-G-001` generates and `DSD-O-001` reviews.
 
 ## What review is for
 
-Review is the evidence that DSD content was independently checked, and it is
-what makes the corpus defensible as original work. A reviewer who approves in
+Review is evidence that AI output was checked for correctness and product
+fitness; it is not evidence of human authorship or exclusive copyright. A
+reviewer who approves in
 bulk without reading produces provenance records that assert something untrue —
 which is worse than no review, because it manufactures confidence.
 
@@ -15,9 +16,8 @@ slow.
 
 ## Eligibility
 
-- You are not the author of the record.
-- You are not the same person under a second contributor ID.
-- You hold executed IP-assignment evidence and an active registry entry.
+- You are a human and are not the recorded AI/human origin actor.
+- You have an active owner/reviewer registry entry.
 - You have the language competence for what you are reviewing. Reviewing
   Vietnamese requires native or near-native Vietnamese.
 
@@ -28,7 +28,7 @@ slow.
 - [ ] One sense per record. Two senses in one definition is a rejection.
 - [ ] Part of speech matches the definition.
 - [ ] No Wiktionary-style pipe labels, template debris, or HTML entities.
-- [ ] No copied or paraphrased phrasing from any source.
+- [ ] No indication that blocked or legacy text was supplied to generation.
 
 ## Vietnamese translation
 
@@ -38,7 +38,8 @@ slow.
 - [ ] Diacritics correct and complete.
 - [ ] No CJK characters, including punctuation such as `。` and `，`.
 - [ ] Not identical to the English.
-- [ ] Not machine output pasted in.
+- [ ] Reads naturally and accurately after human inspection; AI literalness,
+      ambiguity and unnatural register are grounds for rejection.
 
 ## Bilingual example
 
@@ -81,7 +82,8 @@ version you actually read.
 
 ## What you may not do
 
-- Approve your own work under any identity.
+- Record yourself as the author of AI output.
+- Allow an AI actor to approve output.
 - Approve in bulk without reading each record.
 - Consult a blocked source to check a definition. If you need to verify a fact,
   use an approved reference and disclose it.

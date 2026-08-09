@@ -1,17 +1,15 @@
 # DSD Contributor Register
 
 The machine-readable register is
-`data/dsd/contributor-registry.json`. This document defines who may enter that
-register and records the current staffing state without putting personal data
-in Git.
+`data/dsd/contributor-registry.json`. Despite its historical filename, it now
+records both human contributors and explicitly typed AI workflow actors.
 
 ## Current state
 
-- Eligible authors: **0**
-- Eligible independent reviewers: **0**
-- Staffing gate: **BLOCKED / UNCOMMITTED**
-- Consequence: inventory planning may continue after its measurement protocol
-  is approved, but Tasks 20–22 and every commercial release remain blocked.
+- Active AI generators: **1** (`DSD-G-001`)
+- Active human owner/reviewers: **1** (`DSD-O-001`)
+- Content staffing model: **AI-GENERATED / HUMAN-OWNER-APPROVED**
+- Content staffing gate: **COMMITTED 2026-08-09**
 
 No identity is inferred from a Git author, system account, email address, or
 application user. A contributor becomes eligible only through a reviewed
@@ -24,9 +22,11 @@ registry entry backed by executed external evidence.
 | `id` | Stable pseudonym matching `DSD-<LETTER>-<sequence>` |
 | `roles` | One or more roles accepted by the registry validator |
 | `languages` | BCP-47-style language tags relevant to the assigned work |
-| `engagementType` | `employee`, `contractor`, `agency`, or `volunteer` |
+| `actorType` | `human` or `ai` |
+| `engagementType` | Human: `owner`, `employee`, `contractor`, `agency`, `volunteer`; AI: `automation` |
 | `startDate` | Engagement start date as `YYYY-MM-DD` |
-| `ipAssignmentEvidenceId` | Reference to the executed agreement in the external evidence store |
+| `ipAssignmentEvidenceId` | Human rights/ownership evidence reference |
+| `outputRightsEvidenceId` | AI provider output-terms evidence reference |
 | `status` | `active` or `inactive` |
 
 Names, email addresses, signatures, identity documents, payment details,
@@ -35,7 +35,7 @@ The registry validator rejects known personal-data fields.
 
 ## Eligibility rules
 
-An active author or reviewer must:
+An active human author or reviewer must:
 
 1. have a counsel-approved agreement satisfying
    `IP-ASSIGNMENT-CHECKLIST.md`;
@@ -43,13 +43,18 @@ An active author or reviewer must:
 3. be assigned only work covered by their recorded role and languages; and
 4. remain active on the date of authorship or review.
 
-For every publishable record, `authored_by` and `reviewed_by` must resolve to
-different active contributor IDs. One person may hold multiple roles, but may
-not review their own record under another pseudonym.
+An active AI actor must be typed `ai`, use `automation`, hold `generator`, carry
+output-rights evidence, and hold no reviewer role.
+
+For every publishable record, `authored_by` identifies the origin actor and
+must differ from `reviewed_by`. AI-generated v1 rows use `DSD-G-001`; the human
+owner uses `DSD-O-001` for review. This preserves truthful provenance without
+pretending the owner wrote model output.
 
 ## Activation procedure
 
-1. Legal stores the executed agreement and issues its evidence ID.
+1. Record the applicable human ownership/assignment evidence or AI output-terms
+   evidence and issue its evidence ID.
 2. The authorized registry maintainer allocates a pseudonymous contributor ID.
 3. Add the required fields to `data/dsd/contributor-registry.json`.
 4. Run `npm run dsd:registry:validate`.

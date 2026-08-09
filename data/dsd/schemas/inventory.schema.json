@@ -6,6 +6,7 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
+    "dsd_entry_id",
     "headword",
     "part_of_speech_expectation",
     "dsd_priority",
@@ -16,6 +17,11 @@
     "declaration_id"
   ],
   "properties": {
+    "dsd_entry_id": {
+      "type": "string",
+      "description": "Fresh DSD UUID allocated before import so curation packages reference the same entry in every environment. Never a legacy identifier.",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
     "headword": {
       "type": "string",
       "description": "English headword. Latin letters, apostrophe, hyphen and single spaces only; at most 4 words and 40 characters. Longer values or sentence punctuation indicate a definition pasted into the wrong column.",

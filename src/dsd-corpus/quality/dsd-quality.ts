@@ -194,7 +194,7 @@ function checkText(value: string, context: Context): QualityFinding[] {
     add('raw_markup', 'critical', `${context.field} contains markdown markup`);
   }
   if (PROMPT_LEAKAGE.test(text)) {
-    add('prompt_leakage', 'critical', `${context.field} reads like model output, which DSD v1 does not permit`);
+    add('prompt_leakage', 'critical', `${context.field} contains generation wrapper or prompt text`);
   }
   if (isFormulaInjection(normalize(text))) {
     add('formula_injection', 'critical', `${context.field} starts with a spreadsheet formula character`);

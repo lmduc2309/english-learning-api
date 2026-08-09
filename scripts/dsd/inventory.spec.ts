@@ -11,6 +11,7 @@ import {
 
 function row(overrides: Partial<InventoryRow> = {}): InventoryRow {
   return {
+    dsd_entry_id: '11111111-1111-4111-8111-111111111111',
     headword: 'rehearse',
     part_of_speech_expectation: 'verb',
     dsd_priority: '120',
@@ -82,6 +83,10 @@ describe('validateRow', () => {
     expect(validateRow(row(), 2)).toEqual([]);
   });
 
+  it('requires a fresh DSD UUID that later curation packages can reference', () => {
+    expect(validateRow(row({ dsd_entry_id: 'legacy-42' }), 2).join(' ')).toMatch(/UUID/i);
+  });
+
   it('requires a clean-room declaration', () => {
     expect(validateRow(row({ declaration_id: '' }), 2).join(' ')).toMatch(/declaration/i);
   });
@@ -133,6 +138,7 @@ describe('validateRow', () => {
 
 describe('planImport', () => {
   const existing = (overrides: Partial<ExistingEntry> = {}): ExistingEntry => ({
+    id: '11111111-1111-4111-8111-111111111111',
     headwordNormalized: 'rehearse',
     headword: 'rehearse',
     dsdPriority: 120,
@@ -180,5 +186,17 @@ describe('planImport', () => {
   it('rejects a file containing the same headword twice', () => {
     const plan = planImport([row(), row({ headword: 'Rehearse' })], []);
     expect(plan.rejected.join(' ')).toMatch(/duplicate headword/i);
+  });
+
+  it('rejects one UUID assigned to two headwords', () => {
+    const plan = planImport([row(), row({ headword: 'practice' })], []);
+    expect(plan.rejected.join(' ')).toMatch(/duplicate dsd_entry_id/i);
+  });
+
+  it('refuses to rebind an existing headword to a new UUID', () => {
+    const plan = planImport([
+      row({ dsd_entry_id: '22222222-2222-4222-8222-222222222222' }),
+    ], [existing()]);
+    expect(plan.rejected.join(' ')).toMatch(/refusing a second DSD identity/i);
   });
 });

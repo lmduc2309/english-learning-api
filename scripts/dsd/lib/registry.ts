@@ -5,7 +5,7 @@
  *
  *   data/dsd/source-registry.json       what content may be used, and for what
  *   data/dsd/tool-registry.json         what software may run, pinned
- *   data/dsd/contributor-registry.json  who may author and review
+ *   data/dsd/contributor-registry.json  human and AI actors in the workflow
  *
  * The validator is the enforcement point for rules that would otherwise be
  * conventions in a policy document. In particular it refuses personal data in
@@ -35,6 +35,7 @@ export type DsdStatus = (typeof DSD_STATUSES)[number];
 
 export const DSD_CONTRIBUTOR_ROLES = [
   'author',
+  'generator',
   'reviewer',
   'compliance_reviewer',
   'linguistic_reviewer',
@@ -44,7 +45,10 @@ export const DSD_CONTRIBUTOR_ROLES = [
 ] as const;
 
 export const DSD_CONTRIBUTOR_STATUSES = ['active', 'inactive'] as const;
-export const DSD_ENGAGEMENT_TYPES = ['employee', 'contractor', 'agency', 'volunteer'] as const;
+export const DSD_ACTOR_TYPES = ['human', 'ai'] as const;
+export const DSD_ENGAGEMENT_TYPES = [
+  'owner', 'employee', 'contractor', 'agency', 'volunteer', 'automation',
+] as const;
 
 /**
  * Fields that must never appear in a committed contributor record. Store an
@@ -87,12 +91,14 @@ export interface DsdTool extends DsdSource {
 
 export interface DsdContributor {
   id: string;
+  actorType?: string;
   roles: string[];
   languages: string[];
   engagementType: string;
   startDate: string;
   permissions?: string[];
   ipAssignmentEvidenceId?: string;
+  outputRightsEvidenceId?: string;
   status: string;
   [key: string]: unknown;
 }
@@ -214,6 +220,7 @@ export function validateContributorRegistry(doc: {
 
   const seen = new Set<string>();
   for (const entry of contributors) {
+    const actorType = entry.actorType ?? 'human';
     if (seen.has(entry.id)) {
       errors.push(`contributor registry: duplicate contributor id '${entry.id}'`);
     }
@@ -239,6 +246,10 @@ export function validateContributorRegistry(doc: {
       }
     }
 
+    if (!(DSD_ACTOR_TYPES as readonly string[]).includes(actorType)) {
+      errors.push(`contributor '${entry.id}' has unknown actor type '${actorType}'`);
+    }
+
     if (!(DSD_CONTRIBUTOR_STATUSES as readonly string[]).includes(entry.status)) {
       errors.push(`contributor '${entry.id}' has unknown status '${entry.status}'`);
     }
@@ -259,12 +270,33 @@ export function validateContributorRegistry(doc: {
       );
     }
 
+    if (actorType === 'ai') {
+      if (entry.engagementType !== 'automation') {
+        errors.push(`AI actor '${entry.id}' must use engagement type 'automation'`);
+      }
+      if (!(entry.roles ?? []).includes('generator')) {
+        errors.push(`AI actor '${entry.id}' must hold the generator role`);
+      }
+      if ((entry.roles ?? []).some((role) => role.includes('reviewer'))) {
+        errors.push(`AI actor '${entry.id}' cannot hold a reviewer role`);
+      }
+    } else if (entry.engagementType === 'automation') {
+      errors.push(`human contributor '${entry.id}' cannot use engagement type 'automation'`);
+    }
+
     if (!/^\d{4}-\d{2}-\d{2}$/.test(entry.startDate ?? '')) {
       errors.push(`contributor '${entry.id}' has no valid YYYY-MM-DD start date`);
     }
 
-    if (entry.status === 'active' && !(entry.ipAssignmentEvidenceId ?? '').trim()) {
-      errors.push(`contributor '${entry.id}' is active with no IP-assignment evidence`);
+    const rightsEvidence = actorType === 'ai'
+      ? entry.outputRightsEvidenceId
+      : entry.ipAssignmentEvidenceId;
+    if (entry.status === 'active' && !(rightsEvidence ?? '').trim()) {
+      errors.push(
+        actorType === 'ai'
+          ? `AI actor '${entry.id}' is active with no output-rights evidence`
+          : `contributor '${entry.id}' is active with no IP-assignment evidence`,
+      );
     }
   }
   return errors;
@@ -287,13 +319,20 @@ export interface LoadedRegistries {
  */
 export interface RegistrySnapshot {
   approvedScopesBySource: Record<string, string[]>;
-  contributors: Record<string, { status: string; roles: string[]; rightsEvidenceId: string }>;
+  approvedTools?: Record<string, { revision: string; evidenceIds: string[] }>;
+  contributors: Record<string, {
+    status: string;
+    roles: string[];
+    rightsEvidenceId: string;
+    actorType?: string;
+  }>;
   /** Names a reviewer must not cite in decision notes. */
   blockedSourceNames?: string[];
 }
 
 export function snapshotRegistries(loaded: LoadedRegistries = loadRegistries()): RegistrySnapshot {
   const approvedScopesBySource: RegistrySnapshot['approvedScopesBySource'] = {};
+  const approvedTools: NonNullable<RegistrySnapshot['approvedTools']> = {};
   const blockedSourceNames: string[] = [];
   for (const source of loaded.sources) {
     // Only approved sources contribute scopes. A candidate is not a permission.
@@ -304,16 +343,30 @@ export function snapshotRegistries(loaded: LoadedRegistries = loadRegistries()):
     }
   }
 
+  for (const tool of loaded.tools) {
+    if (tool.status === 'approved') {
+      approvedTools[tool.id] = {
+        revision: tool.revision ?? '',
+        evidenceIds: tool.evidenceIds ?? [],
+      };
+    }
+  }
+
   const contributors: RegistrySnapshot['contributors'] = {};
   for (const contributor of loaded.contributors) {
     contributors[contributor.id] = {
       status: contributor.status,
       roles: contributor.roles ?? [],
-      rightsEvidenceId: (contributor.ipAssignmentEvidenceId ?? '').trim(),
+      rightsEvidenceId: (
+        contributor.actorType === 'ai'
+          ? contributor.outputRightsEvidenceId
+          : contributor.ipAssignmentEvidenceId
+      )?.trim() ?? '',
+      actorType: contributor.actorType ?? 'human',
     };
   }
 
-  return { approvedScopesBySource, contributors, blockedSourceNames };
+  return { approvedScopesBySource, approvedTools, contributors, blockedSourceNames };
 }
 
 export function registryDir(): string {

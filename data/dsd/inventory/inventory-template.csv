@@ -1,2 +1,2 @@
-headword,part_of_speech_expectation,dsd_priority,dsd_band,product_rationale,author_contributor_id,authored_date,inventory_evidence_id,declaration_id
-rehearse,verb,120,core,"Common in workplace and study contexts; learners ask for it early.",DSD-A-001,2026-08-02,EV-INV-001,DSD-DECL-20260802-001
+dsd_entry_id,headword,part_of_speech_expectation,dsd_priority,dsd_band,product_rationale,author_contributor_id,authored_date,inventory_evidence_id,declaration_id
+11111111-1111-4111-8111-111111111111,rehearse,verb,120,core,"Common in workplace and study contexts; learners ask for it early.",DSD-O-001,2026-08-09,EV-INV-AI-PILOT-001,DSD-AI-DECL-20260809-001

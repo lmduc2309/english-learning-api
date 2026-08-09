@@ -1,13 +1,13 @@
 # DSD Authoring Policy
 
-Binding on every author and reviewer of DSD content.
+Binding on every human or AI origin actor and every reviewer of DSD content.
 
 ## The clean-room boundary
 
-DSD's commercial position rests on its content being independently authored. If
-that is not true, the OEWN exclusion bought nothing and the corpus inherits
-whatever obligations attach to whatever was actually copied. This policy is what
-makes the claim defensible.
+DSD's commercial position rests on its content being newly generated from blank
+prompts without legacy or blocked dictionary wording. DSD no longer claims that
+all textual content was written by a human. AI-generated records are labelled as
+such and require a human owner to approve the exact content hash.
 
 ### You may use
 
@@ -15,8 +15,8 @@ makes the claim defensible.
 - Your own knowledge of English and Vietnamese.
 - Sources explicitly `approved` in `data/dsd/source-registry.json` for the scope
   you are authoring, and only for that scope.
-- Approved tools from `data/dsd/tool-registry.json`, understanding that tool
-  output is always a **candidate** and never publishable as authored.
+- Approved generation tools from `data/dsd/tool-registry.json`. Their output is
+  a draft until a human review decision approves the exact content hash.
 - General reference works for *fact-checking* — confirming a spelling, checking
   whether a sense exists — provided you disclose them in the batch declaration
   and do not copy phrasing.
@@ -27,9 +27,10 @@ makes the claim defensible.
   screenshot, a search result, or a colleague's recollection of it.
 - OEWN, NGSL, Wiktionary, the `tudien` archive, or any source marked `blocked`.
 - Another bilingual dictionary's phrasing, whether copied or paraphrased.
-- An LLM asked to produce a definition, translation, or example for publication.
-  Machine output cannot satisfy a human authorship field, and pasting it in
-  while recording yourself as author is falsifying the provenance ledger.
+- Any prompt containing legacy/blocked dictionary text, even if the model is
+  asked to paraphrase, translate or improve it.
+- AI output whose provider, tool revision, prompt-policy ID, run date, origin
+  actor, terms evidence and output hash are not recorded.
 - Anything in your clipboard from any of the above.
 
 **Paraphrasing a blocked source is still using it.** Rewording someone else's
@@ -39,14 +40,15 @@ let the compliance reviewer decide; do not attempt to launder it.
 
 ## Working method
 
-1. Take a headword from the approved inventory.
-2. Author from a blank template: definition, then Vietnamese, then a bilingual
-   example that shows the sense in use.
-3. Write for a learner. Short, concrete, and demonstrating the sense rather than
-   restating it.
-4. Submit the batch with a signed clean-room declaration.
-5. A **different** person reviews. You cannot review your own work, and you
-   cannot review under a second contributor ID.
+1. Take a headword from the DSD-owned inventory.
+2. Generate from a blank prompt containing only the headword, expected part of
+   speech, product rationale and DSD writing rules. Never provide legacy text.
+3. Produce a short learner definition, its natural Vietnamese rendering and a
+   bilingual example that demonstrates the same sense.
+4. Store the AI origin actor and batch-generation declaration; never attribute
+   the wording to the human reviewer.
+5. The human owner reads every record and approves or rejects the exact hash.
+   The AI actor cannot approve its own output.
 
 ## Similarity results
 

@@ -60,8 +60,10 @@ signatures.
   from product requirements; do not export the legacy headword set as a
   starting list.
 - [x] **APPROVED 2026-08-02.** Treat OEWN and NGSL as excluded from DSD v1 even though the existing project previously approved them under attribution/share-alike terms. See *Accepted trade-off: excluding OEWN* below.
-- [x] **APPROVED 2026-08-02.** Require a different human reviewer from the
-  author for every publishable textual or IPA record.
+- [x] **SUPERSEDED 2026-08-09.** The original two-human text-authoring model is
+  replaced by AI-generated, human-owner-approved text. `DSD-G-001` is recorded
+  as the origin actor and can never review; `DSD-O-001` reviews each exact hash.
+  IPA/audio retain their separate human quality and rights gates.
 - [x] **APPROVED 2026-08-02.** Require US IPA plus human-reviewed headword
   audio from both approved voices before an entry can ship in a complete DSD
   release.
@@ -189,9 +191,9 @@ obtain the release approvals required below.
 2. No DSD authoring command imports or queries a legacy entity.
 3. Only the compliance similarity command may open both database connections.
 4. DSD authoring files never contain legacy definitions, examples, translations, or IPA as hints.
-5. No content becomes `published` without author, reviewer, timestamps, content hash, and an append-only provenance event.
-6. `authored_by` and `reviewed_by` must differ for approved content.
-7. Machine output is always a candidate. It cannot satisfy human review fields.
+5. No content becomes `published` without a truthful origin actor, human reviewer, timestamps, content hash, and append-only provenance events.
+6. `authored_by` identifies the human or AI origin actor and must differ from `reviewed_by` for approved content.
+7. Machine output is always a draft until a human approves its exact hash. An AI actor cannot satisfy a human review field.
 8. A published sense requires an approved Vietnamese translation and at least one approved bilingual example.
 9. A released entry requires approved US IPA and approved LJSpeech and Norman audio assets.
 10. Commercial-safe mode reads DSD only. Missing DSD content returns `404`; it never falls back.
@@ -592,14 +594,13 @@ write boundaries.
 
 ---
 
-## Task 2B: Confirm authoring capacity and contributor IP evidence (staffing gate)
+## Task 2B: Confirm generation and owner-review capacity (staffing gate)
 
-A governance gate, not an engineering task. It exists because invariant 6
-(`authored_by ≠ reviewed_by`) cannot be satisfied by tooling, and because
-contributor IP assignment is what makes the OEWN exclusion actually pay off.
-At plan completion, no named/eligible authoring capacity has been supplied;
-implementation must record the gate as `uncommitted` until external evidence
-proves otherwise. Do not invent contributor identities to mark it complete.
+A governance gate, not an engineering task. The 2026-08-09 product decision
+replaced human authoring with a registered AI generator plus record-by-record
+human owner review. The gate now verifies truthful AI provenance, provider
+output-rights evidence and a human reviewer; it does not manufacture a second
+human identity for a solo project.
 
 **Why this is a gate and not an administrative detail.** OEWN was excluded to
 avoid a third-party attribution chain on a corpus intended for licensing or
@@ -617,28 +618,21 @@ is therefore load bearing, not paperwork.
 
 **Minimum release capacity:**
 
-- At least one human author, and at least one **different** human reviewer.
-- Both recorded in the Git-tracked register with: pseudonymous stable identifier, role
-  (`author`, `reviewer`, or both on different records), languages, engagement
-  type (employee or contractor), start date, and a reference to signed
-  contributor-rights evidence. Real names, signatures, contact data, contract
-  terms, and identity mapping remain in the approved external evidence store.
+- At least one registered AI generator and one human owner-reviewer.
+- The AI actor records output-rights evidence and may generate drafts only. The
+  human records owner/reviewer evidence and approves each exact content hash.
 - `authored_by` and `reviewed_by` values written to `dsd_provenance_events`
   must match register identifiers, so the ledger and the register cannot drift.
 - The evidence is based on the counsel-approved agreement from Task 1; a
   work-for-hire label without an assignment fallback is insufficient.
 
-**Blocking rules if no second reviewer is committed:**
+**Blocking rules:**
 
-- **Blocked:** Task 20 (author and review pilot content), Task 21 (IPA and
-  audio review), Task 22 (pilot release drill), and any commercial release.
-  These all require independent review and cannot be satisfied by one person.
-- **May proceed:** Tasks 1–18 (engineering, tooling, schema, audits, export)
-  and Task 19 (the 500-headword inventory), since inventory selection is a
-  product decision and carries no publishable expressive content.
-- Record the block explicitly in the gate document. Do not work around it by
-  relaxing invariant 6 or by having one person hold both roles under different
-  identifiers.
+- **Blocked:** automatic approval, AI review, attribution of AI text to the
+  owner as human-authored, and any generation that receives legacy wording.
+- **May proceed:** Tasks 19–20 under `DSD-G-001` -> `DSD-O-001`. Later release
+  work remains subject to infrastructure, quality, similarity, IPA, audio and
+  signing gates.
 
 **On the effort estimate.** The ~1.4 person-year figure for v1 and the derived
 four-to-five-month calendar are **provisional**. They rest on an assumed ~25
@@ -656,12 +650,11 @@ commit to a launch date before that measurement exists.
 
 **Acceptance:**
 
-- Contributor register exists and lists at least one author and one different
-  reviewer, or explicitly records that the second reviewer is uncommitted and
-  Tasks 20–22 are blocked.
-- Every listed contributor has executed, counsel-approved contributor-rights
-  evidence referenced, or remains ineligible to author/review publishable data.
-- The gate decision is signed by the product owner and legal reviewer.
+- Actor register lists the AI generator and human owner-reviewer with their
+  distinct evidence types.
+- Registry validation rejects AI reviewer roles and missing output-rights evidence.
+- The gate decision records the product owner's 2026-08-09 instruction and the
+  provider terms version; it does not claim to be legal advice.
 - The pilot throughput measurement plan is agreed before Task 19 begins.
 
 ---
@@ -1648,7 +1641,7 @@ dist/dsd-corpus/<release-id>/
 
 ---
 
-## Task 20: Author and review pilot definitions, translations, and examples
+## Task 20: Generate and human-review pilot definitions, translations, and examples
 
 **Deliverables:**
 
@@ -1658,13 +1651,13 @@ dist/dsd-corpus/<release-id>/
 
 **Process:**
 
-- Prerequisites: Task 2B has eligible author/reviewer identities and Task 8A's
+- Prerequisites: Task 2B has an eligible generator/human-reviewer pair and Task 8A's
   v1 similarity policy is frozen and approved.
 - Work in batches of at most 50 headwords.
-- Author from blank templates in the Task 1 clean-room environment. Authors do
-  not receive legacy text, similarity matches, existing dictionary wording, or
-  machine-generated definitions/translations/examples.
-- Review English, Vietnamese, and examples independently.
+- Generate from blank DSD prompts. The model receives no legacy text,
+  similarity matches or existing dictionary wording.
+- Record the AI origin actor and provider/tool policy; the human owner reviews
+  English, Vietnamese and examples record by record.
 - Record authoring/review/rework time and reason codes under the pilot protocol.
 - Run quality audits on all DSD content and legacy similarity audits on the
   English definitions/examples after each batch. The audit reader cannot access
