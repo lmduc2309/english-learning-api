@@ -10,13 +10,14 @@
 > API routing, schema/migrations, curation and similarity tooling, IPA/audio
 > gates, deterministic signed export, exact release membership, release audit,
 > and Task 2A backup/restore/deploy tooling are implemented in the working tree.
-> All migrations have been exercised on the empty local DSD workbench. This is
-> not a commercial `GO`: Task 2B's register, measurement protocol, and explicit
-> staffing-gate record are implemented, but the gate correctly remains
-> `BLOCKED / UNCOMMITTED` pending real contributor/IP evidence and human
-> approval. Source and voice-rights approvals, production
-> infrastructure/restore evidence, signing trust root, and Tasks 19–24 real
-> content remain incomplete or deliberately blocked.
+> All migrations have been exercised locally and on the isolated production DSD
+> database. Task 2B is `COMMITTED — AI-GENERATED / HUMAN-OWNER-APPROVED`, with
+> registered actors `DSD-G-001` and `DSD-O-001`. The first 50 entries are staged
+> on production as drafts; the owner's approval intent is recorded but the 150
+> exact hash-bound review decisions are not yet applied. This is not a
+> commercial `GO`: off-host backup/restore evidence, source/voice-rights
+> approvals, signing trust root, and Tasks 19 onward real content remain
+> incomplete or deliberately blocked.
 
 **Goal:** Build a new, commercially releasable English-learning corpus under the DSD name without importing expressive content or row identity from the legacy dictionary, and integrate it into the API behind a fail-closed commercial-safe boundary.
 
@@ -70,9 +71,12 @@ signatures.
 - [x] **APPROVED 2026-08-02.** Use the pinned TTS stack only on DSD-controlled
   servers or authoring machines. Do not bundle any part of it into a web,
   desktop, mobile, or other customer-distributed client under this plan.
-- [x] **APPROVED 2026-08-02.** Treat the 500-headword package as an internal
+- [x] **SUPERSEDED 2026-08-09.** Treat the 500-headword package as an internal
   release drill, 5,000 as the first public commercial v1, and 20,000 as the
-  extended corpus. Do not target parity with the 475,153-word legacy corpus.
+  extended-corpus milestone, then continue in guarded waves to exactly 475,153
+  unique normalized DSD entries. The legacy corpus contributes only the scalar
+  count, never its inventory or content. See
+  `2026-08-09-dsd-full-corpus-ai-automation.md`.
 - [x] **APPROVED 2026-08-02.** Keep the public DSD release channel closed until
   the 5,000-entry v1 passes all gates. A pilot is never a public dictionary.
 
@@ -92,38 +96,26 @@ that can be licensed or resold without a third-party data-attribution chain.
 Attribution is cheap when you ship an app and expensive when you license data;
 this project is the second case.
 
-**Accepted cost.** Every English definition is authored from scratch rather
-than adapted. Taking the review gates at face value — each publishable record
-authored and independently reviewed:
+**Accepted cost.** Every English definition, Vietnamese explanation, and
+bilingual example is newly generated from blank DSD inventory context rather
+than adapted. The previous manual-authoring estimates of 1.4 person-years for
+5,000 and 5.6 person-years for 20,000 were superseded by the 2026-08-09
+AI-generation decision and must not be used for scheduling.
 
-| | v1 (5,000 headwords) | extended (20,000) |
-| --- | --- | --- |
-| Definitions | ~10,000 | ~40,000 |
-| Vietnamese translations | ~10,000 | ~40,000 |
-| Bilingual examples | ~10,000 | ~40,000 |
-| IPA / audio assets | 5,000 / 10,000 | 20,000 / 40,000 |
+The new cost model is API generation plus owner review, similarity handling,
+IPA/audio production, storage, backup, and release operations for milestones of
+500, 5,000, 20,000, 100,000, 250,000, and 475,153 entries. None of those costs
+is extrapolated before the direct-API 50-entry calibration and complete 500-entry
+pilot measure tokens, accepted-entry cost, rejection/rework rates, owner-review
+time, similarity false-positive time, audio generation/listening time, storage,
+and restore duration. No launch date or full-run spend is authorized from an
+unmeasured per-entry guess.
 
-At roughly 25 minutes for a skilled bilingual lexicographer to author a
-complete entry, plus independent review, v1 is on the order of **1.4
-person-years** and the 20,000-headword corpus roughly **5.6 person-years** —
-about four contributors for four to five months to reach v1. Using OEWN for the
-English side would have halved this. That saving is knowingly declined to build
-DSD-controlled original textual content without a third-party data-attribution
-chain. Contributor and non-copyright rights still require the gates below.
-
-**These figures are provisional.** The 25-minute assumption has not been
-measured on this content, this language pair, or this review workflow, and the
-derived calendar is a planning placeholder rather than a commitment. It does
-not yet separately quantify per-asset audio listening/rework or the engineering,
-operations, and legal programme. Task 2B requires the 500-headword pilot to
-record actual authoring and review throughput, rework rate, audio-review time,
-and similarity false-positive rate; re-derive both estimates from those
-measurements and update this section before any launch date is set.
-
-**Consequence for planning.** Tasks 23 and 24 are staffing programmes, not
-sprints. Do not schedule them as engineering iterations, and do not relax
-invariant 6 (`authored_by ≠ reviewed_by`) to compensate for throughput —
-independent review is what makes the corpus defensible as original work.
+**Consequence for planning.** The scale programme is a sequence of measured,
+fail-closed waves, not a single unattended run. Do not relax invariant 6
+(`authored_by ≠ reviewed_by`) to compensate for throughput; the AI generator
+cannot approve its own output, and the owner decision must stay bound to exact
+content hashes.
 
 ---
 
@@ -634,19 +626,20 @@ is therefore load bearing, not paperwork.
   work remains subject to infrastructure, quality, similarity, IPA, audio and
   signing gates.
 
-**On the effort estimate.** The ~1.4 person-year figure for v1 and the derived
-four-to-five-month calendar are **provisional**. They rest on an assumed ~25
-minutes to author a complete entry plus independent review, which has not been
-measured on this content, this language pair, or this review workflow. Treat
-them as a planning placeholder for content labour only, not an engineering,
-operations, legal, or already-measured launch estimate.
+**On the effort estimate.** The former ~1.4 person-year manual-authoring figure
+for v1 and its four-to-five-month calendar are **superseded**, not provisional
+launch estimates. AI generation changes authoring throughput but does not
+remove owner review, similarity, IPA/audio, infrastructure, legal, or release
+work. The direct-API calibration and 500-entry pilot must measure the new cost
+and throughput model before any schedule is accepted.
 
 Task 19 approves the measurement protocol and instruments the inventory stage.
-Tasks 20 and 21 then record actual authoring minutes per entry, review minutes
+Tasks 20 and 21 then record actual generation cost/time per entry, review minutes
 per record/asset, rework rate, rejection reasons, similarity-review time, and
-similarity false-positive rate. Re-derive the v1 and 20,000-headword estimates
-from the completed pilot and update the *Accepted trade-off* section. Do not
-commit to a launch date before that measurement exists.
+similarity false-positive rate. Re-derive the 5,000, 20,000, and 475,153-entry
+cost, staffing, storage, and calendar estimates from the completed pilot and
+update the *Accepted trade-off* section. Do not commit to a launch date or full
+run before that measurement exists.
 
 **Acceptance:**
 
@@ -800,7 +793,9 @@ dsd:curation:stats
 - Hash normalized content and store the hash both on the row and in the provenance event.
 - Import draft content only. This command cannot approve or publish.
 - Reject any source not approved for the record's scope.
-- Prohibit external provider/model fields in DSD v1; no OpenRouter or remote translation run is part of this plan.
+- Require truthful provider, product, model/revision, prompt-policy, terms,
+  request, input, and output evidence for AI-generated DSD packages. Direct
+  OpenAI generation is permitted after calibration; OpenRouter is prohibited.
 - Require the authoring batch's clean-room declaration and reject a contributor
   whose rights evidence is absent, expired, revoked, or not approved for the
   record's scope.
@@ -1628,9 +1623,9 @@ dist/dsd-corpus/<release-id>/
 
 **Process:**
 
-- Confirm Task 2B has an approved measurement protocol. Inventory may proceed
-  without a committed second reviewer, but Task 20 remains blocked until the
-  reviewer and contributor-rights evidence exist.
+- Confirm Task 2B has an approved measurement protocol and that `DSD-G-001`
+  and human owner-reviewer `DSD-O-001` remain eligible in the contributor/tool
+  registries before Task 20 proceeds.
 - Product/learning team creates the list from DSD product goals without viewing a legacy export.
 - Record rationale, pseudonymous author ID, clean-room declaration ID, evidence
   ID, approval, and inventory-stage time under the measurement protocol.
@@ -1748,7 +1743,7 @@ cd ../tts-service && pytest
 
 ---
 
-# Phase H — Scale to commercial v1 and extended corpus
+# Phase H — Scale to commercial v1, extended corpus, and full parity
 
 ## Task 23: Scale from 500 to 5,000 headwords
 
@@ -1787,6 +1782,23 @@ cd ../tts-service && pytest
 **Acceptance:**
 
 - 20,000 complete entries under the same gates.
+
+## Task 25+: Extend from 20,000 to 475,153 headwords
+
+Execute the dedicated resumable automation plan in
+`docs/superpowers/plans/2026-08-09-dsd-full-corpus-ai-automation.md`. The
+milestones are 100,000, 250,000, and exactly 475,153 qualifying entries. The
+legacy database supplies only the aggregate target count. Generation, quality,
+similarity, human approval, IPA/audio, backup, release, and commercial-safe
+gates remain fail closed at every wave.
+
+**Acceptance:**
+
+- Exactly 475,153 active unique normalized English DSD entries.
+- Every released entry passes the same content, provenance, review, similarity,
+  IPA, two-voice audio, backup/restore, signing, and runtime gates as v1.
+- No generator process receives a legacy headword list, content, ordering,
+  rank, match, or credential.
 - Each release remains independently reproducible and auditable.
 
 ---
@@ -1813,11 +1825,13 @@ cd ../tts-service && pytest
 
 ## Explicit non-goals for DSD v1
 
-- Rebuilding all 475,153 legacy headwords.
+- Reproducing the legacy headword membership, order, ranking, IDs, or wording;
+  DSD targets only the independently measured scalar size of 475,153.
 - Recovering or backfilling legacy provenance.
 - Cleaning legacy content further for commercial publication.
 - Importing OEWN, NGSL, Wiktionary, CMUdict, or the `tudien` archive into DSD.
-- Automatically generating publishable content with an LLM.
+- Automatically approving or publishing AI output. Automated draft generation
+  is in scope; exact human review and every release gate remain required.
 - British IPA/audio in the first release.
 - Bundling or distributing Piper/eSpeak binaries, libraries, models, installers,
   containers, or the TTS service in any customer client/package.
