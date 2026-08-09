@@ -10,6 +10,7 @@ on:
         type: choice
         options:
           - backup-only
+          - legacy-counts-only
           - preflight-only
           - stage-ai-pilot
           - deploy
@@ -115,6 +116,97 @@ jobs:
 
             backup_database "$LEGACY_DB"
             backup_database "$DSD_DB"
+
+  legacy-counts-only:
+    name: Count legacy production corpus
+    if: inputs.operation == 'legacy-counts-only'
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Report aggregate-only legacy corpus counts
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          command_timeout: 15m
+          script: |
+            set -eu
+
+            API_DIR=/var/www/sites/dsd-english/english-learning-api
+            COMPOSE_FILE="$API_DIR/deploy/compose.yml"
+            ENV_FILE="$API_DIR/deploy/.env.production"
+
+            test -f "$COMPOSE_FILE"
+            test -f "$ENV_FILE"
+            cd "$API_DIR"
+
+            COMPOSE="docker compose --env-file $ENV_FILE -f $COMPOSE_FILE"
+            $COMPOSE config --quiet
+            POSTGRES_CONTAINER="$($COMPOSE ps -q postgres)"
+            test -n "$POSTGRES_CONTAINER"
+
+            echo "LEGACY_CORPUS_AGGREGATES_BEGIN"
+            docker exec -i "$POSTGRES_CONTAINER" sh -c \
+              'exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -F "=" -v ON_ERROR_STOP=1' <<'SQL'
+            WITH english_words AS (
+              SELECT id, word, word_normalized
+                FROM words
+               WHERE language = 'en'
+            ),
+            normalized_groups AS (
+              SELECT word_normalized, count(*) AS rows_in_group
+                FROM english_words
+               WHERE word_normalized IS NOT NULL
+                 AND btrim(word_normalized) <> ''
+               GROUP BY word_normalized
+            ),
+            definition_words AS (
+              SELECT DISTINCT w.id
+                FROM english_words w
+                JOIN definitions d ON d.word_id = w.id
+            ),
+            pronunciation_words AS (
+              SELECT DISTINCT w.id
+                FROM english_words w
+                JOIN pronunciations p ON p.word_id = w.id
+            )
+            SELECT metric, value::text
+              FROM (
+                SELECT 10 AS position, 'words_all_languages_total' AS metric,
+                       (SELECT count(*) FROM words) AS value
+                UNION ALL
+                SELECT 20, 'words_english_total',
+                       (SELECT count(*) FROM english_words)
+                UNION ALL
+                SELECT 30, 'words_english_unique_stored_normalized',
+                       (SELECT count(*) FROM normalized_groups)
+                UNION ALL
+                SELECT 40, 'words_english_duplicate_normalized_rows',
+                       (SELECT coalesce(sum(rows_in_group - 1), 0) FROM normalized_groups)
+                UNION ALL
+                SELECT 50, 'words_english_duplicate_normalized_groups',
+                       (SELECT count(*) FROM normalized_groups WHERE rows_in_group > 1)
+                UNION ALL
+                SELECT 60, 'words_english_empty_or_null_normalized',
+                       (SELECT count(*) FROM english_words
+                         WHERE word_normalized IS NULL OR btrim(word_normalized) = '')
+                UNION ALL
+                SELECT 70, 'words_english_with_definition',
+                       (SELECT count(*) FROM definition_words)
+                UNION ALL
+                SELECT 80, 'words_english_with_pronunciation',
+                       (SELECT count(*) FROM pronunciation_words)
+                UNION ALL
+                SELECT 90, 'words_english_with_definition_and_pronunciation',
+                       (SELECT count(*) FROM definition_words d
+                         JOIN pronunciation_words p USING (id))
+              ) aggregates
+             ORDER BY position;
+            SQL
+            echo "LEGACY_CORPUS_AGGREGATES_END"
 
   preflight-only:
     name: Inspect DSD production readiness
