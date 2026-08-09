@@ -1613,6 +1613,12 @@ dist/dsd-corpus/<release-id>/
 
 # Phase G — Pilot content production
 
+> **Progress 2026-08-09:** the first 50-entry AI batch (`DSD-AI-PILOT-050-B001`)
+> is generated, validated, rehearsal-tested and staged in the isolated
+> production DSD database as drafts. It has not been human-approved or
+> published. Tasks 19–20 remain open for the rest of the 500-entry pilot; see
+> `docs/dsd-corpus/evidence/PRODUCTION-AI-PILOT-STAGING-2026-08-09.md`.
+
 ## Task 19: Produce and approve the independent 500-headword inventory
 
 **Deliverables:**

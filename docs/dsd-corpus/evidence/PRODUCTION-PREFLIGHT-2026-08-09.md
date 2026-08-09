@@ -1,5 +1,9 @@
 # DSD Production Backup and Preflight — 2026-08-09
 
+> Historical pre-provisioning snapshot. The subsequent production staging and
+> current remaining blockers are recorded in
+> `PRODUCTION-AI-PILOT-STAGING-2026-08-09.md`.
+
 ## Outcome
 
 - Immediate pre-import legacy dump: **VERIFIED**
