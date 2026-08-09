@@ -31,7 +31,6 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
-          script_stop: true
           command_timeout: 45m
           script: |
             set -eu
@@ -68,13 +67,12 @@ jobs:
               (*[!A-Za-z0-9_]*) echo "Unsafe DSD database name"; exit 1 ;;
             esac
             test "$LEGACY_DB" != "$DSD_DB"
+            DATABASE_LIST="$(docker exec "$POSTGRES_CONTAINER" sh -c \
+              'psql -U "$POSTGRES_USER" -d postgres -At -v ON_ERROR_STOP=1 -c "SELECT datname FROM pg_database"')"
 
             backup_database() {
               DATABASE="$1"
-              EXISTS="$(docker exec "$POSTGRES_CONTAINER" sh -c \
-                'psql -U "$POSTGRES_USER" -d postgres -At -v ON_ERROR_STOP=1 -v db="$1" -c "SELECT 1 FROM pg_database WHERE datname = :'\''db'\''"' \
-                sh "$DATABASE")"
-              if [ "$EXISTS" != 1 ]; then
+              if ! printf '%s\n' "$DATABASE_LIST" | grep -Fxq "$DATABASE"; then
                 echo "Database not present; skipped: $DATABASE"
                 return 0
               fi
@@ -85,7 +83,7 @@ jobs:
               PARTIAL_FILE="$DUMP_FILE.partial"
 
               DATABASE_BYTES="$(docker exec "$POSTGRES_CONTAINER" sh -c \
-                'psql -U "$POSTGRES_USER" -d postgres -At -v ON_ERROR_STOP=1 -v db="$1" -c "SELECT pg_database_size(:'\''db'\'')"' \
+                'psql -U "$POSTGRES_USER" -d "$1" -At -v ON_ERROR_STOP=1 -c "SELECT pg_database_size(current_database())"' \
                 sh "$DATABASE")"
               AVAILABLE_BYTES="$(( $(df -Pk "$BACKUP_DIR" | awk 'NR == 2 { print $4 }') * 1024 ))"
               if [ "$AVAILABLE_BYTES" -le "$DATABASE_BYTES" ]; then
@@ -161,7 +159,6 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
-          script_stop: true
           command_timeout: 45m
           script: |
             set -eu
