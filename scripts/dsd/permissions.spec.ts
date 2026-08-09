@@ -42,7 +42,12 @@ async function probe(): Promise<string | null> {
     await client.end();
     return null;
   } catch (error: any) {
-    return error?.message ?? String(error);
+    // AggregateError.message may be the empty string (not null/undefined),
+    // especially when both IPv4 and IPv6 localhost probes fail in CI. An
+    // empty skip reason is falsy and used to make the suite continue with no
+    // connection, turning an unavailable integration fixture into 12 opaque
+    // failures. Always return a non-empty reason when the probe failed.
+    return error?.message || String(error) || 'PostgreSQL integration fixture unavailable';
   }
 }
 
