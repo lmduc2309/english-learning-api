@@ -289,6 +289,7 @@ jobs:
             API_DIR="$ROOT/english-learning-api"
             ENV_FILE="$API_DIR/deploy/.env.production"
             BACKUP_DIR="$ROOT/backups/manual-pre-import"
+            CONFIG_BACKUP_DIR="$ROOT/backups/config"
             DEPLOY_SHA='${{ github.sha }}'
             DEPLOY_REF='${{ github.ref_name }}'
             EXPECTED_LEGACY_DUMP="$BACKUP_DIR/english_learning_db-20260809T053702Z.dump"
@@ -311,6 +312,17 @@ jobs:
             test -f "$ENV_FILE"
             test -f "$EXPECTED_LEGACY_DUMP"
             printf '%s  %s\n' "$EXPECTED_LEGACY_SHA" "$EXPECTED_LEGACY_DUMP" | sha256sum -c -
+
+            mkdir -p "$CONFIG_BACKUP_DIR"
+            chmod 700 "$CONFIG_BACKUP_DIR"
+            # An early version placed this sensitive backup beside the env
+            # file, making the production repository dirty. Move only that
+            # exact, workflow-owned pattern outside the repository.
+            for OLD_CONFIG_BACKUP in "$API_DIR"/deploy/.env.production.pre-dsd-*; do
+              if [ -f "$OLD_CONFIG_BACKUP" ]; then
+                mv "$OLD_CONFIG_BACKUP" "$CONFIG_BACKUP_DIR/$(basename "$OLD_CONFIG_BACKUP")"
+              fi
+            done
             test -z "$(git -C "$API_DIR" status --porcelain)"
 
             COMPOSE="docker compose --env-file $ENV_FILE -f $API_DIR/deploy/compose.yml"
@@ -355,8 +367,8 @@ jobs:
             fi
 
             ENV_STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-            cp "$ENV_FILE" "$ENV_FILE.pre-dsd-$ENV_STAMP"
-            chmod 600 "$ENV_FILE.pre-dsd-$ENV_STAMP"
+            cp "$ENV_FILE" "$CONFIG_BACKUP_DIR/.env.production-$ENV_STAMP"
+            chmod 600 "$CONFIG_BACKUP_DIR/.env.production-$ENV_STAMP"
 
             if [ "$CONFIGURED" -eq 0 ]; then
               APP_PW="$(openssl rand -hex 32)"
