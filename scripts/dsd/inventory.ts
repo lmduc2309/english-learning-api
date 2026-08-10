@@ -330,7 +330,7 @@ function arg(name: string): string | undefined {
   return index >= 0 ? process.argv[index + 1] : undefined;
 }
 
-function loadFile(file: string): { rows: InventoryRow[]; errors: string[] } {
+export function loadInventoryFile(file: string): { rows: InventoryRow[]; errors: string[] } {
   const { headers, rows } = parseCsv(fs.readFileSync(file, 'utf8'));
   const errors = validateHeaders(headers);
   if (errors.length > 0) return { rows: [], errors };
@@ -376,7 +376,7 @@ async function main(): Promise<void> {
   if (!file) throw new Error('--file is required');
   const resolved = path.resolve(process.cwd(), file);
 
-  const { rows, errors } = loadFile(resolved);
+  const { rows, errors } = loadInventoryFile(resolved);
   if (errors.length > 0) {
     console.error(`${errors.length} validation error(s) in ${file}:`);
     for (const error of errors.slice(0, 40)) console.error(`  - ${error}`);

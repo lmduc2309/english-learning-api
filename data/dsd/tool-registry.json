@@ -3,6 +3,21 @@
   "description": "Software permitted in the DSD pipeline. Every tool is pinned by revision or effective terms version. Generated text remains draft until a human approves its exact hash; no tool can approve or publish content directly.",
   "tools": [
     {
+      "id": "openai-api-dsd-generation",
+      "aliases": ["DSD direct OpenAI API generator"],
+      "scopes": ["tool"],
+      "status": "candidate",
+      "blockedReason": "Pending the direct-API 50-entry calibration, exact model/revision evidence, measured cost, and owner approval of the generated comparison batch.",
+      "approvedScopes": [],
+      "evidenceIds": [
+        "EV-OPENAI-OUTPUT-TERMS-20260101",
+        "EV-DSD-AI-POLICY-20260809-001"
+      ],
+      "url": "https://developers.openai.com/api/docs/guides/batch",
+      "revision": "openai-node-6.38.0",
+      "notes": "Direct api.openai.com Responses/Batch generation with strict Structured Outputs. OpenRouter and compatible proxy URLs are rejected in code. Candidate only until calibration; its packages cannot pass registry validation or enter DSD production while blocked."
+    },
+    {
       "id": "openai-codex-text-generation",
       "aliases": ["OpenAI Codex text generator"],
       "scopes": ["tool"],

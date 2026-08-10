@@ -1,0 +1,26 @@
+{
+  "plan_version": 1,
+  "plan_id": "DSD-INVENTORY-PLAN-475153-20260810",
+  "target_id": "DSD-TARGET-LEGACY-PARITY-20260809",
+  "active_target": 475153,
+  "candidate_target": 550000,
+  "candidates_per_cell": 100,
+  "levels": ["foundation", "intermediate", "advanced", "academic", "long-tail"],
+  "registers": ["general", "specialist"],
+  "parts_of_speech": [
+    "noun", "verb", "adjective", "adverb", "pronoun", "preposition",
+    "conjunction", "interjection", "determiner", "numeral", "phrase"
+  ],
+  "topics": [
+    "daily life", "home", "family", "relationships", "food", "clothing",
+    "health", "body", "emotions", "education", "language", "work",
+    "business", "finance", "law", "government", "society", "culture",
+    "arts", "music", "literature", "media", "communication", "technology",
+    "engineering", "mathematics", "physics", "chemistry", "biology",
+    "medicine", "psychology", "history", "geography", "environment",
+    "weather", "agriculture", "animals", "plants", "transport", "travel",
+    "sports", "games", "religion", "philosophy", "architecture", "manufacturing",
+    "materials", "energy", "computing", "research"
+  ],
+  "legacy_inventory_used": false
+}

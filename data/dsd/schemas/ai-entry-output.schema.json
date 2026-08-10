@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsdtech.site/schemas/dsd-ai-entry-output.json",
+  "title": "One newly generated DSD learner entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "headword",
+    "sense_key",
+    "part_of_speech",
+    "definition_en",
+    "translation_vi",
+    "example_en",
+    "example_vi",
+    "usage_labels"
+  ],
+  "properties": {
+    "headword": { "type": "string", "minLength": 1, "maxLength": 40 },
+    "sense_key": { "const": "s1" },
+    "part_of_speech": {
+      "type": "string",
+      "enum": [
+        "noun", "verb", "adjective", "adverb", "pronoun", "preposition",
+        "conjunction", "interjection", "determiner", "numeral", "phrase"
+      ]
+    },
+    "definition_en": { "type": "string", "minLength": 8, "maxLength": 320 },
+    "translation_vi": { "type": "string", "minLength": 1, "maxLength": 320 },
+    "example_en": { "type": "string", "minLength": 8, "maxLength": 320 },
+    "example_vi": { "type": "string", "minLength": 8, "maxLength": 320 },
+    "usage_labels": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 32 },
+      "maxItems": 4
+    }
+  }
+}

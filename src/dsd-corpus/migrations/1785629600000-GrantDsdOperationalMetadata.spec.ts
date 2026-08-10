@@ -15,9 +15,15 @@ describe('operational migration metadata grants', () => {
     expect(sql).not.toMatch(/TO dsd_app|TO dsd_curator/);
   });
 
-  it('is the final registered migration', () => {
-    expect(DSD_MIGRATIONS.at(-1)?.name).toBe(
-      'GrantDsdOperationalMetadata1785629600000',
+  it('remains immediately after hardening and before later operational migrations', () => {
+    const grant = DSD_MIGRATIONS.findIndex(
+      (migration) => migration.name === 'GrantDsdOperationalMetadata1785629600000',
+    );
+    expect(DSD_MIGRATIONS[grant - 1]?.name).toBe(
+      'HardenDsdCommercialBoundary1785629500000',
+    );
+    expect(DSD_MIGRATIONS[grant + 1]?.name).toBe(
+      'AddDsdGenerationJobs1785629700000',
     );
   });
 

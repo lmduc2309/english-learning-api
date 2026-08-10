@@ -83,8 +83,11 @@ describe('revision and evidence hardening', () => {
 
 describe('registration and rollback policy', () => {
   it('is registered immediately before the operational metadata grant', () => {
-    expect(DSD_MIGRATIONS.at(-2)?.name).toBe(
-      'HardenDsdCommercialBoundary1785629500000',
+    const hardening = DSD_MIGRATIONS.findIndex(
+      (migration) => migration.name === 'HardenDsdCommercialBoundary1785629500000',
+    );
+    expect(DSD_MIGRATIONS[hardening + 1]?.name).toBe(
+      'GrantDsdOperationalMetadata1785629600000',
     );
   });
 

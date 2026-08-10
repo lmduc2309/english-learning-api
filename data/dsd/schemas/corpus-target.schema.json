@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsdtech.site/schemas/dsd-corpus-target.json",
+  "title": "DSD scalar corpus target",
+  "description": "A clean-room size target. It may carry an aggregate count but no legacy identity, inventory, order, ranking, coverage, or expressive content.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "target_id",
+    "language",
+    "unique_normalized_entries",
+    "evidence_id",
+    "legacy_inventory_used"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "target_id": { "const": "DSD-TARGET-LEGACY-PARITY-20260809" },
+    "language": { "const": "en" },
+    "unique_normalized_entries": { "const": 475153 },
+    "evidence_id": { "const": "LEGACY-CORPUS-AGGREGATE-COUNT-2026-08-09" },
+    "legacy_inventory_used": { "const": false }
+  },
+  "$comment": "Forbidden by additionalProperties and runtime validation: headword(s), word(s), legacy IDs, order, rank, coverage, definitions, translations, examples, IPA, pronunciation, source rows, source hashes, or source digests."
+}

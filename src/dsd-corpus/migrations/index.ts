@@ -8,6 +8,7 @@ import { AddDsdReleaseBuilds1785629300000 } from './1785629300000-AddDsdReleaseB
 import { AddDsdServingViews1785629400000 } from './1785629400000-AddDsdServingViews';
 import { HardenDsdCommercialBoundary1785629500000 } from './1785629500000-HardenDsdCommercialBoundary';
 import { GrantDsdOperationalMetadata1785629600000 } from './1785629600000-GrantDsdOperationalMetadata';
+import { AddDsdGenerationJobs1785629700000 } from './1785629700000-AddDsdGenerationJobs';
 
 /**
  * DSD migration list.
@@ -26,4 +27,5 @@ export const DSD_MIGRATIONS: Array<new () => MigrationInterface> = [
   AddDsdServingViews1785629400000,
   HardenDsdCommercialBoundary1785629500000,
   GrantDsdOperationalMetadata1785629600000,
+  AddDsdGenerationJobs1785629700000,
 ];

@@ -93,9 +93,13 @@ data/dsd/*
 !data/dsd/inventory/
 data/dsd/inventory/*
 !data/dsd/inventory/*.csv
+!data/dsd/inventory/full-corpus-plan.json
 !data/dsd/schemas/
 data/dsd/schemas/*
 !data/dsd/schemas/*.json
+!data/dsd/targets/
+data/dsd/targets/*
+!data/dsd/targets/*.json
 # Curation packages are the authorship record for every definition, translation
 # and example in the corpus. They must be reviewable in a diff.
 !data/dsd/curation/

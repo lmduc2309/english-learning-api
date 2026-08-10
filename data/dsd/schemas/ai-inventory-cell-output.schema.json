@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsdtech.site/schemas/dsd-ai-inventory-cell-output.json",
+  "title": "Independent DSD inventory candidates for one coverage cell",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["candidates"],
+  "properties": {
+    "candidates": {
+      "type": "array",
+      "minItems": 100,
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["headword", "part_of_speech", "product_rationale"],
+        "properties": {
+          "headword": { "type": "string", "minLength": 1, "maxLength": 40 },
+          "part_of_speech": {
+            "type": "string",
+            "enum": [
+              "noun", "verb", "adjective", "adverb", "pronoun", "preposition",
+              "conjunction", "interjection", "determiner", "numeral", "phrase"
+            ]
+          },
+          "product_rationale": { "type": "string", "minLength": 8, "maxLength": 180 }
+        }
+      }
+    }
+  }
+}
