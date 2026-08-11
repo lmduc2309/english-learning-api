@@ -8,6 +8,7 @@ export interface SelectionManifest {
   version: 1;
   english: SpoolRef[];
   critics: SpoolRef[];
+  include_entry_ids?: string[];
 }
 
 function id(value: CompletedLocal): string {
@@ -42,8 +43,21 @@ export function loadSelectionManifest(file: string): {
   manifest.english.flatMap((ref) => load(ref, true)).forEach((value) => englishMap.set(id(value), value));
   const criticMap = new Map<string, CompletedLocal>();
   manifest.critics.flatMap((ref) => load(ref, false)).forEach((value) => criticMap.set(id(value), value));
-  const english = [...englishMap.values()].sort((a, b) => id(a).localeCompare(id(b)));
-  const critics = [...criticMap.values()].sort((a, b) => id(a).localeCompare(id(b)));
+  const include = manifest.include_entry_ids ? new Set(manifest.include_entry_ids) : undefined;
+  if (include && include.size !== manifest.include_entry_ids!.length) {
+    throw new Error('selection manifest contains duplicate include_entry_ids');
+  }
+  if (include) {
+    for (const entryId of include) {
+      if (!englishMap.has(entryId) || !criticMap.has(entryId)) {
+        throw new Error(`${entryId}: included entry lacks English or critic evidence`);
+      }
+    }
+  }
+  const english = [...englishMap.values()].filter((value) => !include || include.has(id(value)))
+    .sort((a, b) => id(a).localeCompare(id(b)));
+  const critics = [...criticMap.values()].filter((value) => !include || include.has(id(value)))
+    .sort((a, b) => id(a).localeCompare(id(b)));
   const passedEnglish = english.filter((value) => {
     const critic = criticMap.get(id(value));
     if (!critic) throw new Error(`${id(value)}: selected English has no critic decision`);

@@ -2,7 +2,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import { canonicalJson } from './model-lock';
 
-export const LOCAL_STAGES = ['inventory', 'english', 'critic', 'translate'] as const;
+export const LOCAL_STAGES = ['inventory', 'inventory_critic', 'english', 'critic', 'translate'] as const;
 export type LocalStage = (typeof LOCAL_STAGES)[number];
 export const LOCAL_TERMINAL_STATES = [
   'completed', 'schema_invalid', 'quality_invalid', 'quarantined', 'terminal_failure',
@@ -12,6 +12,11 @@ export const CRITIC_REASON_CODES = [
   'DEFINITION_AMBIGUOUS', 'CIRCULAR_DEFINITION', 'EXAMPLE_UNGRAMMATICAL',
   'EXAMPLE_UNNATURAL', 'EXAMPLE_INACCURATE', 'DEFINITION_EXAMPLE_MISMATCH',
   'FABRICATED_CONTENT', 'HARMFUL_CONTENT', 'USAGE_LABEL_INVALID', 'EXAMPLE_LEMMA_MISSING',
+] as const;
+export const INVENTORY_CRITIC_REASON_CODES = [
+  'LEXICAL_INVALID', 'PART_OF_SPEECH_INCORRECT', 'COVERAGE_MISMATCH',
+  'PROPER_NAME', 'TRADEMARK', 'ABBREVIATION', 'MALFORMED_FRAGMENT',
+  'INVENTED_SPELLING', 'INFLECTED_DUPLICATE', 'LEARNER_UNSUITABLE',
 ] as const;
 export const LOCAL_USAGE_LABELS = [
   'general', 'formal', 'informal', 'literary', 'technical', 'medical', 'legal',
@@ -166,12 +171,13 @@ export function validateStageOutput(stage: LocalStage, output: unknown): string[
     const text = typeof output.translation_vi === 'string' ? output.translation_vi.trim() : '';
     return text.length >= 1 && text.length <= 320 ? [] : ['translation_vi length must be 1..320'];
   }
-  if (stage === 'critic') {
+  if (stage === 'critic' || stage === 'inventory_critic') {
     const errors: string[] = [];
     if (!exactKeys(output, ['decision', 'reason_codes'])) errors.push('critic output has incorrect keys');
     if (!['pass', 'repair', 'quarantine'].includes(String(output.decision))) errors.push('critic decision is invalid');
+    const allowedCodes = stage === 'inventory_critic' ? INVENTORY_CRITIC_REASON_CODES : CRITIC_REASON_CODES;
     if (!Array.isArray(output.reason_codes) || output.reason_codes.length > 8 ||
-        output.reason_codes.some((code) => !(CRITIC_REASON_CODES as readonly unknown[]).includes(code))) {
+        output.reason_codes.some((code) => !(allowedCodes as readonly unknown[]).includes(code))) {
       errors.push('critic reason_codes are invalid');
     }
     if (output.decision === 'pass' && Array.isArray(output.reason_codes) && output.reason_codes.length) {

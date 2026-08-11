@@ -68,3 +68,11 @@ The replacement W0 run used entry/content-derived seeds and an empty usage-label
 - downstream curation validation reported no content-quality findings. Its 145 errors were exactly the expected closed registry gate: one unapproved pipeline tool plus three unapproved source scopes for each of 48 entries.
 
 W0 is still incomplete because it requires 50 accepted entries. The two repair slots must be filled from independent reserve candidates and run through the complete pipeline. Tool/source status remains `candidate`, and production import remains prohibited.
+
+## Reserve completion
+
+A fresh foundation/general/verb/daily-life inventory request produced 10 candidates. Normalized comparison against the 50 pilot headwords removed six collisions. The four remaining candidates — `sleep`, `wash`, `chat`, and `run` — received stable DSD UUIDs and independently passed the dedicated Qwen3-8B inventory critic.
+
+All four reserve entries then passed English schema validation and the isolated English critic. Their eight Vietnamese fields completed and validated, and the four-entry reserve curation package reported no content-quality findings. Its 13 findings were exactly the expected closed registry gate: one candidate pipeline tool plus three candidate source scopes per entry.
+
+There are now 52 complete quality-valid drafts: 48 selected original entries and four reserves. W0 can reach exactly 50 by selecting two reserve UUIDs in release membership while leaving the other two inactive. Registry approval, durable evidence archival, owner review of the selected reserve content, and explicit W1 authorization remain outstanding. No production import occurred.

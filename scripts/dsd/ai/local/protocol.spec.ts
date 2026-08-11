@@ -81,6 +81,15 @@ describe('local inference protocol', () => {
     }).join(' ')).toMatch(/requires reason_codes/i);
   });
 
+  it('keeps inventory critic codes separate from English critic codes', () => {
+    expect(validateStageOutput('inventory_critic', {
+      decision: 'repair', reason_codes: ['PROPER_NAME'],
+    })).toEqual([]);
+    expect(validateStageOutput('critic', {
+      decision: 'repair', reason_codes: ['PROPER_NAME'],
+    }).join(' ')).toMatch(/reason_codes are invalid/i);
+  });
+
   it('accepts the strict TranslateGemma wrapper and rejects commentary keys', () => {
     expect(validateStageOutput('translate', { translation_vi: 'Một bến cảng an toàn.' })).toEqual([]);
     expect(validateStageOutput('translate', {

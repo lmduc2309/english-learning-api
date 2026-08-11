@@ -7,15 +7,16 @@ import {
 import { loadLocalModelLock, lockSha256 } from './model-lock';
 
 const STAGE_ROLE: Record<LocalStage, string> = {
-  inventory: 'inventory', english: 'english_authoring', critic: 'english_critic',
+  inventory: 'inventory', inventory_critic: 'candidate_critic',
+  english: 'english_authoring', critic: 'english_critic',
   translate: 'en_vi_translation',
 };
 const STAGE_PROMPT: Record<LocalStage, string> = {
-  inventory: 'inventory-system.txt', english: 'english-system.txt',
+  inventory: 'inventory-system.txt', inventory_critic: 'inventory-critic-system.txt', english: 'english-system.txt',
   critic: 'critic-system.txt', translate: 'translation-policy.txt',
 };
 const STAGE_SCHEMA: Record<LocalStage, string> = {
-  inventory: 'local-candidate-output.schema.json',
+  inventory: 'local-candidate-output.schema.json', inventory_critic: 'local-critic-output.schema.json',
   english: 'local-english-entry-output.schema.json',
   critic: 'local-critic-output.schema.json',
   translate: 'local-translation-output.schema.json',
