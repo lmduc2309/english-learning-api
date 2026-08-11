@@ -127,6 +127,7 @@
     "dsd:local:calibration": "ts-node scripts/dsd/ai/local/calibration.ts",
     "dsd:local:assemble": "ts-node scripts/dsd/ai/local/assemble.ts",
     "dsd:full-run": "ts-node scripts/dsd/ai/local/full-run.ts",
+    "dsd:inventory-wave": "ts-node scripts/dsd/ai/local/inventory-wave.ts",
     "dsd:curation:validate": "ts-node scripts/dsd/curation.ts validate",
     "dsd:curation:import": "ts-node scripts/dsd/curation.ts import",
     "dsd:curation:stats": "ts-node scripts/dsd/curation.ts stats",

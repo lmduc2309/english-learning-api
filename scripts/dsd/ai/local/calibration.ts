@@ -221,26 +221,25 @@ function prepareLemmaRepairs(): void {
 
 function prepareInventoryCritic(): void {
   const generated = loadCompleted(required('input'), required('results'));
-  if (generated.length !== 1 || generated[0].request.stage !== 'inventory') {
-    throw new Error('reserve inventory expects exactly one completed inventory request');
+  if (!generated.length || generated.some((value) => value.request.stage !== 'inventory')) {
+    throw new Error('reserve inventory expects completed inventory requests only');
   }
   const existing = loadInventoryFile(path.resolve(process.cwd(), required('existing-inventory')));
   if (existing.errors.length) throw new Error(`invalid existing inventory: ${existing.errors.join('; ')}`);
   const seen = new Set(existing.rows.map((row) => normalizeHeadword(row.headword).headwordNormalized));
-  const request = generated[0].request;
-  const candidates = (generated[0].result.output as any).candidates as any[];
-  const payloads = candidates.flatMap((candidate) => {
-    const normalized = normalizeHeadword(String(candidate.headword));
-    if (seen.has(normalized.headwordNormalized)) return [];
-    seen.add(normalized.headwordNormalized);
-    return [{
-      dsd_entry_id: stableDsdEntryId(normalized.headword), headword: normalized.headword,
-      part_of_speech: candidate.part_of_speech, rationale: candidate.rationale,
-      coverage_cell_id: request.payload.coverage_cell_id, level: request.payload.level,
-      register: request.payload.register, topic: request.payload.topic,
-      seed: deterministicSeed(normalized.headwordNormalized, candidate.part_of_speech, candidate.rationale),
-    }];
-  });
+  const payloads = generated.flatMap(({ request, result }) =>
+    ((result.output as any).candidates as any[]).flatMap((candidate) => {
+      const normalized = normalizeHeadword(String(candidate.headword));
+      if (seen.has(normalized.headwordNormalized)) return [];
+      seen.add(normalized.headwordNormalized);
+      return [{
+        dsd_entry_id: stableDsdEntryId(normalized.headword), headword: normalized.headword,
+        part_of_speech: candidate.part_of_speech, rationale: candidate.rationale,
+        coverage_cell_id: request.payload.coverage_cell_id, level: request.payload.level,
+        register: request.payload.register, topic: request.payload.topic,
+        seed: deterministicSeed(normalized.headwordNormalized, candidate.part_of_speech, candidate.rationale),
+      }];
+    }));
   if (!payloads.length) throw new Error('no unique reserve candidates remain after exclusion');
   writeNew(required('output'), payloads);
 }
@@ -254,12 +253,16 @@ function materializeReserve(): void {
   const critics = loadCompleted(required('critic-input'), required('critic-results'));
   const passed = critics.filter(({ result }) => (result.output as any).decision === 'pass');
   if (!passed.length) throw new Error('no reserve candidates passed critic');
+  const limit = Number(arg('limit') ?? passed.length);
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > passed.length) {
+    throw new Error(`--limit must be between 1 and ${passed.length}`);
+  }
   const startPriority = Number(arg('start-priority') ?? 51);
   const columns = [
     'dsd_entry_id', 'headword', 'part_of_speech_expectation', 'dsd_priority', 'dsd_band',
     'product_rationale', 'author_contributor_id', 'authored_date', 'inventory_evidence_id', 'declaration_id',
   ];
-  const rows = passed.map(({ request }, index) => [
+  const rows = passed.slice(0, limit).map(({ request }, index) => [
     request.payload.dsd_entry_id, request.payload.headword, request.payload.part_of_speech,
     startPriority + index, 'pilot-reserve', request.payload.rationale, 'DSD-G-002', '2026-08-11',
     'EV-DSD-LOCAL-CALIBRATION-050-20260811', 'EV-DSD-CLEAN-ROOM-LOCAL-W0-20260811',
