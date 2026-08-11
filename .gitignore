@@ -1,6 +1,9 @@
 # compiled output
 /dist
 /node_modules
+.venv-dsd-local/
+__pycache__/
+*.pyc
 
 # Logs
 logs
@@ -100,6 +103,16 @@ data/dsd/schemas/*
 !data/dsd/targets/
 data/dsd/targets/*
 !data/dsd/targets/*.json
+!data/dsd/models/
+data/dsd/models/*
+!data/dsd/models/local-model-lock.json
+!data/dsd/ai/
+data/dsd/ai/*
+!data/dsd/ai/local-sampling-policy.json
+!data/dsd/prompts/
+data/dsd/prompts/*
+!data/dsd/prompts/local-v1/
+!data/dsd/prompts/local-v1/*.txt
 # Curation packages are the authorship record for every definition, translation
 # and example in the corpus. They must be reviewable in a diff.
 !data/dsd/curation/

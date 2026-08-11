@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsd.example/schemas/local-model-lock.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["lock_version", "policy_id", "runtime", "models"],
+  "properties": {
+    "lock_version": { "const": 1 },
+    "policy_id": { "type": "string", "pattern": "^EV-DSD-LOCAL-MODEL-POLICY-" },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["engine", "quantization_bits", "quantization_group_size", "weights_source", "community_quantized_artifacts_allowed"],
+      "properties": {
+        "engine": { "const": "mlx-lm" },
+        "quantization_bits": { "const": 4 },
+        "quantization_group_size": { "type": "integer", "minimum": 32, "maximum": 256 },
+        "weights_source": { "const": "official_upstream_only" },
+        "community_quantized_artifacts_allowed": { "const": false }
+      }
+    },
+    "models": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "repository", "revision", "license", "license_url", "terms_evidence_id", "roles", "gated", "thinking_enabled"],
+        "properties": {
+          "id": { "type": "string", "minLength": 8 },
+          "repository": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+          "revision": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+          "license": { "enum": ["Apache-2.0", "Gemma"] },
+          "license_url": { "type": "string", "pattern": "^https://" },
+          "terms_evidence_id": { "type": "string", "minLength": 12 },
+          "roles": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "enum": ["inventory", "english_authoring", "candidate_critic", "english_critic", "en_vi_translation"] }
+          },
+          "gated": { "type": "boolean" },
+          "thinking_enabled": { "const": false }
+        }
+      }
+    }
+  }
+}

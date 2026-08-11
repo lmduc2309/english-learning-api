@@ -1,6 +1,8 @@
 # DSD Full-Corpus AI Automation Implementation Plan
 
-> **Status:** Approved direction, implementation not started.
+> **Status:** Target and initial generation scaffolding implemented. The
+> OpenAI-specific generation direction is superseded by
+> `2026-08-11-dsd-local-model-full-corpus.md`.
 >
 > **Target:** 475,153 unique normalized English DSD entries, independently
 > selected and newly generated. The old corpus supplies one scalar count only.
@@ -26,15 +28,16 @@ commercial-safe gates.
 2. Legacy data is not a seed corpus. The generator receives neither legacy
    headwords nor legacy definitions, translations, examples, IPA, IDs, order,
    frequency, coverage, or similarity matches.
-3. Text generation uses the OpenAI API directly. OpenRouter is not used.
-4. The initial automation candidate is `gpt-5.6-terra` through the Responses or
-   Batch endpoint with Structured Outputs. The model is not authorized for the
-   full run until the calibration gate confirms account availability, output
-   quality, measured cost, and the exact model/revision evidence that will be
-   stored for every batch.
-5. English definitions, Vietnamese explanations, and bilingual examples are
-   generated together from a blank DSD prompt. This is new authoring, not a
-   translation job over old definitions.
+3. Production generation uses the approved local MLX architecture in
+   `2026-08-11-dsd-local-model-full-corpus.md`: Qwen3-14B 4-bit for inventory
+   and English authoring, isolated Qwen3-8B 4-bit for criticism, and
+   TranslateGemma-12B-IT 4-bit for English-to-Vietnamese translation. OpenAI
+   and OpenRouter are not used by the active path.
+4. The previously implemented direct-OpenAI adapter remains historical and
+   disabled. It must not be silently repurposed as a fallback.
+5. English source content is newly authored from a blank DSD prompt and only
+   then translated to Vietnamese. This is not a translation or paraphrase of
+   legacy definitions.
 6. AI actor `DSD-G-001` creates drafts. Human owner `DSD-O-001` may approve
    exact content hashes. AI output cannot auto-approve or auto-publish itself.
 7. Milestones of 500, 5,000, and 20,000 remain release/quality gates. They are
@@ -42,10 +45,8 @@ commercial-safe gates.
 8. The generator stops only when DSD has exactly 475,153 qualifying entries;
    reserve and quarantined candidates never count toward the target.
 
-The direct model choice is based on current official OpenAI documentation,
-which describes GPT-5.6 Terra as the balance of intelligence and cost and lists
-Responses, Batch, and Structured Outputs support:
-`https://developers.openai.com/api/docs/models/gpt-5.6-terra`.
+The active model, license, quantization, isolation and calibration decisions are
+specified in `2026-08-11-dsd-local-model-full-corpus.md`.
 
 ## Clean-room architecture
 
@@ -59,7 +60,7 @@ DSD-owned topic/morphology planner --> independent candidate inventory
                                   normalize + deduplicate + validate
                                              |
                                              v
-                                   direct OpenAI generation
+                                   local model generation
                                              |
                                              v
                               deterministic QA + AI critic pass
@@ -81,8 +82,8 @@ DSD-owned topic/morphology planner --> independent candidate inventory
                                 signed incremental releases
 ```
 
-The generation worker has only DSD database credentials and `OPENAI_API_KEY`.
-It has no legacy database credential. The compliance worker remains the only
+The local generation worker has no provider key and no legacy database
+credential. The compliance worker remains the only
 process that can open the narrow legacy similarity view. It returns a decision
 or score, never legacy wording, to the DSD workflow.
 
@@ -141,6 +142,10 @@ dsd:target:status --target <target-id>
 - An over-target database is a hard failure; the tool never deletes to repair it.
 
 ## Task 26: Calibrate the direct OpenAI model
+
+> **Superseded:** Do not implement or execute this task. Use Tasks L1–L12 in
+> `2026-08-11-dsd-local-model-full-corpus.md`. The text below is retained only
+> to explain the already-implemented historical OpenAI scaffolding.
 
 **Files:**
 
@@ -261,6 +266,10 @@ bounded exponential backoff; semantic/schema failures go to repair or
 quarantine after the configured attempt limit.
 
 ## Task 30: Generate definition, Vietnamese, and example packages
+
+> **Superseded:** The active implementation is Tasks L8–L11 in
+> `2026-08-11-dsd-local-model-full-corpus.md`. Direct OpenAI Batch is not an
+> authorized production fallback.
 
 For each inventory item, request strict JSON containing one initial learner
 sense, part of speech, original English definition, natural Vietnamese
@@ -415,6 +424,9 @@ Resume only from the last verified checkpoint with a new evidence record. Do
 not delete or rewrite failed history to make counters balance.
 
 ## Required implementation order
+
+> **Superseded for generation:** Follow the required implementation order in
+> `2026-08-11-dsd-local-model-full-corpus.md`. This list is archival.
 
 1. Tasks 25–26: target and direct-model calibration.
 2. Tasks 27–28: independent inventory planner and 500-entry inventory gate.

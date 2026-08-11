@@ -1,0 +1,1 @@
+Translate exactly one supplied English DSD field into natural Vietnamese using the official TranslateGemma English-to-Vietnamese chat template. Output only the Vietnamese translation without labels, alternatives, explanations, notes, source claims, reasoning, markdown, or surrounding JSON. Do not access or use any legacy translation.

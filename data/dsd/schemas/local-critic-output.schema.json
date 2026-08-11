@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["decision", "reason_codes"],
+  "properties": {
+    "decision": { "enum": ["pass", "repair", "quarantine"] },
+    "reason_codes": { "type": "array", "maxItems": 8, "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,47}$" } }
+  }
+}

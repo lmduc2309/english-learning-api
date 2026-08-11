@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["headword", "part_of_speech", "definition_en", "example_en", "usage_labels"],
+  "properties": {
+    "headword": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "part_of_speech": { "type": "string", "enum": ["noun", "verb", "adjective", "adverb", "pronoun", "preposition", "conjunction", "determiner", "interjection", "numeral", "phrase"] },
+    "definition_en": { "type": "string", "minLength": 8, "maxLength": 320 },
+    "example_en": { "type": "string", "minLength": 8, "maxLength": 320 },
+    "usage_labels": { "type": "array", "maxItems": 4, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 40 } }
+  }
+}

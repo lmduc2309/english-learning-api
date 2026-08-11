@@ -1,0 +1,46 @@
+{
+  "lock_version": 1,
+  "policy_id": "EV-DSD-LOCAL-MODEL-POLICY-20260811-001",
+  "runtime": {
+    "engine": "mlx-lm",
+    "quantization_bits": 4,
+    "quantization_group_size": 64,
+    "weights_source": "official_upstream_only",
+    "community_quantized_artifacts_allowed": false
+  },
+  "models": [
+    {
+      "id": "qwen3-14b-mlx-dsd-generation",
+      "repository": "Qwen/Qwen3-14B",
+      "revision": "40c069824f4251a91eefaf281ebe4c544efd3e18",
+      "license": "Apache-2.0",
+      "license_url": "https://huggingface.co/Qwen/Qwen3-14B/blob/40c069824f4251a91eefaf281ebe4c544efd3e18/LICENSE",
+      "terms_evidence_id": "EV-QWEN3-14B-APACHE-2.0-20260811",
+      "roles": ["inventory", "english_authoring"],
+      "gated": false,
+      "thinking_enabled": false
+    },
+    {
+      "id": "qwen3-8b-mlx-dsd-critic",
+      "repository": "Qwen/Qwen3-8B",
+      "revision": "b968826d9c46dd6066d109eabc6255188de91218",
+      "license": "Apache-2.0",
+      "license_url": "https://huggingface.co/Qwen/Qwen3-8B/blob/b968826d9c46dd6066d109eabc6255188de91218/LICENSE",
+      "terms_evidence_id": "EV-QWEN3-8B-APACHE-2.0-20260811",
+      "roles": ["candidate_critic", "english_critic"],
+      "gated": false,
+      "thinking_enabled": false
+    },
+    {
+      "id": "translategemma-12b-it-mlx-dsd-translation",
+      "repository": "google/translategemma-12b-it",
+      "revision": "d1b225e1caa17f1ddc7e62065d8637d0923f34e2",
+      "license": "Gemma",
+      "license_url": "https://ai.google.dev/gemma/terms",
+      "terms_evidence_id": "EV-TRANSLATEGEMMA-GEMMA-TERMS-20260811",
+      "roles": ["en_vi_translation"],
+      "gated": true,
+      "thinking_enabled": false
+    }
+  ]
+}

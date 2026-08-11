@@ -6,8 +6,8 @@
       "id": "openai-api-dsd-generation",
       "aliases": ["DSD direct OpenAI API generator"],
       "scopes": ["tool"],
-      "status": "candidate",
-      "blockedReason": "Pending the direct-API 50-entry calibration, exact model/revision evidence, measured cost, and owner approval of the generated comparison batch.",
+      "status": "blocked",
+      "blockedReason": "Superseded on 2026-08-11 by the approved local MLX architecture. Retained for historical provenance only; it is not an authorized fallback.",
       "approvedScopes": [],
       "evidenceIds": [
         "EV-OPENAI-OUTPUT-TERMS-20260101",
@@ -15,7 +15,52 @@
       ],
       "url": "https://developers.openai.com/api/docs/guides/batch",
       "revision": "openai-node-6.38.0",
-      "notes": "Direct api.openai.com Responses/Batch generation with strict Structured Outputs. OpenRouter and compatible proxy URLs are rejected in code. Candidate only until calibration; its packages cannot pass registry validation or enter DSD production while blocked."
+      "notes": "Historical direct api.openai.com Responses/Batch scaffold with strict Structured Outputs. OpenRouter and compatible proxy URLs are rejected in code. Superseded and blocked; it cannot enter new DSD production runs."
+    },
+    {
+      "id": "qwen3-14b-mlx-dsd-generation",
+      "aliases": ["DSD local Qwen3-14B generator"],
+      "scopes": ["tool"],
+      "status": "candidate",
+      "blockedReason": "Pending reproducible official-weight provisioning, local 4-bit artifact verification, 50-entry calibration, and owner approval.",
+      "approvedScopes": [],
+      "evidenceIds": [
+        "EV-QWEN3-14B-APACHE-2.0-20260811",
+        "EV-DSD-LOCAL-MODEL-POLICY-20260811-001"
+      ],
+      "url": "https://huggingface.co/Qwen/Qwen3-14B",
+      "revision": "40c069824f4251a91eefaf281ebe4c544efd3e18",
+      "notes": "Official Qwen3-14B weights, locally converted to MLX 4-bit. Approved roles after calibration are independent candidate inventory and English learner-content authoring only. Thinking is disabled and no hidden reasoning is stored."
+    },
+    {
+      "id": "qwen3-8b-mlx-dsd-critic",
+      "aliases": ["DSD isolated Qwen3-8B critic"],
+      "scopes": ["tool"],
+      "status": "candidate",
+      "blockedReason": "Pending reproducible official-weight provisioning, isolation tests, local 4-bit artifact verification, and critic calibration.",
+      "approvedScopes": [],
+      "evidenceIds": [
+        "EV-QWEN3-8B-APACHE-2.0-20260811",
+        "EV-DSD-LOCAL-MODEL-POLICY-20260811-001"
+      ],
+      "url": "https://huggingface.co/Qwen/Qwen3-8B",
+      "revision": "b968826d9c46dd6066d109eabc6255188de91218",
+      "notes": "Official Qwen3-8B weights, locally converted to MLX 4-bit. Context-isolated critic: receives final DSD candidate or English fields and stable rubrics only; never generator reasoning, legacy content, or similarity wording."
+    },
+    {
+      "id": "translategemma-12b-it-mlx-dsd-translation",
+      "aliases": ["DSD local TranslateGemma English-to-Vietnamese translator"],
+      "scopes": ["tool"],
+      "status": "candidate",
+      "blockedReason": "Pending owner acceptance/evidence for Gemma Terms, gated official-weight access, reproducible local 4-bit provisioning, and 50-entry translation calibration.",
+      "approvedScopes": [],
+      "evidenceIds": [
+        "EV-TRANSLATEGEMMA-GEMMA-TERMS-20260811",
+        "EV-DSD-LOCAL-MODEL-POLICY-20260811-001"
+      ],
+      "url": "https://huggingface.co/google/translategemma-12b-it",
+      "revision": "d1b225e1caa17f1ddc7e62065d8637d0923f34e2",
+      "notes": "Official gated TranslateGemma 12B IT weights, locally converted to MLX 4-bit. English-to-Vietnamese field translation only; never inventory or English-source authoring. Gemma Terms are a deliberate custom-license exception."
     },
     {
       "id": "openai-codex-text-generation",

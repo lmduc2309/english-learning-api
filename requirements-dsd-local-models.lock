@@ -1,0 +1,5 @@
+# Install into a dedicated virtual environment. Versions are intentionally
+# exact: changing either package changes conversion/runtime evidence and
+# requires a new calibration.
+mlx-lm==0.31.3
+huggingface-hub==1.27.0
