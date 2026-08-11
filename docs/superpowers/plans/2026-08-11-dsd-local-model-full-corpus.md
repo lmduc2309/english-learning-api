@@ -1,15 +1,16 @@
 # DSD Local-Model Full-Corpus Implementation Plan
 
-> **Status:** Approved architecture; implementation pending.
+> **Status:** Implementation active; headword-only commercial lookup pivot approved 2026-08-11.
 >
 > **Supersedes:** The OpenAI-specific provider and generation sections of
 > `2026-08-09-dsd-full-corpus-ai-automation.md`. The target, clean-room,
 > review, similarity, IPA/audio, backup, release, and exact-parity gates remain
 > unchanged.
 >
-> **Target:** Exactly 475,153 independently selected, normalized English DSD
-> entries. Legacy data contributes one scalar count only and is never model
-> input.
+> **Target:** Exactly 475,153 normalized English lookup entries. The legacy
+> database contributes headword strings only. All POS, definitions,
+> translations, examples, IPA, audio, ranks, identifiers, order and metadata
+> are discarded and recreated under the DSD workflow.
 >
 > **Execution host:** Apple M5, 24 GB unified memory. Production remains the
 > authoritative PostgreSQL ledger; model inference runs locally and transfers
@@ -57,26 +58,24 @@ tool-registry revision, and owner approval.
    required before its first production translation. If the product requires
    a model stack containing only MIT/Apache-2.0 dependencies, translation must
    stop until an approved replacement is selected.
+9. The free dictionary may reuse legacy-origin headword strings. This is not
+   described as an independently selected or fully clean-room inventory. DSD
+   claims rights only in newly generated expressive content, new software and
+   any independently created arrangement—not exclusive rights in words.
+10. A least-privilege `dsd_headword_reader` role exposes exactly one `headword`
+    column. Generation never receives legacy POS, definitions, translations,
+    examples, ranks, IDs, ordering, IPA, audio or source metadata.
 
 ## 2. Pipeline
 
 ```text
-DSD coverage cells
+legacy `headword` strings only
         |
         v
-Qwen3-14B candidate generation
+normalize / deduplicate / fresh DSD UUID and ordering
         |
         v
-normalize / schema / duplicate / lexical-shape gates
-        |
-        v
-Qwen3-8B isolated candidate critic
-        |
-        v
-freeze independent inventory wave
-        |
-        v
-Qwen3-14B POS + definition_en + example_en + usage labels
+Qwen3-14B inferred POS + new definition_en + new example_en
         |
         v
 deterministic English QA -> Qwen3-8B isolated English critic
@@ -98,9 +97,10 @@ restricted legacy similarity screen -> human hash review
 IPA + LJSpeech/Norman audio -> signed release gates
 ```
 
-The inference process must not contain a legacy database URL, legacy dump,
-legacy mount, similarity reader credential, or a filesystem path that contains
-legacy content. Tests prove this isolation before every production wave.
+The inference process reads only the sanitized inventory CSV. It must not
+contain a legacy database URL, legacy dump, legacy mount, similarity reader
+credential, legacy IDs or legacy expressive content. Tests prove this narrower
+boundary before every production wave.
 
 ---
 

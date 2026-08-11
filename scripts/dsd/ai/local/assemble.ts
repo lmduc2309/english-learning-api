@@ -48,8 +48,9 @@ export function assembleLocalPackage(input: AssembleInput): CurationPackage {
       throw new Error(`${id}: selected English revision lacks a passing critic`);
     }
     const output = value.result.output as any;
+    const expectedPos = value.request.payload.expected_part_of_speech;
     if (output.headword !== value.request.payload.headword ||
-        output.part_of_speech !== value.request.payload.expected_part_of_speech) {
+        (expectedPos !== 'infer' && output.part_of_speech !== expectedPos)) {
       throw new Error(`${id}: English output does not echo its inventory identity`);
     }
     const definition = translations.get(`${id}:definition_en`);

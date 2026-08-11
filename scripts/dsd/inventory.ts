@@ -66,7 +66,7 @@ export const FORBIDDEN_COLUMNS = [
 
 const PART_OF_SPEECH = [
   'noun', 'verb', 'adjective', 'adverb', 'pronoun', 'preposition',
-  'conjunction', 'interjection', 'determiner', 'numeral', 'phrase',
+  'conjunction', 'interjection', 'determiner', 'numeral', 'phrase', 'infer',
 ] as const;
 
 const PSEUDONYM_RE = /^DSD-[A-Z]-\d{3,}$/;

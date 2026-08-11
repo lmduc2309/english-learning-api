@@ -1,10 +1,9 @@
 /**
  * DSD full-corpus target contract.
  *
- * The legacy database contributes one integer and nothing else. Keeping the
- * contract deliberately tiny makes the clean-room boundary mechanically
- * reviewable: if a future edit adds a word, identifier, rank, or content field,
- * validation refuses the file before any generation job can use it.
+ * The commercial-free-lookup mode reuses legacy headword strings through a
+ * separate one-column export. This target document still carries only the
+ * scalar stopping count; the inventory export has its own manifest.
  *
  * USAGE:
  *   npm run dsd:target:validate -- --file data/dsd/targets/legacy-parity-2026-08-09.json
@@ -88,8 +87,8 @@ export function validateTargetDocument(value: unknown): string[] {
   if (doc.evidence_id !== TARGET_EVIDENCE_ID) {
     errors.push(`evidence_id must be '${TARGET_EVIDENCE_ID}'`);
   }
-  if (doc.legacy_inventory_used !== false) {
-    errors.push('legacy_inventory_used must be false');
+  if (doc.legacy_inventory_used !== true) {
+    errors.push('legacy_inventory_used must be true for headword-only mode');
   }
   return errors;
 }

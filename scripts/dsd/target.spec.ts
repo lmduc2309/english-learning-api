@@ -12,7 +12,7 @@ const valid = () => ({
   language: 'en',
   unique_normalized_entries: TARGET_UNIQUE_ENTRIES,
   evidence_id: TARGET_EVIDENCE_ID,
-  legacy_inventory_used: false,
+  legacy_inventory_used: true,
 });
 
 describe('DSD corpus target contract', () => {

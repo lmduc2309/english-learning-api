@@ -202,6 +202,10 @@ export function validateStageOutput(stage: LocalStage, output: unknown): string[
         output.usage_labels.some((label) => !(LOCAL_USAGE_LABELS as readonly unknown[]).includes(label))) {
       errors.push('usage_labels are invalid');
     }
+    if (!['noun', 'verb', 'adjective', 'adverb', 'pronoun', 'preposition', 'conjunction',
+      'interjection', 'determiner', 'numeral', 'phrase'].includes(String(output.part_of_speech))) {
+      errors.push('part_of_speech is invalid');
+    }
     return errors;
   }
   if (!exactKeys(output, ['candidates']) || !Array.isArray(output.candidates) ||

@@ -31,9 +31,12 @@ example, pronunciation, ordering, or frequency signal.
 ## DSD target decision
 
 The parity target is exactly **475,153 unique normalized English DSD entries**.
-The legacy count is used only as a scalar stopping condition. It does not
-authorize copying the legacy inventory, selecting the same words, preserving
-legacy order, or exposing legacy content to an AI generation process.
+This original observation was count-only. On 2026-08-11 the owner separately
+approved a headword-only commercial lookup mode. That later decision permits
+the sanitized headword strings to seed new DSD content, but still prohibits
+legacy order, IDs, POS, definitions, translations, examples, ranks,
+pronunciations, audio and metadata. See
+`LEGACY-HEADWORDS-ONLY-DECISION-2026-08-11.md`.
 
 The target is met only when the DSD database contains 475,153 distinct active
 `(language = 'en', headword_normalized)` entries. Draft child content, rejected

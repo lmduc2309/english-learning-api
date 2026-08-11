@@ -294,13 +294,16 @@ describe('the committed registries', () => {
     const { sources } = loadRegistries();
     // These are the sources the plan requires stay out of DSD. A future edit
     // that quietly approves one should fail here rather than at release audit.
-    for (const alias of ['oewn', 'ngsl', 'wiktionary', 'tudien', 'amy', 'ryan', 'lessac', 'legacy']) {
+    for (const alias of ['oewn', 'ngsl', 'wiktionary', 'tudien', 'amy', 'ryan', 'lessac']) {
       const match = sources.find((s) =>
         [s.id, ...(s.aliases || [])].some((a) => a.toLowerCase().includes(alias)),
       );
       expect(match).toBeDefined();
       expect(match!.status).toBe('blocked');
     }
+    const headwords = sources.find((s) => s.id === 'dsd-legacy-headword-strings-v1');
+    expect(headwords?.status).toBe('candidate');
+    expect(headwords?.approvedScopes).toEqual([]);
   });
 
   it('keeps DSD original content blocked until IP evidence exists', () => {
