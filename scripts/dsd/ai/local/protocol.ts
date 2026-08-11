@@ -11,7 +11,12 @@ export const CRITIC_REASON_CODES = [
   'LEXICAL_INVALID', 'PART_OF_SPEECH_INCORRECT', 'DEFINITION_INACCURATE',
   'DEFINITION_AMBIGUOUS', 'CIRCULAR_DEFINITION', 'EXAMPLE_UNGRAMMATICAL',
   'EXAMPLE_UNNATURAL', 'EXAMPLE_INACCURATE', 'DEFINITION_EXAMPLE_MISMATCH',
-  'FABRICATED_CONTENT', 'HARMFUL_CONTENT',
+  'FABRICATED_CONTENT', 'HARMFUL_CONTENT', 'USAGE_LABEL_INVALID', 'EXAMPLE_LEMMA_MISSING',
+] as const;
+export const LOCAL_USAGE_LABELS = [
+  'general', 'formal', 'informal', 'literary', 'technical', 'medical', 'legal',
+  'archaic', 'slang', 'offensive', 'figurative', 'regional', 'british',
+  'american', 'countable', 'uncountable', 'transitive', 'intransitive',
 ] as const;
 
 const SHA_RE = /^[0-9a-f]{64}$/;
@@ -188,7 +193,7 @@ export function validateStageOutput(stage: LocalStage, output: unknown): string[
       if (text.length < min || text.length > max) errors.push(`${field} length must be ${min}..${max}`);
     }
     if (!Array.isArray(output.usage_labels) || output.usage_labels.length > 4 ||
-        output.usage_labels.some((label) => typeof label !== 'string' || !label.trim())) {
+        output.usage_labels.some((label) => !(LOCAL_USAGE_LABELS as readonly unknown[]).includes(label))) {
       errors.push('usage_labels are invalid');
     }
     return errors;

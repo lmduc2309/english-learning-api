@@ -22,11 +22,11 @@
       "aliases": ["DSD local Qwen3-14B generator"],
       "scopes": ["tool"],
       "status": "candidate",
-      "blockedReason": "Official local 4-bit artifact provisioned and verified on 2026-08-11; pending 50-entry calibration and owner approval.",
       "approvedScopes": [],
       "evidenceIds": [
         "EV-QWEN3-14B-APACHE-2.0-20260811",
-        "EV-DSD-LOCAL-MODEL-POLICY-20260811-001"
+        "EV-DSD-LOCAL-MODEL-POLICY-20260811-001",
+        "EV-DSD-LOCAL-CALIBRATION-050-20260811"
       ],
       "url": "https://huggingface.co/Qwen/Qwen3-14B",
       "revision": "40c069824f4251a91eefaf281ebe4c544efd3e18",
@@ -37,11 +37,11 @@
       "aliases": ["DSD isolated Qwen3-8B critic"],
       "scopes": ["tool"],
       "status": "candidate",
-      "blockedReason": "Official local 4-bit artifact provisioned and verified on 2026-08-11; pending isolation tests and critic calibration.",
       "approvedScopes": [],
       "evidenceIds": [
         "EV-QWEN3-8B-APACHE-2.0-20260811",
-        "EV-DSD-LOCAL-MODEL-POLICY-20260811-001"
+        "EV-DSD-LOCAL-MODEL-POLICY-20260811-001",
+        "EV-DSD-LOCAL-CALIBRATION-050-20260811"
       ],
       "url": "https://huggingface.co/Qwen/Qwen3-8B",
       "revision": "b968826d9c46dd6066d109eabc6255188de91218",
@@ -52,15 +52,32 @@
       "aliases": ["DSD local TranslateGemma English-to-Vietnamese translator"],
       "scopes": ["tool"],
       "status": "candidate",
-      "blockedReason": "Owner confirmed Gemma Terms acceptance and the official local 4-bit artifact was provisioned/verified on 2026-08-11; pending 50-entry translation calibration and approval.",
       "approvedScopes": [],
       "evidenceIds": [
         "EV-TRANSLATEGEMMA-GEMMA-TERMS-20260811",
-        "EV-DSD-LOCAL-MODEL-POLICY-20260811-001"
+        "EV-DSD-LOCAL-MODEL-POLICY-20260811-001",
+        "EV-DSD-LOCAL-CALIBRATION-050-20260811"
       ],
       "url": "https://huggingface.co/google/translategemma-12b-it",
       "revision": "d1b225e1caa17f1ddc7e62065d8637d0923f34e2",
       "notes": "Official gated TranslateGemma 12B IT weights, locally converted to MLX 4-bit. English-to-Vietnamese field translation only; never inventory or English-source authoring. Gemma Terms are a deliberate custom-license exception."
+    },
+    {
+      "id": "dsd-local-mlx-text-pipeline-v1",
+      "aliases": ["DSD local three-model text pipeline v1"],
+      "scopes": ["tool"],
+      "status": "candidate",
+      "approvedScopes": [],
+      "evidenceIds": [
+        "EV-QWEN3-14B-APACHE-2.0-20260811",
+        "EV-QWEN3-8B-APACHE-2.0-20260811",
+        "EV-TRANSLATEGEMMA-GEMMA-TERMS-20260811",
+        "EV-DSD-LOCAL-MODEL-POLICY-20260811-001",
+        "EV-DSD-LOCAL-CALIBRATION-050-20260811",
+        "EV-DSD-LOCAL-PIPELINE-OUTPUT-RIGHTS-20260811"
+      ],
+      "revision": "local-model-lock-a4139af9f833ec8b9998ceb86438b9be9a7a599964358883203932e9bd3546d8",
+      "notes": "Provider-neutral curation provenance envelope for the locked Qwen3-14B author, isolated Qwen3-8B critic, and TranslateGemma-12B translator. Per-request evidence remains bound to each underlying model, prompt, schema and input hash."
     },
     {
       "id": "openai-codex-text-generation",

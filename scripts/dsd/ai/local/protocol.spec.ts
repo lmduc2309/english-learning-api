@@ -87,4 +87,13 @@ describe('local inference protocol', () => {
       translation_vi: 'Một bến cảng an toàn.', note: 'extra',
     }).join(' ')).toMatch(/only translation_vi/i);
   });
+
+  it('rejects invented usage labels before package assembly', () => {
+    expect(validateStageOutput('english', {
+      headword: 'harbor', part_of_speech: 'noun',
+      definition_en: 'A protected place where ships can stay.',
+      example_en: 'The ship entered the harbor before dark.',
+      usage_labels: ['common'],
+    }).join(' ')).toMatch(/usage_labels are invalid/i);
+  });
 });

@@ -24,6 +24,17 @@
       "permissions": ["review_text", "approve_inventory", "publish_release"],
       "ipAssignmentEvidenceId": "EV-OWNER-DECLARATION-20260809-001",
       "status": "active"
+    },
+    {
+      "id": "DSD-G-002",
+      "actorType": "ai",
+      "roles": ["generator"],
+      "languages": ["en", "vi"],
+      "engagementType": "automation",
+      "startDate": "2026-08-11",
+      "permissions": ["generate_inventory", "generate_definition", "generate_translation", "generate_example"],
+      "outputRightsEvidenceId": "EV-DSD-LOCAL-PIPELINE-OUTPUT-RIGHTS-20260811",
+      "status": "active"
     }
   ]
 }

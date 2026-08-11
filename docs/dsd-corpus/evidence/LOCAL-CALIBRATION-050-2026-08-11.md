@@ -1,6 +1,6 @@
 # DSD local-model calibration — 50 entries — 2026-08-11
 
-Status: machine gates passed; owner content sample and explicit W1 go decision pending.
+Status: owner approved the original 50-entry content sample on 2026-08-11, but W1 remains blocked. Subsequent package validation exposed usage-label and lemma-contract defects, and the adapter seed strategy did not match the hash-derived sampling policy. Evidence ID: `EV-DSD-LOCAL-CALIBRATION-050-20260811` records the run and owner decision; it is not a W1 go certificate.
 
 This calibration used the independently prepared `dsd-pilot-050.csv` inventory and the locked local MLX models. It did not read or write the legacy or production databases. No result was approved or published.
 
@@ -44,3 +44,14 @@ These are summed per-request model timings from one local run, not yet a capacit
 | Final translation results | `d768cf2ad72f21f11b50c5bc0d7c9ae84eee9abb6908c8827e4098d6371377c5` |
 
 The raw spools currently remain offline under `/private/tmp/dsd-local-cal-50`. Their hashes above are evidence identifiers, but Task L12 is not complete until an immutable durable evidence bundle is created and verified.
+
+## Superseding findings after package validation
+
+The earlier 50/50 machine summary covered protocol/schema checks then implemented; it did not prove compatibility with the downstream curation quality gate. Continuing Task L13 exposed:
+
+- free-form usage labels rejected by the corpus allowlist;
+- examples using undeclared irregular inflections rejected as `lemma_missing`;
+- retry seeds derived from batch position instead of the policy-required entry/content hashes;
+- two repeatedly rejected entries (`give`, `send`) and one later repair candidate (`choose`) that must not be forced through by repeated sampling.
+
+The pipeline and its generated source were returned to `candidate` status. No W0 output was imported. A new W0 run using hash-derived seeds, the tightened label/lemma contract, bounded repair attempts, selection manifests, and full package validation is required before W1.

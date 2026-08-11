@@ -125,6 +125,7 @@
     "dsd:local:prepare": "ts-node scripts/dsd/ai/local/runner.ts prepare",
     "dsd:local:validate": "ts-node scripts/dsd/ai/local/runner.ts validate",
     "dsd:local:calibration": "ts-node scripts/dsd/ai/local/calibration.ts",
+    "dsd:local:assemble": "ts-node scripts/dsd/ai/local/assemble.ts",
     "dsd:curation:validate": "ts-node scripts/dsd/curation.ts validate",
     "dsd:curation:import": "ts-node scripts/dsd/curation.ts import",
     "dsd:curation:stats": "ts-node scripts/dsd/curation.ts stats",
