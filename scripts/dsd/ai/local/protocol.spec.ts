@@ -69,6 +69,18 @@ describe('local inference protocol', () => {
     }).join(' ')).toMatch(/decision is invalid/i);
   });
 
+  it('requires canonical critic reason codes with decision-consistent cardinality', () => {
+    expect(validateStageOutput('critic', {
+      decision: 'repair', reason_codes: ['DEF_EXAMPLE_MISMATCH'],
+    }).join(' ')).toMatch(/reason_codes are invalid/i);
+    expect(validateStageOutput('critic', {
+      decision: 'pass', reason_codes: ['LEXICAL_INVALID'],
+    }).join(' ')).toMatch(/requires empty/i);
+    expect(validateStageOutput('critic', {
+      decision: 'repair', reason_codes: [],
+    }).join(' ')).toMatch(/requires reason_codes/i);
+  });
+
   it('accepts the strict TranslateGemma wrapper and rejects commentary keys', () => {
     expect(validateStageOutput('translate', { translation_vi: 'Một bến cảng an toàn.' })).toEqual([]);
     expect(validateStageOutput('translate', {

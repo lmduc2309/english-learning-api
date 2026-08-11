@@ -7,6 +7,12 @@ export type LocalStage = (typeof LOCAL_STAGES)[number];
 export const LOCAL_TERMINAL_STATES = [
   'completed', 'schema_invalid', 'quality_invalid', 'quarantined', 'terminal_failure',
 ] as const;
+export const CRITIC_REASON_CODES = [
+  'LEXICAL_INVALID', 'PART_OF_SPEECH_INCORRECT', 'DEFINITION_INACCURATE',
+  'DEFINITION_AMBIGUOUS', 'CIRCULAR_DEFINITION', 'EXAMPLE_UNGRAMMATICAL',
+  'EXAMPLE_UNNATURAL', 'EXAMPLE_INACCURATE', 'DEFINITION_EXAMPLE_MISMATCH',
+  'FABRICATED_CONTENT', 'HARMFUL_CONTENT',
+] as const;
 
 const SHA_RE = /^[0-9a-f]{64}$/;
 const FORBIDDEN_KEY_RE = /(?:^|_)(?:legacy|reviewer|approved|published|similarity|reasoning)(?:_|$)/i;
@@ -160,8 +166,14 @@ export function validateStageOutput(stage: LocalStage, output: unknown): string[
     if (!exactKeys(output, ['decision', 'reason_codes'])) errors.push('critic output has incorrect keys');
     if (!['pass', 'repair', 'quarantine'].includes(String(output.decision))) errors.push('critic decision is invalid');
     if (!Array.isArray(output.reason_codes) || output.reason_codes.length > 8 ||
-        output.reason_codes.some((code) => typeof code !== 'string' || !/^[A-Z][A-Z0-9_]{2,47}$/.test(code))) {
+        output.reason_codes.some((code) => !(CRITIC_REASON_CODES as readonly unknown[]).includes(code))) {
       errors.push('critic reason_codes are invalid');
+    }
+    if (output.decision === 'pass' && Array.isArray(output.reason_codes) && output.reason_codes.length) {
+      errors.push('passing critic output requires empty reason_codes');
+    }
+    if (output.decision !== 'pass' && Array.isArray(output.reason_codes) && !output.reason_codes.length) {
+      errors.push('non-passing critic output requires reason_codes');
     }
     return errors;
   }
