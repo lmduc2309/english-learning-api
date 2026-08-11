@@ -22,7 +22,7 @@
       "aliases": ["DSD local Qwen3-14B generator"],
       "scopes": ["tool"],
       "status": "candidate",
-      "blockedReason": "Pending reproducible official-weight provisioning, local 4-bit artifact verification, 50-entry calibration, and owner approval.",
+      "blockedReason": "Official local 4-bit artifact provisioned and verified on 2026-08-11; pending 50-entry calibration and owner approval.",
       "approvedScopes": [],
       "evidenceIds": [
         "EV-QWEN3-14B-APACHE-2.0-20260811",
@@ -37,7 +37,7 @@
       "aliases": ["DSD isolated Qwen3-8B critic"],
       "scopes": ["tool"],
       "status": "candidate",
-      "blockedReason": "Pending reproducible official-weight provisioning, isolation tests, local 4-bit artifact verification, and critic calibration.",
+      "blockedReason": "Official local 4-bit artifact provisioned and verified on 2026-08-11; pending isolation tests and critic calibration.",
       "approvedScopes": [],
       "evidenceIds": [
         "EV-QWEN3-8B-APACHE-2.0-20260811",
@@ -52,7 +52,7 @@
       "aliases": ["DSD local TranslateGemma English-to-Vietnamese translator"],
       "scopes": ["tool"],
       "status": "candidate",
-      "blockedReason": "Pending owner acceptance/evidence for Gemma Terms, gated official-weight access, reproducible local 4-bit provisioning, and 50-entry translation calibration.",
+      "blockedReason": "Owner confirmed Gemma Terms acceptance and the official local 4-bit artifact was provisioned/verified on 2026-08-11; pending 50-entry translation calibration and approval.",
       "approvedScopes": [],
       "evidenceIds": [
         "EV-TRANSLATEGEMMA-GEMMA-TERMS-20260811",

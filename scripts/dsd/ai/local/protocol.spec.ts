@@ -1,4 +1,7 @@
-import { createLocalRequest, sha256, validateLocalRequest, validateLocalResult } from './protocol';
+import {
+  createLocalRequest, sha256, validateLocalRequest, validateLocalResult,
+  validateStageOutput,
+} from './protocol';
 import { canonicalJson } from './model-lock';
 
 function request() {
@@ -34,7 +37,11 @@ describe('local inference protocol', () => {
 
   it('accepts a hash-bound completed result', () => {
     const value = request();
-    const output = { headword: 'harbor', definition_en: 'A protected place where ships can stay.' };
+    const output = {
+      headword: 'harbor', part_of_speech: 'noun',
+      definition_en: 'A protected place where ships can stay.',
+      example_en: 'The boats returned to the harbor before dark.', usage_labels: [],
+    };
     expect(validateLocalResult({
       protocol_version: 1, request_id: value.request_id, state: 'completed',
       model_id: value.model_id, model_lock_sha256: value.model_lock_sha256,
@@ -54,5 +61,18 @@ describe('local inference protocol', () => {
       elapsed_ms: 1, error_code: 'MODEL_FAILURE',
     }, value);
     expect(errors.join(' ')).toMatch(/model_id does not match/i);
+  });
+
+  it('rejects critic synonyms instead of silently repairing the enum', () => {
+    expect(validateStageOutput('critic', {
+      decision: 'accept', reason_codes: ['DEFINITION_ACCURATE'],
+    }).join(' ')).toMatch(/decision is invalid/i);
+  });
+
+  it('accepts the strict TranslateGemma wrapper and rejects commentary keys', () => {
+    expect(validateStageOutput('translate', { translation_vi: 'Một bến cảng an toàn.' })).toEqual([]);
+    expect(validateStageOutput('translate', {
+      translation_vi: 'Một bến cảng an toàn.', note: 'extra',
+    }).join(' ')).toMatch(/only translation_vi/i);
   });
 });

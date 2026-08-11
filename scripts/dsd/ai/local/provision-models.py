@@ -148,8 +148,13 @@ def main() -> None:
         "community_quantized_artifact": False,
     }, indent=2))
     if args.operation == "apply":
-        if model["gated"] and not os.environ.get("HF_TOKEN", "").strip():
-            raise RuntimeError("HF_TOKEN is required for this gated official model")
+        if model["gated"]:
+            from huggingface_hub import get_token
+            if not (os.environ.get("HF_TOKEN", "").strip() or get_token()):
+                raise RuntimeError(
+                    "Hugging Face authentication is required for this gated official model; "
+                    "use `hf auth login` or set HF_TOKEN"
+                )
         provision(model, lock, home)
 
 

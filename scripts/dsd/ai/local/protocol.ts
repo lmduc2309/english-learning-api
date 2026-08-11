@@ -134,8 +134,70 @@ export function validateLocalResult(result: LocalResult, request: LocalRequest):
   if (result.state === 'completed') {
     if (result.output === undefined || !result.output_sha256) errors.push('completed result requires output and hash');
     else if (sha256(canonicalJson(result.output)) !== result.output_sha256) errors.push('output hash mismatch');
+    errors.push(...validateStageOutput(request.stage, result.output));
     if (result.error_code) errors.push('completed result cannot contain error_code');
   } else if (!result.error_code) errors.push('failed result requires error_code');
+  return errors;
+}
+
+function plainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function exactKeys(value: Record<string, unknown>, keys: string[]): boolean {
+  return Object.keys(value).sort().join('|') === [...keys].sort().join('|');
+}
+
+export function validateStageOutput(stage: LocalStage, output: unknown): string[] {
+  if (!plainObject(output)) return [`${stage} output must be an object`];
+  if (stage === 'translate') {
+    if (!exactKeys(output, ['translation_vi'])) return ['translate output must contain only translation_vi'];
+    const text = typeof output.translation_vi === 'string' ? output.translation_vi.trim() : '';
+    return text.length >= 1 && text.length <= 320 ? [] : ['translation_vi length must be 1..320'];
+  }
+  if (stage === 'critic') {
+    const errors: string[] = [];
+    if (!exactKeys(output, ['decision', 'reason_codes'])) errors.push('critic output has incorrect keys');
+    if (!['pass', 'repair', 'quarantine'].includes(String(output.decision))) errors.push('critic decision is invalid');
+    if (!Array.isArray(output.reason_codes) || output.reason_codes.length > 8 ||
+        output.reason_codes.some((code) => typeof code !== 'string' || !/^[A-Z][A-Z0-9_]{2,47}$/.test(code))) {
+      errors.push('critic reason_codes are invalid');
+    }
+    return errors;
+  }
+  if (stage === 'english') {
+    const keys = ['headword', 'part_of_speech', 'definition_en', 'example_en', 'usage_labels'];
+    const errors: string[] = [];
+    if (!exactKeys(output, keys)) errors.push('english output has incorrect keys');
+    for (const [field, min, max] of [
+      ['headword', 1, 120], ['part_of_speech', 2, 32], ['definition_en', 8, 320], ['example_en', 8, 320],
+    ] as Array<[string, number, number]>) {
+      const text = typeof output[field] === 'string' ? String(output[field]).trim() : '';
+      if (text.length < min || text.length > max) errors.push(`${field} length must be ${min}..${max}`);
+    }
+    if (!Array.isArray(output.usage_labels) || output.usage_labels.length > 4 ||
+        output.usage_labels.some((label) => typeof label !== 'string' || !label.trim())) {
+      errors.push('usage_labels are invalid');
+    }
+    return errors;
+  }
+  if (!exactKeys(output, ['candidates']) || !Array.isArray(output.candidates) ||
+      output.candidates.length < 1 || output.candidates.length > 100) {
+    return ['inventory output requires 1..100 candidates only'];
+  }
+  const errors: string[] = [];
+  output.candidates.forEach((candidate, index) => {
+    if (!plainObject(candidate) || !exactKeys(candidate, ['headword', 'part_of_speech', 'rationale'])) {
+      errors.push(`candidate ${index} has incorrect shape`);
+      return;
+    }
+    for (const [field, min, max] of [
+      ['headword', 1, 120], ['part_of_speech', 2, 32], ['rationale', 8, 240],
+    ] as Array<[string, number, number]>) {
+      const text = typeof candidate[field] === 'string' ? String(candidate[field]).trim() : '';
+      if (text.length < min || text.length > max) errors.push(`candidate ${index} ${field} is invalid`);
+    }
+  });
   return errors;
 }
 

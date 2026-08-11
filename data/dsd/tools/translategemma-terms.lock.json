@@ -1,0 +1,12 @@
+{
+  "lock_version": 1,
+  "evidence_id": "EV-TRANSLATEGEMMA-GEMMA-TERMS-20260811",
+  "model_repository": "google/translategemma-12b-it",
+  "model_revision": "d1b225e1caa17f1ddc7e62065d8637d0923f34e2",
+  "terms_url": "https://ai.google.dev/gemma/terms",
+  "terms_page_sha256": "2c8274a2808fda41d57c977cadea70836798769ff7e9e4e72701e1b081c294d5",
+  "terms_page_last_updated_utc": "2026-04-01",
+  "owner_acceptance_confirmed_on": "2026-08-11",
+  "credential_stored": false,
+  "notes": "Owner confirmed acceptance before gated download. Account identity and access token are deliberately not committed. This evidence records the technical gate and is not legal advice."
+}
