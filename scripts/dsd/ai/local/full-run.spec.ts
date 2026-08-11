@@ -16,4 +16,8 @@ describe('local full-run safety contract', () => {
     expect(source).toContain("fs.renameSync(temporary, file)");
     expect(source).toContain('revision <= state.max_repairs');
   });
+
+  it('reports against the final immutable selection', () => {
+    expect(source).toContain("calibration(['report', '--selection', p.selection");
+  });
 });

@@ -93,7 +93,7 @@ function paths(dir: string) {
     criticInput: path.join(dir, 'critic.requests.jsonl'), criticResults: path.join(dir, 'critic.results.jsonl'),
     selection: path.join(dir, 'selection.json'), translationPayloads: path.join(dir, 'translate.payloads.json'),
     translationInput: path.join(dir, 'translate.requests.jsonl'), translationResults: path.join(dir, 'translate.results.jsonl'),
-    report: path.join(dir, 'report.json'), package: path.join(dir, 'draft-package.json'),
+    report: path.join(dir, 'quality-report.json'), package: path.join(dir, 'draft-package.json'),
   };
 }
 
@@ -205,8 +205,7 @@ function validateWave(dir: string, state: FullRunState): void {
     ['english', p.englishInput, p.englishResults], ['critic', p.criticInput, p.criticResults],
     ['translate', p.translationInput, p.translationResults],
   ] as Array<[LocalStage, string, string]>) runner(['validate', '--stage', stage, '--input', input, '--results', output]);
-  calibration(['report', '--english-input', p.englishInput, '--english-results', p.englishResults,
-    '--critic-input', p.criticInput, '--critic-results', p.criticResults,
+  calibration(['report', '--selection', p.selection,
     '--translation-input', p.translationInput, '--translation-results', p.translationResults, '--output', p.report]);
   const report = JSON.parse(fs.readFileSync(p.report, 'utf8'));
   if (report.translation.deterministic_quality_fail !== 0) throw new Error('Vietnamese deterministic quality gate failed');

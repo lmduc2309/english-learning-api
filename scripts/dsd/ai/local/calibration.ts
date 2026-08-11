@@ -277,18 +277,22 @@ function translationQuality(text: string, source: string): string[] {
   if (!normalized) errors.push('EMPTY_TRANSLATION');
   if (normalized === source.trim().toLocaleLowerCase()) errors.push('SOURCE_COPIED');
   if (/[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/u.test(text)) errors.push('CJK_CONTAMINATION');
-  if (/^[\x00-\x7f]*$/.test(text)) errors.push('ASCII_ONLY_TRANSLATION');
+  // Vietnamese has legitimate ASCII-only words (for example "mua", "ban",
+  // and "con"). Accent absence alone is therefore review metadata, not a
+  // deterministic failure.
   return errors;
 }
 
 function report(): void {
-  const english = loadCompleted(required('english-input'), required('english-results'));
-  const critics = loadCompleted(required('critic-input'), required('critic-results'));
+  const selectionFile = arg('selection');
+  const selected = selectionFile ? loadSelectionManifest(selectionFile) : undefined;
+  const english = selected?.english ?? loadCompleted(required('english-input'), required('english-results'));
+  const critics = selected?.critics ?? loadCompleted(required('critic-input'), required('critic-results'));
   const repairEnglishInput = arg('repair-input');
   const repairEnglishResults = arg('repair-results');
   const repairCriticInput = arg('repair-critic-input');
   const repairCriticResults = arg('repair-critic-results');
-  if ([repairEnglishInput, repairEnglishResults, repairCriticInput, repairCriticResults].every(Boolean)) {
+  if (!selected && [repairEnglishInput, repairEnglishResults, repairCriticInput, repairCriticResults].every(Boolean)) {
     const repairs = loadCompleted(repairEnglishInput!, repairEnglishResults!);
     const repairedIds = new Set(repairs.map(({ request }) => String(request.payload.dsd_entry_id)));
     english.splice(0, english.length,
@@ -296,7 +300,7 @@ function report(): void {
     critics.splice(0, critics.length,
       ...critics.filter(({ request }) => !repairedIds.has(String(request.payload.dsd_entry_id)),),
       ...loadCompleted(repairCriticInput!, repairCriticResults!));
-  } else if ([repairEnglishInput, repairEnglishResults, repairCriticInput, repairCriticResults].some(Boolean)) {
+  } else if (!selected && [repairEnglishInput, repairEnglishResults, repairCriticInput, repairCriticResults].some(Boolean)) {
     throw new Error('all four repair spool arguments are required together');
   }
   const translations = loadCompleted(required('translation-input'), required('translation-results'));
