@@ -55,3 +55,16 @@ The earlier 50/50 machine summary covered protocol/schema checks then implemente
 - two repeatedly rejected entries (`give`, `send`) and one later repair candidate (`choose`) that must not be forced through by repeated sampling.
 
 The pipeline and its generated source were returned to `candidate` status. No W0 output was imported. A new W0 run using hash-derived seeds, the tightened label/lemma contract, bounded repair attempts, selection manifests, and full package validation is required before W1.
+
+## Hash-seed W0 rerun
+
+The replacement W0 run used entry/content-derived seeds and an empty usage-label contract. Results:
+
+- 50 independently selected inventory entries attempted;
+- 26 schema-invalid first attempts repaired as new revisions; 24 retained unchanged;
+- final selected English set: 48 critic pass, 2 repair, 0 forced acceptance;
+- 96/96 selected Vietnamese fields completed and protocol-valid;
+- a 48-entry draft curation package assembled successfully;
+- downstream curation validation reported no content-quality findings. Its 145 errors were exactly the expected closed registry gate: one unapproved pipeline tool plus three unapproved source scopes for each of 48 entries.
+
+W0 is still incomplete because it requires 50 accepted entries. The two repair slots must be filled from independent reserve candidates and run through the complete pipeline. Tool/source status remains `candidate`, and production import remains prohibited.
