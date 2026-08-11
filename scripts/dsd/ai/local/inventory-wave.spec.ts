@@ -14,4 +14,8 @@ describe('local inventory wave', () => {
     expect(source).toContain("integer('candidates-per-request', 25)");
     expect(source).toContain('candidatesPerRequest > 50');
   });
+  it('supports broad partial-cell sampling to reduce cross-chunk duplication', () => {
+    expect(source).toContain("integer('candidates-per-cell', plan.candidates_per_cell)");
+    expect(source).toContain('candidatesPerCell - index * candidatesPerRequest');
+  });
 });

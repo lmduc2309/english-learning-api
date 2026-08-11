@@ -44,7 +44,9 @@ function main(): void {
   const errors = validateInventoryPlan(plan); if (errors.length) throw new Error(errors.join('; '));
   const offset = integer('offset', 0); const cellCount = integer('cells', 6); const stride = integer('stride', 1);
   const target = integer('target'); const candidatesPerRequest = integer('candidates-per-request', 25);
-  if (cellCount < 1 || stride < 1 || target < 1 || candidatesPerRequest < 1 || candidatesPerRequest > 50) {
+  const candidatesPerCell = integer('candidates-per-cell', plan.candidates_per_cell);
+  if (cellCount < 1 || stride < 1 || target < 1 || candidatesPerRequest < 1 || candidatesPerRequest > 50 ||
+      candidatesPerCell < 1 || candidatesPerCell > plan.candidates_per_cell) {
     throw new Error('--cells, --stride and --target must be positive; --candidates-per-request must be 1..50');
   }
   const allCells = buildInventoryCells(plan);
@@ -55,10 +57,10 @@ function main(): void {
   const results = path.join(dir, 'generator.results.jsonl'); const criticPayloads = path.join(dir, 'critic.payloads.json');
   const criticRequests = path.join(dir, 'critic.requests.jsonl'); const criticResults = path.join(dir, 'critic.results.jsonl');
   const inventory = path.join(dir, 'inventory.csv'); const manifest = path.join(dir, 'manifest.json');
-  const chunks = cells.flatMap((cell) => Array.from({ length: Math.ceil(cell.count / candidatesPerRequest) }, (_, index) => ({
+  const chunks = cells.flatMap((cell) => Array.from({ length: Math.ceil(candidatesPerCell / candidatesPerRequest) }, (_, index) => ({
     coverage_cell_id: `${cell.id}-CHUNK-${String(index + 1).padStart(2, '0')}`,
     level: cell.level, register: cell.register, part_of_speech: cell.partOfSpeech, topic: cell.topic,
-    requested_count: Math.min(candidatesPerRequest, cell.count - index * candidatesPerRequest),
+    requested_count: Math.min(candidatesPerRequest, candidatesPerCell - index * candidatesPerRequest),
     seed: Number.parseInt(sha256(`${plan.plan_id}:${cell.id}:${index + 1}`).slice(0, 8), 16),
   })));
   if (!fs.existsSync(payloads)) writeNew(payloads, chunks);
@@ -79,7 +81,8 @@ function main(): void {
     '--critic-results', criticResults, '--start-priority', '1', '--limit', String(target), '--output', inventory]);
   if (!fs.existsSync(manifest)) writeNew(manifest, { version: 1, wave_id: wave, plan_id: plan.plan_id, cell_offset: offset,
     cell_count: cellCount, cell_stride: stride, request_count: chunks.length,
-    candidates_per_request: candidatesPerRequest, generated: chunks.reduce((sum, chunk) => sum + chunk.requested_count, 0),
+    candidates_per_cell: candidatesPerCell, candidates_per_request: candidatesPerRequest,
+    generated: chunks.reduce((sum, chunk) => sum + chunk.requested_count, 0),
     unique, critic_passed: passed,
     selected: target, legacy_inventory_used: false, inventory });
   console.log(fs.readFileSync(manifest, 'utf8'));
