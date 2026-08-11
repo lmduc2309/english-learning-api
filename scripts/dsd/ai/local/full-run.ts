@@ -2,7 +2,8 @@ import * as childProcess from 'child_process';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
-import { LocalRequest, LocalResult, LocalStage, readJsonl, validateLocalResult } from './protocol';
+import { LocalRequest, LocalResult, LocalStage, readJsonl, sha256, validateLocalResult } from './protocol';
+import { canonicalJson } from './model-lock';
 
 type Step = 'prepared' | 'english' | 'critic' | 'repairs' | 'translate' | 'validated' | 'packaged';
 
@@ -258,6 +259,45 @@ function stage(): void {
   throw new Error('production staging is intentionally not automatic; run the transactional curation dry-run/import workflow after proof review');
 }
 
+function fill(): void {
+  const dir = runDir(); const state = loadState(dir); const p = paths(dir);
+  if (state.step !== 'packaged') throw new Error('base offline draft package is incomplete');
+  const target = positiveInteger('target', state.target);
+  const reserveFile = path.resolve(ROOT, required('reserve-package'));
+  const headword = required('headword').normalize('NFC').trim().toLocaleLowerCase();
+  const base = JSON.parse(fs.readFileSync(p.package, 'utf8')) as any;
+  const reserve = JSON.parse(fs.readFileSync(reserveFile, 'utf8')) as any;
+  const candidates = reserve.entries.filter((entry: any) => String(entry.headword).normalize('NFC').trim().toLocaleLowerCase() === headword);
+  if (candidates.length !== 1) throw new Error(`reserve package must contain exactly one '${headword}' entry`);
+  const existingIds = new Set(base.entries.map((entry: any) => entry.dsd_entry_id));
+  const existingHeadwords = new Set(base.entries.map((entry: any) => String(entry.headword).normalize('NFC').trim().toLocaleLowerCase()));
+  if (existingIds.has(candidates[0].dsd_entry_id) || existingHeadwords.has(headword)) throw new Error('reserve duplicates the base package');
+  if (base.entries.length + 1 !== target) throw new Error(`one reserve would produce ${base.entries.length + 1}, not target ${target}`);
+  for (const field of ['generator_actor_id', 'generator_tool_id', 'generator_tool_revision', 'generated_source_id',
+    'provider_id', 'product_id', 'runtime_model_id', 'prompt_policy_id', 'terms_evidence_id', 'legacy_input_used']) {
+    if (base.generation?.[field] !== reserve.generation?.[field]) throw new Error(`incompatible reserve generation field ${field}`);
+  }
+  const output = path.join(dir, 'draft-package-final.json');
+  if (fs.existsSync(output)) throw new Error(`refusing to overwrite: ${output}`);
+  const merged = {
+    ...base,
+    batch_id: `${base.batch_id}-FINAL-${target}`,
+    generation: {
+      ...base.generation,
+      generated_at: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
+      input_sha256: sha256(canonicalJson([
+        { package: path.basename(p.package), input_sha256: base.generation.input_sha256 },
+        { package: path.basename(reserveFile), input_sha256: reserve.generation.input_sha256,
+          selected_entry_id: candidates[0].dsd_entry_id },
+      ])),
+    },
+    entries: [...base.entries, candidates[0]].sort((a: any, b: any) => a.dsd_entry_id.localeCompare(b.dsd_entry_id)),
+  };
+  atomicJson(output, merged);
+  state.counts.packaged = merged.entries.length; saveState(dir, state);
+  console.log(`Filled wave ${state.wave_id} to ${merged.entries.length}/${target}: ${output}`);
+}
+
 if (require.main === module) {
   try {
     const command = process.argv[2];
@@ -269,6 +309,7 @@ if (require.main === module) {
     else if (command === 'status') status();
     else if (command === 'pause') pause();
     else if (command === 'stage') stage();
-    else throw new Error('usage: full-run.ts <prepare|infer|validate|package|run|status|pause|stage>');
+    else if (command === 'fill') fill();
+    else throw new Error('usage: full-run.ts <prepare|infer|validate|package|fill|run|status|pause|stage>');
   } catch (error) { console.error((error as Error).message); process.exitCode = 1; }
 }

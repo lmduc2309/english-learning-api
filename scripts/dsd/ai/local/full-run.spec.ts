@@ -20,4 +20,10 @@ describe('local full-run safety contract', () => {
   it('reports against the final immutable selection', () => {
     expect(source).toContain("calibration(['report', '--selection', p.selection");
   });
+
+  it('fills an exact target only from a compatible immutable reserve package', () => {
+    expect(source).toContain("if (base.entries.length + 1 !== target)");
+    expect(source).toContain('incompatible reserve generation field');
+    expect(source).toContain("'draft-package-final.json'");
+  });
 });
