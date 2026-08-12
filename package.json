@@ -127,6 +127,7 @@
     "dsd:local:calibration": "ts-node scripts/dsd/ai/local/calibration.ts",
     "dsd:local:assemble": "ts-node scripts/dsd/ai/local/assemble.ts",
     "dsd:full-run": "ts-node scripts/dsd/ai/local/full-run.ts",
+    "dsd:full-run:monitor": "ts-node scripts/dsd/ai/local/monitor.ts",
     "dsd:inventory-wave": "ts-node scripts/dsd/ai/local/inventory-wave.ts",
     "dsd:legacy-headwords:export": "ts-node scripts/dsd/legacy-headword-inventory.ts export",
     "dsd:legacy-headwords:provision-local": "bash scripts/dsd/provision-local-headword-reader.sh",
