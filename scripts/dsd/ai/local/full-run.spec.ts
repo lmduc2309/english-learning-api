@@ -26,4 +26,10 @@ describe('local full-run safety contract', () => {
     expect(source).toContain('incompatible reserve generation field');
     expect(source).toContain("'draft-package-final.json'");
   });
+
+  it('records deterministic inventory sampling in the wave ledger', () => {
+    expect(source).toContain("positiveInteger('inventory-stride', 1)");
+    expect(source).toContain('inventory_offset: inventoryOffset');
+    expect(source).toContain("'--stride', String(inventoryStride)");
+  });
 });

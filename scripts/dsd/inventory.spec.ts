@@ -116,6 +116,10 @@ describe('validateRow', () => {
     );
   });
 
+  it.each(['a-', '-ability', 'a- -ing', 'two words-'])('rejects morphology fragment %s', (headword) => {
+    expect(validateRow(row({ headword }), 2).join(' ')).toMatch(/non-English/i);
+  });
+
   it('rejects an unknown part-of-speech expectation', () => {
     expect(validateRow(row({ part_of_speech_expectation: 'gerundive' }), 2).join(' ')).toMatch(
       /part of speech/i,

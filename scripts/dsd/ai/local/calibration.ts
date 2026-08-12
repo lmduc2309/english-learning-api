@@ -60,7 +60,14 @@ function prepareEnglish(): void {
   if (inventory.errors.length) throw new Error(`invalid inventory: ${inventory.errors.join('; ')}`);
   const limit = Number(arg('limit') ?? 50);
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > inventory.rows.length) throw new Error('invalid --limit');
-  writeNew(required('output'), inventory.rows.slice(0, limit).map(englishPayload));
+  const offset = Number(arg('offset') ?? 0);
+  const stride = Number(arg('stride') ?? 1);
+  if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(stride) || stride < 1) {
+    throw new Error('--offset must be non-negative and --stride must be positive');
+  }
+  const selected = Array.from({ length: limit }, (_, index) => inventory.rows[offset + index * stride]);
+  if (selected.some((row) => !row)) throw new Error('offset/stride selection exceeds inventory');
+  writeNew(required('output'), selected.map(englishPayload));
 }
 
 function prepareCritic(): void {

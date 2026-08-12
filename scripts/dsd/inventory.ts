@@ -72,7 +72,10 @@ const PART_OF_SPEECH = [
 const PSEUDONYM_RE = /^DSD-[A-Z]-\d{3,}$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Latin letters, apostrophe, hyphen, and single spaces for multiword entries. */
-const HEADWORD_RE = /^[A-Za-z][A-Za-z'\- ]*$/;
+// A hyphen or space is allowed only internally and must introduce a letter.
+// This rejects morphology fragments such as `a-`, `-ability`, and `a- -ing`
+// that cannot satisfy the learner example contract as standalone headwords.
+const HEADWORD_RE = /^[A-Za-z](?:[A-Za-z']|[- ](?=[A-Za-z]))*$/;
 const MAX_HEADWORD_LENGTH = 40;
 const MAX_HEADWORD_WORDS = 4;
 

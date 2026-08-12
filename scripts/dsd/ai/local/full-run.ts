@@ -13,6 +13,8 @@ export interface FullRunState {
   wave_id: string;
   target: number;
   inventory: string;
+  inventory_offset: number;
+  inventory_stride: number;
   max_repairs: number;
   step: Step;
   paused: boolean;
@@ -105,12 +107,17 @@ function prepare(): void {
   const inventory = path.resolve(ROOT, required('inventory'));
   const target = positiveInteger('target');
   const maxRepairs = positiveInteger('max-repairs', 2);
+  const inventoryOffset = Number(arg('inventory-offset') ?? 0);
+  const inventoryStride = positiveInteger('inventory-stride', 1);
+  if (!Number.isSafeInteger(inventoryOffset) || inventoryOffset < 0) throw new Error('--inventory-offset must be non-negative');
   const p = paths(dir);
-  calibration(['prepare-english', '--inventory', inventory, '--limit', String(target), '--output', p.englishPayloads]);
+  calibration(['prepare-english', '--inventory', inventory, '--limit', String(target),
+    '--offset', String(inventoryOffset), '--stride', String(inventoryStride), '--output', p.englishPayloads]);
   runner(['prepare', '--stage', 'english', '--payloads', p.englishPayloads, '--output', p.englishInput]);
   const now = new Date().toISOString();
   atomicJson(stateFile(dir), {
     version: 1, run_id: crypto.randomUUID(), wave_id: wave, target, inventory,
+    inventory_offset: inventoryOffset, inventory_stride: inventoryStride,
     max_repairs: maxRepairs, step: 'prepared', paused: false, created_at: now, updated_at: now,
     counts: { requested: target, passed: 0, repair: 0, quarantined: 0, packaged: 0 },
   } satisfies FullRunState);
