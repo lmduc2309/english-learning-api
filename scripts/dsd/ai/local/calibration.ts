@@ -160,7 +160,9 @@ function prepareRepairs(): void {
   const inventory = loadInventoryFile(path.resolve(process.cwd(), required('inventory')));
   if (inventory.errors.length) throw new Error(`invalid inventory: ${inventory.errors.join('; ')}`);
   const rows = new Map(inventory.rows.map((row) => [row.dsd_entry_id, row]));
-  const critics = loadCompleted(required('critic-input'), required('critic-results'));
+  const selectionFile = arg('selection');
+  const critics = selectionFile ? loadSelectionManifest(selectionFile).critics
+    : loadCompleted(required('critic-input'), required('critic-results'));
   const revision = Number(arg('revision') ?? 1);
   const payloads = critics
     .filter(({ result }) => (result.output as any).decision === 'repair')

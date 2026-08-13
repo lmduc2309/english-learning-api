@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { LocalRequest, LocalResult, LocalStage, readJsonl, sha256, validateLocalResult } from './protocol';
 import { canonicalJson } from './model-lock';
+import { loadSelectionManifest } from './selection';
 
 type Step = 'prepared' | 'english' | 'critic' | 'repairs' | 'translate' | 'validated' | 'packaged';
 
@@ -131,9 +132,10 @@ function inferFile(stage: LocalStage, input: string, output: string): void {
 }
 
 function prepareAndInferCritic(p: ReturnType<typeof paths>, state: FullRunState): void {
-  calibration(['prepare-critic', '--input', p.englishInput, '--results', p.englishResults, '--output', p.criticPayloads]);
-  runner(['prepare', '--stage', 'critic', '--payloads', p.criticPayloads, '--output', p.criticInput]);
-  inferFile('critic', p.criticInput, p.criticResults);
+  if (!fs.existsSync(p.criticPayloads)) calibration(['prepare-critic', '--input', p.englishInput, '--results', p.englishResults, '--output', p.criticPayloads]);
+  if (!fs.existsSync(p.criticInput)) runner(['prepare', '--stage', 'critic', '--payloads', p.criticPayloads, '--output', p.criticInput]);
+  if (!process.env.DSD_LOCAL_MODEL_HOME?.trim()) throw new Error('DSD_LOCAL_MODEL_HOME is required');
+  execute('scripts/dsd/ai/local/worker.py', ['--stage', 'critic', '--input', p.criticInput, '--output', p.criticResults]);
   state.step = 'critic';
 }
 
@@ -152,24 +154,24 @@ function decisions(input: string, results: string): Map<string, string> {
 
 function repair(dir: string, p: ReturnType<typeof paths>, state: FullRunState): Array<{ input: string; results: string }> {
   const refs: Array<{ input: string; results: string }> = [];
-  let criticInput = p.criticInput;
-  let criticResults = p.criticResults;
+  writeSelection(p, refs);
   for (let revision = 1; revision <= state.max_repairs; revision += 1) {
-    const current = decisions(criticInput, criticResults);
-    if (![...current.values()].includes('repair')) break;
+    const selected = loadSelectionManifest(p.selection);
+    if (!selected.critics.some((value: any) => (value.result.output as any).decision === 'repair')) break;
     const stem = path.join(dir, `repair-${revision}`);
     const payloads = `${stem}.payloads.json`; const input = `${stem}.requests.jsonl`; const results = `${stem}.results.jsonl`;
     const criticPayloads = `${stem}.critic.payloads.json`; const nextCriticInput = `${stem}.critic.requests.jsonl`;
     const nextCriticResults = `${stem}.critic.results.jsonl`;
-    calibration(['prepare-repairs', '--inventory', state.inventory, '--critic-input', criticInput,
-      '--critic-results', criticResults, '--revision', String(revision), '--output', payloads]);
+    calibration(['prepare-repairs', '--inventory', state.inventory, '--selection', p.selection,
+      '--revision', String(revision), '--output', payloads]);
     runner(['prepare', '--stage', 'english', '--payloads', payloads, '--output', input]);
     inferFile('english', input, results);
     calibration(['prepare-critic', '--input', input, '--results', results, '--output', criticPayloads]);
     runner(['prepare', '--stage', 'critic', '--payloads', criticPayloads, '--output', nextCriticInput]);
-    inferFile('critic', nextCriticInput, nextCriticResults);
+    if (!process.env.DSD_LOCAL_MODEL_HOME?.trim()) throw new Error('DSD_LOCAL_MODEL_HOME is required');
+    execute('scripts/dsd/ai/local/worker.py', ['--stage', 'critic', '--input', nextCriticInput, '--output', nextCriticResults]);
     refs.push({ input, results }, { input: nextCriticInput, results: nextCriticResults });
-    criticInput = nextCriticInput; criticResults = nextCriticResults;
+    fs.unlinkSync(p.selection); writeSelection(p, refs);
   }
   state.step = 'repairs';
   return refs;
@@ -183,14 +185,12 @@ function writeSelection(p: ReturnType<typeof paths>, repairRefs: Array<{ input: 
 }
 
 function summarizeSelection(p: ReturnType<typeof paths>, state: FullRunState): void {
-  const manifest = JSON.parse(fs.readFileSync(p.selection, 'utf8')) as any;
-  const latest = new Map<string, string>();
-  for (const ref of manifest.critics) {
-    for (const [id, decision] of decisions(ref.input, ref.results)) latest.set(id, decision);
-  }
+  const selected = loadSelectionManifest(p.selection);
+  const latest = new Map(selected.critics.map((value) => [String(value.request.payload.dsd_entry_id),
+    String((value.result.output as any).decision)]));
   state.counts.passed = [...latest.values()].filter((value) => value === 'pass').length;
   state.counts.repair = [...latest.values()].filter((value) => value === 'repair').length;
-  state.counts.quarantined = [...latest.values()].filter((value) => value !== 'pass').length;
+  state.counts.quarantined = state.counts.requested - state.counts.passed;
 }
 
 function infer(stage?: LocalStage): void {
@@ -210,9 +210,9 @@ function infer(stage?: LocalStage): void {
 function validateWave(dir: string, state: FullRunState): void {
   const p = paths(dir);
   for (const [stage, input, output] of [
-    ['english', p.englishInput, p.englishResults], ['critic', p.criticInput, p.criticResults],
-    ['translate', p.translationInput, p.translationResults],
+    ['english', p.englishInput, p.englishResults], ['translate', p.translationInput, p.translationResults],
   ] as Array<[LocalStage, string, string]>) runner(['validate', '--stage', stage, '--input', input, '--results', output]);
+  loadSelectionManifest(p.selection);
   calibration(['report', '--selection', p.selection,
     '--translation-input', p.translationInput, '--translation-results', p.translationResults, '--output', p.report]);
   const report = JSON.parse(fs.readFileSync(p.report, 'utf8'));
