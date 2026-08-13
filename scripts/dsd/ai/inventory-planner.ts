@@ -33,6 +33,11 @@ export interface InventoryPlan {
   legacy_inventory_used: false;
 }
 
+const INVENTORY_TARGETS: Record<string, number> = {
+  'DSD-TARGET-LEGACY-PARITY-20260809': 475_153,
+  'DSD-TARGET-COMMON-20000-20260813': 20_000,
+};
+
 export interface InventoryCell {
   index: number;
   id: string;
@@ -72,8 +77,11 @@ export function validateInventoryPlan(plan: InventoryPlan): string[] {
     if (!allowed.includes(key)) errors.push(`unknown plan field '${key}'`);
   }
   if (plan.plan_version !== 1) errors.push('plan_version must be 1');
-  if (plan.target_id !== 'DSD-TARGET-LEGACY-PARITY-20260809') errors.push('unexpected target_id');
-  if (plan.active_target !== 475_153) errors.push('active_target must be 475153');
+  const expectedTarget = INVENTORY_TARGETS[plan.target_id];
+  if (!expectedTarget) errors.push('unexpected target_id');
+  else if (plan.active_target !== expectedTarget) {
+    errors.push(`active_target must be ${expectedTarget} for ${plan.target_id}`);
+  }
   if (plan.candidate_target < plan.active_target) errors.push('candidate_target must cover active_target');
   if (plan.legacy_inventory_used !== false) errors.push('legacy_inventory_used must be false');
   for (const key of ['levels', 'registers', 'parts_of_speech', 'topics'] as const) {

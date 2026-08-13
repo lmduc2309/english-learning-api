@@ -1,0 +1,19 @@
+{
+  "plan_version": 1,
+  "plan_id": "DSD-INVENTORY-COMMON-PHASE1-20260813",
+  "target_id": "DSD-TARGET-COMMON-20000-20260813",
+  "active_target": 20000,
+  "candidate_target": 40000,
+  "candidates_per_cell": 100,
+  "levels": ["foundation", "intermediate"],
+  "registers": ["general"],
+  "parts_of_speech": ["noun", "verb", "adjective", "adverb", "pronoun", "preposition", "conjunction", "phrase"],
+  "topics": [
+    "daily life", "home", "family", "relationships", "food", "clothing",
+    "health", "body", "emotions", "education", "language", "work",
+    "business", "finance", "society", "culture", "arts", "music",
+    "media", "communication", "technology", "environment", "weather",
+    "transport", "travel"
+  ],
+  "legacy_inventory_used": false
+}
