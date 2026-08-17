@@ -23,6 +23,13 @@ function files(dir: string): string[] {
     return entry.isDirectory() ? files(item) : [item];
   });
 }
+const countCache = new Map<string, { size: number; count: number }>();
+function newlineCount(file: string): number {
+  const size = fs.statSync(file).size; const cached = countCache.get(file);
+  if (cached?.size === size) return cached.count;
+  const count = fs.readFileSync(file).toString('utf8').split('\n').length - 1;
+  countCache.set(file, { size, count }); return count;
+}
 function headword(payload: any): string {
   return String(payload?.headword || payload?.source_text || payload?.dsd_entry_id || '—');
 }
@@ -50,9 +57,14 @@ function wave(dir: string) {
       state: result.state, decision, reasons: result.output?.reason_codes || [], elapsed_ms: result.elapsed_ms,
       at: result.__dashboard_at });
   }
+  const scoreFile = path.join(dir, 'scores.jsonl');
+  if (fs.existsSync(scoreFile)) {
+    stageStats.common_classifier.requested = 467_719;
+    stageStats.common_classifier.completed = newlineCount(scoreFile);
+  }
   const active = STAGES.find((stage) => stageStats[stage].requested > stageStats[stage].completed + stageStats[stage].failed) ||
     (state?.step === 'packaged' ? 'packaged' : state?.step || 'preparing');
-  const inventoryTarget = path.basename(dir) === 'common-phase1-inventory-20000' ? 20_000 : 0;
+  const inventoryTarget = /^common-phase1-(?:inventory-20000|rank-)/.test(path.basename(dir)) ? 20_000 : 0;
   return { id: path.basename(dir), target: state?.target || inventoryTarget, step: state?.step || 'inventory', paused: Boolean(state?.paused),
     updated_at: state?.updated_at || fs.statSync(dir).mtime.toISOString(), active, stages: stageStats,
     package_ready: all.some((f) => /draft-package(?:-final)?\.json$/.test(f)), events: events.slice(-24).reverse() };
