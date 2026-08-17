@@ -9,6 +9,8 @@ describe('fast common-first phase', () => {
     expect(scorer).toContain('local_model_headword_likelihood');
     expect(scorer).toContain('mx.logsumexp');
     expect(scorer).toContain('score_file_sha256');
+    expect(scorer).toContain('fcntl.LOCK_EX | fcntl.LOCK_NB');
+    expect(scorer).toContain('scores_by_id');
   });
 
   it('binds every batched English and critic result to all input ids', () => {

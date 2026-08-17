@@ -59,7 +59,7 @@ function wave(dir: string) {
   }
   const scoreFile = path.join(dir, 'scores.jsonl');
   if (fs.existsSync(scoreFile)) {
-    stageStats.common_classifier.requested = 467_719;
+    stageStats.common_classifier.requested = 463_583;
     stageStats.common_classifier.completed = newlineCount(scoreFile);
   }
   const active = STAGES.find((stage) => stageStats[stage].requested > stageStats[stage].completed + stageStats[stage].failed) ||

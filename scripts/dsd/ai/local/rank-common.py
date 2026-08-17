@@ -12,6 +12,7 @@ import os
 import pathlib
 import re
 import time
+import fcntl
 from collections import defaultdict
 from typing import Any
 
@@ -65,6 +66,12 @@ def score(args: argparse.Namespace) -> None:
     from mlx_lm import load
     import mlx.core as mx
 
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    lock_handle = (args.output.parent / "scores.lock").open("a+")
+    try:
+        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError as error:
+        raise RuntimeError("another ranking worker already owns this run") from error
     model_path = pathlib.Path(home).resolve() / MODEL_ID / REVISION / "mlx-4bit"
     model, tokenizer = load(str(model_path))
     prefix_ids = tokenizer.encode(PREFIX, add_special_tokens=False)
@@ -113,12 +120,15 @@ def materialize(args: argparse.Namespace) -> None:
             raise RuntimeError("inventory has no header")
         for row in reader:
             source_rows[row["dsd_entry_id"]] = row
-    scores = []
+    scores_by_id: dict[str, dict[str, Any]] = {}
     for line in args.scores.read_text(encoding="utf-8").splitlines():
         if line.strip():
             item = json.loads(line)
             if eligible(item["headword"]):
-                scores.append(item)
+                previous = scores_by_id.get(item["dsd_entry_id"])
+                if previous is None or item["log_probability"] > previous["log_probability"]:
+                    scores_by_id[item["dsd_entry_id"]] = item
+    scores = list(scores_by_id.values())
     scores.sort(key=lambda row: (-row["log_probability"], row["token_count"], row["headword"], row["dsd_entry_id"]))
     selected = scores[:args.target]
     if len(selected) < args.target:
@@ -136,7 +146,8 @@ def materialize(args: argparse.Namespace) -> None:
     content = args.output.read_bytes(); digest.update(content)
     manifest = {"version": 1, "method": "local_model_headword_likelihood", "model_id": MODEL_ID,
         "model_revision": REVISION, "prompt": PREFIX, "prompt_sha256": sha256(PREFIX.encode()),
-        "scored": len(scores), "selected": len(selected), "inventory_sha256": digest.hexdigest(),
+        "score_rows": sum(1 for line in args.scores.read_text(encoding="utf-8").splitlines() if line.strip()),
+        "scored_unique": len(scores), "selected": len(selected), "inventory_sha256": digest.hexdigest(),
         "score_file_sha256": sha256(args.scores.read_bytes()), "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     args.manifest.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(manifest, indent=2))
