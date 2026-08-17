@@ -45,6 +45,15 @@ def append_rows(file: pathlib.Path, rows: list[dict[str, Any]]) -> None:
         os.fsync(handle.fileno())
 
 
+def write_progress(file: pathlib.Path, completed: int, total: int = 463_583) -> None:
+    value = {"version": 1, "completed_unique": completed, "total_eligible": total,
+             "percent": round(completed / total * 100, 2),
+             "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    temporary = file.with_suffix(".partial")
+    temporary.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(file)
+
+
 def existing_ids(file: pathlib.Path) -> set[str]:
     if not file.exists():
         return set()
@@ -77,14 +86,20 @@ def score(args: argparse.Namespace) -> None:
     prefix_ids = tokenizer.encode(PREFIX, add_special_tokens=False)
     completed = existing_ids(args.output)
     groups: dict[int, list[tuple[dict[str, str], list[int]]]] = defaultdict(list)
+    eligible_done = 0
     with args.inventory.open(encoding="utf-8", newline="") as handle:
         for row in csv.DictReader(handle):
             word = row["headword"]
-            if row["dsd_entry_id"] in completed or not eligible(word):
+            if not eligible(word):
                 continue
             tokens = tokenizer.encode(" " + word, add_special_tokens=False)
             if 1 <= len(tokens) <= args.max_word_tokens:
+                if row["dsd_entry_id"] in completed:
+                    eligible_done += 1
+                    continue
                 groups[len(tokens)].append((row, tokens))
+    progress_file = args.output.parent / "progress.json"
+    write_progress(progress_file, eligible_done)
     processed = 0
     for token_count in sorted(groups):
         values = groups[token_count]
@@ -107,6 +122,7 @@ def score(args: argparse.Namespace) -> None:
                     "batch_elapsed_ms": elapsed_ms})
             append_rows(args.output, rows)
             processed += len(rows)
+            write_progress(progress_file, eligible_done + processed)
             print(f"ranked {processed} new headwords; token_count={token_count}; batch={len(rows)}; {elapsed_ms}ms", flush=True)
             if args.limit and processed >= args.limit:
                 return

@@ -30,6 +30,24 @@ function newlineCount(file: string): number {
   const count = fs.readFileSync(file).toString('utf8').split('\n').length - 1;
   countCache.set(file, { size, count }); return count;
 }
+const uniqueScoreCache = new Map<string, { offset: number; carry: string; ids: Set<string> }>();
+const SHORT_COMMON = new Set(['a','an','as','at','be','by','do','go','he','if','in','is','it','me','my','no','of','oh','on','or','so','to','up','us','we']);
+function uniqueEligibleScores(file: string): number {
+  const size = fs.statSync(file).size;
+  let cached = uniqueScoreCache.get(file) ?? { offset: 0, carry: '', ids: new Set<string>() };
+  if (size < cached.offset) cached = { offset: 0, carry: '', ids: new Set<string>() };
+  if (size > cached.offset) {
+    const buffer = Buffer.alloc(size - cached.offset); const descriptor = fs.openSync(file, 'r');
+    try { fs.readSync(descriptor, buffer, 0, buffer.length, cached.offset); } finally { fs.closeSync(descriptor); }
+    const pieces = (cached.carry + buffer.toString('utf8')).split(/\r?\n/); cached.carry = pieces.pop() ?? '';
+    for (const line of pieces) try {
+      const row = JSON.parse(line); const word = String(row.headword ?? '');
+      if (/^[a-z][a-z' -]{2,39}$/.test(word) || SHORT_COMMON.has(word)) cached.ids.add(String(row.dsd_entry_id));
+    } catch { /* incomplete evidence is excluded */ }
+    cached.offset = size; uniqueScoreCache.set(file, cached);
+  }
+  return cached.ids.size;
+}
 function headword(payload: any): string {
   return String(payload?.headword || payload?.source_text || payload?.dsd_entry_id || '—');
 }
@@ -59,8 +77,9 @@ function wave(dir: string) {
   }
   const scoreFile = path.join(dir, 'scores.jsonl');
   if (fs.existsSync(scoreFile)) {
-    stageStats.common_classifier.requested = 463_583;
-    stageStats.common_classifier.completed = newlineCount(scoreFile);
+    const progress = json(path.join(dir, 'progress.json'));
+    stageStats.common_classifier.requested = progress?.total_eligible ?? 463_583;
+    stageStats.common_classifier.completed = progress?.completed_unique ?? uniqueEligibleScores(scoreFile);
   }
   const active = STAGES.find((stage) => stageStats[stage].requested > stageStats[stage].completed + stageStats[stage].failed) ||
     (state?.step === 'packaged' ? 'packaged' : state?.step || 'preparing');
