@@ -4,7 +4,8 @@ import * as path from 'path';
 
 const ROOT = process.cwd();
 const RUNS = path.resolve(ROOT, 'data/dsd/runs');
-const PORT = Number(process.argv[process.argv.indexOf('--port') + 1] || 4317);
+const portIndex = process.argv.indexOf('--port');
+const PORT = Number(portIndex >= 0 ? process.argv[portIndex + 1] : 4317);
 const STAGES = ['inventory', 'inventory_critic', 'common_classifier', 'english', 'english_batch', 'critic', 'critic_batch', 'translate'] as const;
 
 function json(file: string): any | undefined {
@@ -52,7 +53,7 @@ function headword(payload: any): string {
   return String(payload?.headword || payload?.source_text || payload?.dsd_entry_id || '—');
 }
 function wave(dir: string) {
-  const all = files(dir); const state = json(path.join(dir, 'state.json'));
+  const all = files(dir); const state = json(path.join(dir, 'state.json')); const gate = json(path.join(dir, 'gate-run.json'));
   const requestRows = all.filter((f) => f.endsWith('.requests.jsonl')).flatMap(lines);
   const resultRows = all.filter((f) => f.endsWith('.results.jsonl')).flatMap((file) => {
     const at = fs.statSync(file).mtimeMs;
@@ -84,7 +85,7 @@ function wave(dir: string) {
   const active = STAGES.find((stage) => stageStats[stage].requested > stageStats[stage].completed + stageStats[stage].failed) ||
     (state?.step === 'packaged' ? 'packaged' : state?.step || 'preparing');
   const inventoryTarget = /^common-phase1-(?:inventory-20000|rank-)/.test(path.basename(dir)) ? 20_000 : 0;
-  return { id: path.basename(dir), target: state?.target || inventoryTarget, step: state?.step || 'inventory', paused: Boolean(state?.paused),
+  return { id: path.basename(dir), target: state?.target || gate?.source_count || inventoryTarget, step: state?.step || 'inventory', paused: Boolean(state?.paused),
     updated_at: state?.updated_at || fs.statSync(dir).mtime.toISOString(), active, stages: stageStats,
     package_ready: all.some((f) => /draft-package(?:-final)?\.json$/.test(f)), events: events.slice(-24).reverse() };
 }
