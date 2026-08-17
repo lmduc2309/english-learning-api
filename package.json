@@ -131,6 +131,8 @@
     "dsd:dashboard": "ts-node scripts/dsd/ai/local/dashboard.ts",
     "dsd:campaign": "ts-node scripts/dsd/ai/local/campaign.ts",
     "dsd:common-phase1:run": "bash scripts/dsd/run-common-phase1-local.sh",
+    "dsd:fast-phase1": "ts-node scripts/dsd/ai/local/fast-phase1.ts",
+    "dsd:common-rank": ".venv-dsd-local/bin/python scripts/dsd/ai/local/rank-common.py",
     "dsd:inventory-wave": "ts-node scripts/dsd/ai/local/inventory-wave.ts",
     "dsd:legacy-headwords:export": "ts-node scripts/dsd/legacy-headword-inventory.ts export",
     "dsd:legacy-headwords:provision-local": "bash scripts/dsd/provision-local-headword-reader.sh",

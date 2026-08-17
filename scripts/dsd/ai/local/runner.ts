@@ -8,17 +8,21 @@ import { loadLocalModelLock, lockSha256 } from './model-lock';
 
 const STAGE_ROLE: Record<LocalStage, string> = {
   inventory: 'inventory', inventory_critic: 'candidate_critic',
-  english: 'english_authoring', critic: 'english_critic',
+  common_classifier: 'candidate_critic',
+  english: 'english_authoring', english_batch: 'english_authoring',
+  critic: 'english_critic', critic_batch: 'english_critic',
   translate: 'en_vi_translation',
 };
 const STAGE_PROMPT: Record<LocalStage, string> = {
   inventory: 'inventory-system.txt', inventory_critic: 'inventory-critic-system.txt', english: 'english-system.txt',
-  critic: 'critic-system.txt', translate: 'translation-policy.txt',
+  common_classifier: 'common-classifier-system.txt', english_batch: 'english-batch-system.txt',
+  critic: 'critic-system.txt', critic_batch: 'critic-batch-system.txt', translate: 'translation-policy.txt',
 };
 const STAGE_SCHEMA: Record<LocalStage, string> = {
   inventory: 'local-candidate-output.schema.json', inventory_critic: 'local-critic-output.schema.json',
-  english: 'local-english-entry-output.schema.json',
-  critic: 'local-critic-output.schema.json',
+  common_classifier: 'local-common-classifier-output.schema.json',
+  english: 'local-english-entry-output.schema.json', english_batch: 'local-english-batch-output.schema.json',
+  critic: 'local-critic-output.schema.json', critic_batch: 'local-critic-batch-output.schema.json',
   translate: 'local-translation-output.schema.json',
 };
 

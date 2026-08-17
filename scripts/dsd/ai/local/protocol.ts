@@ -2,7 +2,10 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import { canonicalJson } from './model-lock';
 
-export const LOCAL_STAGES = ['inventory', 'inventory_critic', 'english', 'critic', 'translate'] as const;
+export const LOCAL_STAGES = [
+  'inventory', 'inventory_critic', 'common_classifier',
+  'english', 'english_batch', 'critic', 'critic_batch', 'translate',
+] as const;
 export type LocalStage = (typeof LOCAL_STAGES)[number];
 export const LOCAL_TERMINAL_STATES = [
   'completed', 'schema_invalid', 'quality_invalid', 'quarantined', 'terminal_failure',
@@ -151,9 +154,46 @@ export function validateLocalResult(result: LocalResult, request: LocalRequest):
     if (result.output === undefined || !result.output_sha256) errors.push('completed result requires output and hash');
     else if (sha256(canonicalJson(result.output)) !== result.output_sha256) errors.push('output hash mismatch');
     errors.push(...validateStageOutput(request.stage, result.output));
+    errors.push(...validateRequestBoundOutput(request, result.output));
     if (result.error_code) errors.push('completed result cannot contain error_code');
   } else if (!result.error_code) errors.push('failed result requires error_code');
   return errors;
+}
+
+function integerSet(value: unknown): value is number[] {
+  return Array.isArray(value) && value.every((item) => Number.isSafeInteger(item) && item >= 0) &&
+    new Set(value).size === value.length;
+}
+function integerArray(value: unknown): value is number[] {
+  return Array.isArray(value) && value.every((item) => Number.isSafeInteger(item) && item >= 0);
+}
+
+function validateRequestBoundOutput(request: LocalRequest, output: any): string[] {
+  if (request.stage === 'common_classifier') {
+    const expected = (request.payload.entries as any[] | undefined)?.map((entry) => entry.i) ?? [];
+    const actual = output?.common_ids ?? [];
+    if (!integerArray(actual) || actual.some((id: number) => !expected.includes(id))) {
+      return ['classifier common_ids must be a subset of input ids'];
+    }
+  }
+  if (request.stage === 'english_batch') {
+    const expected = new Map(((request.payload.entries as any[]) ?? []).map((entry) => [entry.dsd_entry_id, entry.headword]));
+    const entries = output?.entries ?? [];
+    if (entries.length !== expected.size || new Set(entries.map((entry: any) => entry.dsd_entry_id)).size !== expected.size) {
+      return ['english_batch output must contain every input entry exactly once'];
+    }
+    if (entries.some((entry: any) => expected.get(entry.dsd_entry_id) !== entry.headword)) {
+      return ['english_batch output id/headword binding mismatch'];
+    }
+  }
+  if (request.stage === 'critic_batch') {
+    const expected = ((request.payload.entries as any[]) ?? []).map((entry) => entry.dsd_entry_id).sort();
+    const actual = (output?.decisions ?? []).map((entry: any) => entry.dsd_entry_id).sort();
+    if (actual.length !== expected.length || new Set(actual).size !== expected.length || actual.join(',') !== expected.join(',')) {
+      return ['critic_batch output must contain every input entry exactly once'];
+    }
+  }
+  return [];
 }
 
 function plainObject(value: unknown): value is Record<string, unknown> {
@@ -170,6 +210,21 @@ export function validateStageOutput(stage: LocalStage, output: unknown): string[
     if (!exactKeys(output, ['translation_vi'])) return ['translate output must contain only translation_vi'];
     const text = typeof output.translation_vi === 'string' ? output.translation_vi.trim() : '';
     return text.length >= 1 && text.length <= 320 ? [] : ['translation_vi length must be 1..320'];
+  }
+  if (stage === 'common_classifier') {
+    if (!exactKeys(output, ['common_ids'])) return ['classifier output has incorrect keys'];
+    return integerArray(output.common_ids) ? [] : ['common_ids must contain non-negative integers'];
+  }
+  if (stage === 'critic_batch') {
+    if (!exactKeys(output, ['decisions']) || !Array.isArray(output.decisions) || output.decisions.length < 1 || output.decisions.length > 32) {
+      return ['critic_batch output requires 1..32 decisions only'];
+    }
+    return output.decisions.flatMap((decision: any, index: number) => {
+      if (!plainObject(decision) || !exactKeys(decision, ['dsd_entry_id', 'decision', 'reason_codes'])) return [`decision ${index} has incorrect shape`];
+      const one = validateStageOutput('critic', { decision: decision.decision, reason_codes: decision.reason_codes });
+      if (typeof decision.dsd_entry_id !== 'string' || !decision.dsd_entry_id) one.push(`decision ${index} has invalid dsd_entry_id`);
+      return one;
+    });
   }
   if (stage === 'critic' || stage === 'inventory_critic') {
     const errors: string[] = [];
@@ -188,10 +243,24 @@ export function validateStageOutput(stage: LocalStage, output: unknown): string[
     }
     return errors;
   }
+  if (stage === 'english_batch') {
+    if (!exactKeys(output, ['entries']) || !Array.isArray(output.entries) || output.entries.length < 1 || output.entries.length > 32) {
+      return ['english_batch output requires 1..32 entries only'];
+    }
+    return output.entries.flatMap((entry: any, index: number) => {
+      if (!plainObject(entry) || !exactKeys(entry, ['dsd_entry_id', 'headword', 'part_of_speech', 'definition_en', 'example_en', 'usage_labels'])) {
+        return [`entry ${index} has incorrect shape`];
+      }
+      const errors = validateStageOutput('english', entry);
+      if (typeof entry.dsd_entry_id !== 'string' || !entry.dsd_entry_id) errors.push(`entry ${index} has invalid dsd_entry_id`);
+      return errors;
+    });
+  }
   if (stage === 'english') {
     const keys = ['headword', 'part_of_speech', 'definition_en', 'example_en', 'usage_labels'];
     const errors: string[] = [];
-    if (!exactKeys(output, keys)) errors.push('english output has incorrect keys');
+    const actual = Object.fromEntries(Object.entries(output).filter(([key]) => key !== 'dsd_entry_id'));
+    if (!exactKeys(actual, keys)) errors.push('english output has incorrect keys');
     for (const [field, min, max] of [
       ['headword', 1, 120], ['part_of_speech', 2, 32], ['definition_en', 8, 320], ['example_en', 8, 320],
     ] as Array<[string, number, number]>) {

@@ -5,8 +5,11 @@
   "stages": {
     "inventory": { "max_tokens": 1800, "temperature_milli": 700, "seed_strategy": "coverage_cell_sha256" },
     "inventory_critic": { "max_tokens": 120, "temperature_milli": 0, "seed_strategy": "candidate_content_hash_sha256" },
+    "common_classifier": { "max_tokens": 800, "temperature_milli": 0, "seed_strategy": "headword_batch_sha256" },
     "english": { "max_tokens": 400, "temperature_milli": 200, "seed_strategy": "entry_uuid_sha256" },
+    "english_batch": { "max_tokens": 4800, "temperature_milli": 200, "seed_strategy": "entry_batch_sha256" },
     "critic": { "max_tokens": 120, "temperature_milli": 0, "seed_strategy": "content_hash_sha256" },
+    "critic_batch": { "max_tokens": 1800, "temperature_milli": 0, "seed_strategy": "content_batch_sha256" },
     "translate": { "max_tokens": 320, "temperature_milli": 0, "seed_strategy": "field_content_hash_sha256" }
   }
 }

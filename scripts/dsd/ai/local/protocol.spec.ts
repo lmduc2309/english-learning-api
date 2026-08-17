@@ -105,4 +105,23 @@ describe('local inference protocol', () => {
       usage_labels: ['common'],
     }).join(' ')).toMatch(/usage_labels are invalid/i);
   });
+
+  it('requires common classifier ids to be a unique subset of request ids', () => {
+    const value = createLocalRequest({ stage: 'common_classifier', modelId: 'critic', modelLockSha256: 'a'.repeat(64),
+      promptId: 'common', prompt: 'classify', schema: {}, seed: 1, maxTokens: 100, temperatureMilli: 0,
+      payload: { entries: [{ i: 1, headword: 'house' }, { i: 2, headword: 'zymurgy' }] } });
+    const output = { common_ids: [1] };
+    expect(validateLocalResult({ protocol_version: 1, request_id: value.request_id, state: 'completed', model_id: value.model_id,
+      model_lock_sha256: value.model_lock_sha256, prompt_sha256: value.prompt_sha256, schema_sha256: value.schema_sha256,
+      input_sha256: value.input_sha256, output, output_sha256: sha256(canonicalJson(output)), input_tokens: 1, output_tokens: 1, elapsed_ms: 1 }, value)).toEqual([]);
+    const missing = { common_ids: [3] };
+    expect(validateLocalResult({ protocol_version: 1, request_id: value.request_id, state: 'completed', model_id: value.model_id,
+      model_lock_sha256: value.model_lock_sha256, prompt_sha256: value.prompt_sha256, schema_sha256: value.schema_sha256,
+      input_sha256: value.input_sha256, output: missing, output_sha256: sha256(canonicalJson(missing)), input_tokens: 1, output_tokens: 1, elapsed_ms: 1 }, value).join(' ')).toMatch(/subset/i);
+  });
+
+  it('keeps batched English output bound to every input id and headword', () => {
+    expect(validateStageOutput('english_batch', { entries: [{ dsd_entry_id: 'e1', headword: 'house', part_of_speech: 'noun',
+      definition_en: 'A building where people live.', example_en: 'Their house is near the park.', usage_labels: [] }] })).toEqual([]);
+  });
 });

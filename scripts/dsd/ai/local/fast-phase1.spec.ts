@@ -1,0 +1,19 @@
+import * as fs from 'fs';
+
+describe('fast common-first phase', () => {
+  const protocol = fs.readFileSync(require.resolve('./protocol'), 'utf8');
+  const scorer = fs.readFileSync(require.resolve('./rank-common.py'), 'utf8');
+  const pipeline = fs.readFileSync(require.resolve('./fast-phase1'), 'utf8');
+
+  it('uses deterministic local likelihood ranking without generating inventory text', () => {
+    expect(scorer).toContain('local_model_headword_likelihood');
+    expect(scorer).toContain('mx.logsumexp');
+    expect(scorer).toContain('score_file_sha256');
+  });
+
+  it('binds every batched English and critic result to all input ids', () => {
+    expect(protocol).toContain('english_batch output must contain every input entry exactly once');
+    expect(protocol).toContain('critic_batch output must contain every input entry exactly once');
+    expect(pipeline).toContain("validCompleted(path.join(dir, 'english.requests.jsonl'");
+  });
+});

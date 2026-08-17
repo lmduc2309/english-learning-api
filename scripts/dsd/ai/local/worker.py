@@ -19,8 +19,11 @@ PROMPT_DIR = ROOT / "data/dsd/prompts/local-v1"
 STAGE_ROLES = {
     "inventory": "inventory",
     "inventory_critic": "candidate_critic",
+    "common_classifier": "candidate_critic",
     "english": "english_authoring",
+    "english_batch": "english_authoring",
     "critic": "english_critic",
+    "critic_batch": "english_critic",
     "translate": "en_vi_translation",
 }
 
@@ -60,8 +63,10 @@ def model_path(home: pathlib.Path, model: dict[str, Any]) -> pathlib.Path:
 
 
 def qwen_prompt(tokenizer: Any, stage: str, payload: dict[str, Any]) -> str:
-    prompt_name = {"inventory": "inventory-system.txt", "inventory_critic": "inventory-critic-system.txt", "english": "english-system.txt",
-                   "critic": "critic-system.txt"}[stage]
+    prompt_name = {"inventory": "inventory-system.txt", "inventory_critic": "inventory-critic-system.txt",
+                   "common_classifier": "common-classifier-system.txt", "english": "english-system.txt",
+                   "english_batch": "english-batch-system.txt", "critic": "critic-system.txt",
+                   "critic_batch": "critic-batch-system.txt"}[stage]
     system = (PROMPT_DIR / prompt_name).read_text(encoding="utf-8").strip()
     messages = [
         {"role": "system", "content": system},
