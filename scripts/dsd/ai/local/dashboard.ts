@@ -50,6 +50,10 @@ function uniqueEligibleScores(file: string): number {
   return cached.ids.size;
 }
 function headword(payload: any): string {
+  if (Array.isArray(payload?.entries)) {
+    const words = payload.entries.slice(0, 3).map((entry: any) => entry.headword).filter(Boolean);
+    if (words.length) return `${words.join(', ')}${payload.entries.length > words.length ? ' …' : ''}`;
+  }
   return String(payload?.headword || payload?.source_text || payload?.dsd_entry_id || '—');
 }
 function wave(dir: string) {
