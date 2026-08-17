@@ -117,7 +117,8 @@ function materializeCommon(): void {
 }
 function prepareEnglish(): void {
   const dir = runDir(); const batch = positive('batch-size', 12); if (batch > 32) throw new Error('--batch-size must be <= 32');
-  const loaded = loadInventoryFile(path.join(dir, 'common-20000.csv')); if (loaded.errors.length) throw new Error(loaded.errors.join('; '));
+  const inventory = arg('inventory') ? path.resolve(ROOT, required('inventory')) : path.join(dir, 'common-20000.csv');
+  const loaded = loadInventoryFile(inventory); if (loaded.errors.length) throw new Error(loaded.errors.join('; '));
   const payloads: any[] = [];
   for (let offset = 0; offset < loaded.rows.length; offset += batch) payloads.push({ seed: Number.parseInt(sha256(`english-batch:${offset}`).slice(0, 8), 16),
     entries: loaded.rows.slice(offset, offset + batch).map((row) => ({ dsd_entry_id: row.dsd_entry_id, headword: row.headword,
