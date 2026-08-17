@@ -50,6 +50,48 @@ function inferClassifier(): void {
   worker(args);
   runner(['validate', '--stage', 'common_classifier', '--input', path.join(dir, 'classifier.requests.jsonl'), '--results', path.join(dir, 'classifier.results.jsonl')]);
 }
+function prepareCommonGate(): void {
+  const dir = runDir(); const batch = positive('batch-size', 12); if (batch > 32) throw new Error('--batch-size must be <= 32');
+  const loaded = loadInventoryFile(path.resolve(ROOT, required('inventory'))); if (loaded.errors.length) throw new Error(loaded.errors.join('; '));
+  const payloads: any[] = [];
+  for (let offset = 0; offset < loaded.rows.length; offset += batch) payloads.push({
+    batch_id: `gate-${String(payloads.length + 1).padStart(5, '0')}`,
+    seed: Number.parseInt(sha256(`common-gate:${offset}`).slice(0, 8), 16),
+    entries: loaded.rows.slice(offset, offset + batch).map((row, index) => ({ i: index, headword: row.headword })),
+  });
+  const payloadFile = path.join(dir, 'gate.payloads.json'); const requestFile = path.join(dir, 'gate.requests.jsonl');
+  writeJson(payloadFile, payloads); runner(['prepare', '--stage', 'common_classifier', '--payloads', payloadFile, '--output', requestFile]);
+  writeJson(path.join(dir, 'gate-run.json'), { version: 1, source_inventory: path.resolve(ROOT, required('inventory')),
+    source_count: loaded.rows.length, batch_size: batch, requests: payloads.length, target: positive('target', 20_000), created_at: new Date().toISOString() });
+}
+function inferCommonGate(): void {
+  const dir = runDir(); const args = ['--stage', 'common_classifier', '--input', path.join(dir, 'gate.requests.jsonl'), '--output', path.join(dir, 'gate.results.jsonl')];
+  if (arg('limit')) args.push('--limit', String(positive('limit', 1))); worker(args);
+  runner(['validate', '--stage', 'common_classifier', '--input', path.join(dir, 'gate.requests.jsonl'), '--results', path.join(dir, 'gate.results.jsonl')]);
+}
+function materializeGated(): void {
+  const dir = runDir(); const meta = JSON.parse(fs.readFileSync(path.join(dir, 'gate-run.json'), 'utf8'));
+  const loaded = loadInventoryFile(meta.source_inventory); if (loaded.errors.length) throw new Error(loaded.errors.join('; '));
+  const completed = validCompleted(path.join(dir, 'gate.requests.jsonl'), path.join(dir, 'gate.results.jsonl'));
+  const sourceIndex = new Map(loaded.rows.map((row, index) => [row.headword, index]));
+  const passed = new Set<number>();
+  for (const { request, result } of completed) {
+    const entries = (request.payload.entries as Array<{ i: number; headword: string }>);
+    for (const id of (result.output as any).common_ids) {
+      const entry = entries.find((candidate) => candidate.i === id);
+      const index = entry && sourceIndex.get(entry.headword);
+      if (index !== undefined) passed.add(index);
+    }
+  }
+  const target = Number(meta.target); if (passed.size < target) throw new Error(`only ${passed.size} gated headwords passed; need ${target}`);
+  const rows = [...passed].sort((a, b) => a - b).slice(0, target).map((index, priority) => ({ ...loaded.rows[index],
+    dsd_priority: String(priority + 1), dsd_band: 'common-phase1-gated',
+    product_rationale: 'Selected by DSD local likelihood ranking and a separate checksum-bound commonness gate.' }));
+  writeInventory(path.join(dir, 'common-gated-20000.csv'), rows);
+  writeJson(path.join(dir, 'gate-summary.json'), { version: 1, source_count: loaded.rows.length, valid_batches: completed.length,
+    passed_unique: passed.size, selected: rows.length, fail_closed_deferred: loaded.rows.length - passed.size,
+    created_at: new Date().toISOString() });
+}
 function validCompleted(requestFile: string, resultFile: string): Array<{ request: LocalRequest; result: LocalResult }> {
   const requests = readJsonl<LocalRequest>(requestFile); const byId = new Map(requests.map((r) => [r.request_id, r]));
   return readJsonl<LocalResult>(resultFile).flatMap((result) => {
@@ -102,8 +144,10 @@ function inferCritic(): void {
 function main(): void {
   const command = process.argv[2];
   if (command === 'prepare-classifier') prepareClassifier(); else if (command === 'infer-classifier') inferClassifier();
+  else if (command === 'prepare-common-gate') prepareCommonGate(); else if (command === 'infer-common-gate') inferCommonGate();
+  else if (command === 'materialize-gated') materializeGated();
   else if (command === 'materialize-common') materializeCommon(); else if (command === 'prepare-english') prepareEnglish();
   else if (command === 'infer-english') inferEnglish(); else if (command === 'prepare-critic') prepareCritic();
-  else if (command === 'infer-critic') inferCritic(); else throw new Error('usage: fast-phase1.ts <prepare-classifier|infer-classifier|materialize-common|prepare-english|infer-english|prepare-critic|infer-critic>');
+  else if (command === 'infer-critic') inferCritic(); else throw new Error('usage: fast-phase1.ts <prepare-classifier|infer-classifier|prepare-common-gate|infer-common-gate|materialize-gated|materialize-common|prepare-english|infer-english|prepare-critic|infer-critic>');
 }
 try { main(); } catch (error) { console.error((error as Error).message); process.exitCode = 1; }

@@ -18,4 +18,16 @@ describe('fast common-first phase', () => {
     expect(protocol).toContain('critic_batch output must contain every input entry exactly once');
     expect(pipeline).toContain("validCompleted(path.join(dir, 'english.requests.jsonl'");
   });
+
+  it('gates a ranked reserve fail-closed before English authoring', () => {
+    expect(pipeline).toContain("command === 'prepare-common-gate'");
+    expect(pipeline).toContain("validCompleted(path.join(dir, 'gate.requests.jsonl'");
+    expect(pipeline).toContain('({ i: index, headword: row.headword })');
+    expect(pipeline).toContain('entries.find((candidate) => candidate.i === id)');
+    expect(pipeline).toContain('only ${passed.size} gated headwords passed; need ${target}');
+    expect(pipeline).toContain("[...passed].sort((a, b) => a - b).slice(0, target)");
+    expect(pipeline.indexOf("command === 'materialize-gated'")).toBeLessThan(
+      pipeline.indexOf("command === 'prepare-english'"),
+    );
+  });
 });
