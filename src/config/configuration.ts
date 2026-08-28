@@ -16,12 +16,19 @@ export default () => {
         commercialSafeMode &&
         process.env.COMMERCIAL_ALLOW_GENERATED_CONTENT === 'true',
     },
-    dsd: {
-      // Full validation lives in src/dsd-corpus/dsd-corpus.config.ts. Only the
-      // channel is surfaced here, so routing can read it without importing the
-      // DSD data source.
-      database: process.env.DSD_DB_DATABASE || 'dsd_corpus_db',
-      releaseChannel: process.env.DSD_RELEASE_CHANNEL || 'off',
+    dictionary: {
+      // The existing application database is the production dictionary source.
+      // Fallback generation and external providers are independent, explicit
+      // opt-ins so selecting primary data cannot accidentally enable them.
+      dataSource: process.env.DICTIONARY_DATA_SOURCE || 'primary',
+      allowGeneratedFallback:
+        process.env.DICTIONARY_ALLOW_GENERATED_FALLBACK === 'true',
+      allowExternalFallback:
+        process.env.DICTIONARY_ALLOW_EXTERNAL_FALLBACK === 'true',
+      vietnameseSearchEnabled:
+        process.env.DICTIONARY_VI_SEARCH == null
+          ? true
+          : process.env.DICTIONARY_VI_SEARCH === 'true',
     },
     llm: {
       apiKey: process.env.LLM_API_KEY,

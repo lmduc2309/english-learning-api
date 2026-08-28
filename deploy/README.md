@@ -52,11 +52,11 @@ mode dictionary fallback generation is disabled, `/serious/llm/health` reports
 `disabled`, and the rest of the API remains available. Supply a valid key
 before enabling the fallback.
 
-`COMMERCIAL_SAFE_MODE=true` is mandatory for a commercial deployment. It makes
-dictionary and category endpoints fail closed to published learner-overlay
-content and disables legacy, external-audio and generated fallbacks. Do not set
-`COMMERCIAL_ALLOW_GENERATED_CONTENT=true` until provider terms and the product
-policy have been recorded and approved.
+`COMMERCIAL_SAFE_MODE=true` remains mandatory for the other commercial content
+boundaries. Dictionary serving uses the existing primary production database;
+`DICTIONARY_ALLOW_GENERATED_FALLBACK=false` and
+`DICTIONARY_ALLOW_EXTERNAL_FALLBACK=false` keep generated entries and external
+providers out of dictionary lookup.
 
 ## Validate and start
 
@@ -134,24 +134,16 @@ these names, but `english-learning-api` must receive them separately or inherit
 organization-level secrets. Prefer a protected `production` environment with
 required approval.
 
-The manual workflow has four explicit operations:
+The manual workflow exposes two production operations:
 
 - `backup-only` creates custom-format dumps for each existing production
   database, verifies that `pg_restore` can read the archive, and records a
   SHA-256 file beside it. It does not pull, build, migrate, restart, or import.
-- `preflight-only` reads configuration/database/role readiness without changing
-  production. Secret values are never printed; only `configured` or `missing`.
-- `stage-ai-pilot` requires the pinned verified legacy dump, validates the
-  selected Git commit, provisions the isolated DSD database and scoped roles,
-  imports the committed 50-entry AI pilot as drafts, audits it, and creates a
-  verified post-import DSD dump. It forces `DSD_RELEASE_CHANNEL=off`; it neither
-  approves/publishes content nor rebuilds/restarts the long-running services.
 - `deploy` runs the full validated deployment sequence below.
 
-Run `backup-only` before the first DSD provisioning attempt and preserve its
-reported path, UTC timestamp, size and SHA-256 in the production evidence log.
-A same-host manual dump protects the immediate change window, but does not
-satisfy Task 2A's off-host recovery gate by itself.
+Run `backup-only` before the cutover and preserve its reported path, UTC
+timestamp, size and SHA-256. Deploy also creates and validates a primary
+database dump immediately before migrations.
 
 The workflow deliberately does not clone repositories or create
 `deploy/.env.production`. Those are one-time server provisioning actions. On
@@ -159,6 +151,6 @@ each manual run it:
 
 1. requires clean, already-provisioned sibling repositories;
 2. fast-forwards all three `main` branches;
-3. creates, uploads and verifies snapshot-bound backups for both databases;
+3. creates and verifies a pre-migration backup of the primary database;
 4. builds the stack and runs compiled migrations;
 5. starts the services and runs local origin smoke checks.

@@ -11,7 +11,6 @@ import { TtsModule } from './shared/tts/tts.module';
 import { LearningModule } from './learning/learning.module';
 import configuration from './config/configuration';
 import { LEGACY_ENTITIES } from './config/legacy-entities';
-import { DsdCorpusModule } from './dsd-corpus/dsd-corpus.module';
 
 @Module({
   imports: [
@@ -32,9 +31,6 @@ import { DsdCorpusModule } from './dsd-corpus/dsd-corpus.module';
       synchronize: process.env.TYPEORM_SYNCHRONIZE === 'true',
       logging: process.env.NODE_ENV === 'development',
     }),
-    // Register before dictionary/category so their optional DSD dependencies
-    // resolve whenever the release channel is active.
-    DsdCorpusModule.forRoot(),
     LlmModule,
     DictionaryModule,
     AuthModule,

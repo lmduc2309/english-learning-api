@@ -21,6 +21,7 @@ import { NormalizeExampleMarkup1721403100000 } from '../src/migrations/172140310
 import { ClassifyVietnameseEchoes1721403200000 } from '../src/migrations/1721403200000-ClassifyVietnameseEchoes';
 import { EnforceLearnerProvenance1721403300000 } from '../src/migrations/1721403300000-EnforceLearnerProvenance';
 import { StrengthenCommercialPublication1721403400000 } from '../src/migrations/1721403400000-StrengthenCommercialPublication';
+import { AddPrimaryVietnameseSearch1721403500000 } from '../src/migrations/1721403500000-AddPrimaryVietnameseSearch';
 
 dotenv.config();
 
@@ -53,6 +54,7 @@ const ds = new DataSource({
     ClassifyVietnameseEchoes1721403200000,
     EnforceLearnerProvenance1721403300000,
     StrengthenCommercialPublication1721403400000,
+    AddPrimaryVietnameseSearch1721403500000,
   ],
   migrationsTableName: 'app_migrations',
   migrationsTransactionMode: 'each',
@@ -69,7 +71,9 @@ async function main() {
     const applied = await ds.runMigrations({ transaction: 'each' });
     console.log(`Applied ${applied.length} migration(s): ${applied.map((migration) => migration.name).join(', ') || 'none'}`);
   } else if (command === 'revert') {
-    await ds.undoLastMigration({ transaction: 'each' });
+    // Individual migrations may opt out for PostgreSQL operations such as
+    // CREATE/DROP INDEX CONCURRENTLY.
+    await ds.undoLastMigration({ transaction: 'none' });
     console.log('Reverted the latest migration.');
   } else {
     throw new Error(`Unknown migration command: ${command}`);

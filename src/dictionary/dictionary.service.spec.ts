@@ -16,9 +16,6 @@ import { SearchIndexService } from '../common/search/search-index.service';
 import { RedisCacheService } from '../common/cache/redis-cache.service';
 import { LearnerEntry } from './entities/learner-entry.entity';
 import { LearnerSenseTranslation } from './entities/learner-sense-translation.entity';
-import { DSD_CORPUS_CONFIG } from '../dsd-corpus/dsd-corpus.module';
-import { DsdCorpusConfig } from '../dsd-corpus/dsd-corpus.config';
-import { DsdQueryService } from '../dsd-corpus/dsd-query.service';
 
 function emptyRepo() {
   return {
@@ -27,6 +24,7 @@ function emptyRepo() {
     save: jest.fn(),
     create: jest.fn((x: unknown) => x),
     update: jest.fn(),
+    query: jest.fn().mockResolvedValue([]),
   };
 }
 
@@ -35,41 +33,21 @@ async function buildModule(overrides: {
   config?: Record<string, unknown>;
   httpService?: Partial<HttpService>;
   wordRepository?: ReturnType<typeof emptyRepo>;
+  definitionRepository?: ReturnType<typeof emptyRepo>;
   learnerEntryRepository?: ReturnType<typeof emptyRepo>;
   learnerTranslationRepository?: ReturnType<typeof emptyRepo>;
-  dsdQueryService?: Partial<DsdQueryService>;
-  dsdConfig?: Partial<DsdCorpusConfig>;
 } = {}) {
   const module = await Test.createTestingModule({
     providers: [
       DictionaryService,
       { provide: getRepositoryToken(Word), useValue: overrides.wordRepository || emptyRepo() },
       { provide: getRepositoryToken(Pronunciation), useValue: emptyRepo() },
-      { provide: getRepositoryToken(Definition), useValue: emptyRepo() },
+      { provide: getRepositoryToken(Definition), useValue: overrides.definitionRepository || emptyRepo() },
       { provide: getRepositoryToken(Example), useValue: emptyRepo() },
       { provide: getRepositoryToken(WordForm), useValue: emptyRepo() },
       { provide: getRepositoryToken(Synonym), useValue: emptyRepo() },
       { provide: getRepositoryToken(LearnerEntry), useValue: overrides.learnerEntryRepository || emptyRepo() },
       { provide: getRepositoryToken(LearnerSenseTranslation), useValue: overrides.learnerTranslationRepository || emptyRepo() },
-      {
-        provide: DsdQueryService,
-        useValue: overrides.dsdQueryService ?? {
-          available: false,
-          findCompleteEntry: jest.fn().mockResolvedValue(null),
-          search: jest.fn().mockResolvedValue([]),
-        },
-      },
-      {
-        provide: DSD_CORPUS_CONFIG,
-        useValue: {
-          database: 'dsd_corpus_db',
-          releaseChannel: 'off',
-          activeReleaseId: '',
-          connections: {},
-          errors: [],
-          ...overrides.dsdConfig,
-        },
-      },
       {
         provide: ConfigService,
         useValue: {
@@ -78,6 +56,10 @@ async function buildModule(overrides: {
               'llm.enableFallback': true,
               'content.commercialSafeMode': false,
               'content.allowGeneratedContent': false,
+              'dictionary.dataSource': 'primary',
+              'dictionary.allowGeneratedFallback': true,
+              'dictionary.allowExternalFallback': true,
+              'dictionary.vietnameseSearchEnabled': true,
               ...overrides.config,
             } as Record<string, unknown>)[key],
         },
@@ -274,77 +256,70 @@ describe('DictionaryService.lookupWord — curated learner path', () => {
   });
 });
 
-describe('DictionaryService — commercial-safe boundary', () => {
-  it('reports only the active DSD release in commercial mode', async () => {
+describe('DictionaryService — primary production data boundary', () => {
+  it('reports the primary database and disabled fallbacks in commercial mode', async () => {
     const svc = await buildModule({
-      config: { 'content.commercialSafeMode': true },
+      config: {
+        'content.commercialSafeMode': true,
+        'dictionary.allowGeneratedFallback': false,
+        'dictionary.allowExternalFallback': false,
+      },
     });
 
     expect(svc.getAttribution()).toMatchObject({
       commercial_safe_mode: true,
       software_license: 'MIT',
-      sources: [],
-      release_id: null,
+      dictionary_data_source: 'primary',
+      generated_fallback_enabled: false,
+      external_fallback_enabled: false,
     });
   });
 
-  it('does not expose a legacy word or generate replacement content', async () => {
-    const wordRepository = emptyRepo();
-    wordRepository.findOne.mockResolvedValue({
-      id: 7,
-      word: 'study',
-      definitions: [{ definitionEn: 'legacy text', definitionVi: 'dữ liệu cũ' }],
-    });
-    const llmService = { lookupDictionaryWord: jest.fn() };
-    const svc = await buildModule({
-      wordRepository,
-      llmService,
-      config: {
-        'content.commercialSafeMode': true,
-        'content.allowGeneratedContent': false,
-      },
-    });
-
-    await expect(svc.lookupWord('study')).rejects.toMatchObject({ status: 404 });
-    expect(llmService.lookupDictionaryWord).not.toHaveBeenCalled();
-  });
-
-  it('does not inspect the learner overlay or inherit a legacy frequency rank', async () => {
+  it('serves an existing primary-database word in commercial mode', async () => {
     const wordRepository = emptyRepo();
     wordRepository.findOne.mockResolvedValue({
       id: 7,
       word: 'study',
       frequencyRank: 42,
-    });
-    const learnerEntryRepository = emptyRepo();
-    learnerEntryRepository.findOne.mockResolvedValue({
-      wordId: 7,
-      learnerRank: null,
-      status: 'published',
       pronunciations: [],
-      senses: [{
-        id: 'sense-1',
-        senseOrder: 1,
+      definitions: [{
+        definitionOrder: 1,
         partOfSpeech: 'verb',
-        definitionEn: 'To spend time learning about a subject.',
-        status: 'published',
-        translations: [{
-          locale: 'vi',
-          text: 'học',
-          reviewStatus: 'approved',
-        }],
+        definitionEn: 'To learn about a subject.',
+        definitionVi: 'học về một môn học',
+        qualityFlags: [],
         examples: [],
       }],
+      wordForms: [],
     });
     const svc = await buildModule({
       wordRepository,
-      learnerEntryRepository,
-      config: { 'content.commercialSafeMode': true },
+      config: {
+        'content.commercialSafeMode': true,
+        'dictionary.allowGeneratedFallback': false,
+      },
+    });
+
+    const result = await svc.lookupWord('study');
+    expect(result).toMatchObject({
+      word: 'study',
+      data_source: 'raw_fallback',
+      frequency_rank: 42,
+    });
+  });
+
+  it('does not generate a replacement when the primary database misses', async () => {
+    const llmService = { lookupDictionaryWord: jest.fn() };
+    const svc = await buildModule({
+      llmService,
+      config: {
+        'content.commercialSafeMode': true,
+        'dictionary.allowGeneratedFallback': false,
+      },
     });
 
     await expect(svc.lookupWord('study')).rejects.toMatchObject({ status: 404 });
-    expect(wordRepository.findOne).not.toHaveBeenCalled();
-    expect(learnerEntryRepository.findOne).not.toHaveBeenCalled();
+    expect(llmService.lookupDictionaryWord).not.toHaveBeenCalled();
   });
 
   it('blocks unapproved generated translation endpoints', async () => {
@@ -474,6 +449,37 @@ describe('DictionaryService.resolve — bilingual direction', () => {
     expect(lookup).toHaveBeenCalledWith('study');
   });
 
+  it('searches Vietnamese meanings in the existing production definitions', async () => {
+    const definitionRepository = emptyRepo();
+    definitionRepository.query.mockResolvedValueOnce([{
+      id: '77',
+      definition_vi: 'học về một môn học',
+      definition_en: 'To spend time learning about a subject.',
+      part_of_speech: 'verb',
+      definition_order: 1,
+      word: 'study',
+      frequency_rank: 100,
+    }]).mockResolvedValueOnce([]);
+    const svc = await buildModule({ definitionRepository });
+
+    const result = await svc.resolve('học', 'vi-en');
+
+    expect(result).toMatchObject({
+      kind: 'translation',
+      direction: 'vi-en',
+      translation: { translated_text: 'study' },
+      matches: [{
+        word: 'study',
+        definition_vi: 'học về một môn học',
+        data_source: 'raw_fallback',
+      }],
+    });
+    expect(definitionRepository.query).toHaveBeenCalledWith(
+      expect.stringContaining('definition_vi_normalized'),
+      ['hoc', 'hoc!', 240],
+    );
+  });
+
   it('falls back to sentence translation when no reviewed gloss matches', async () => {
     const learnerTranslationRepository = emptyRepo();
     const llmService = {
@@ -497,158 +503,10 @@ describe('DictionaryService.resolve — bilingual direction', () => {
   });
 });
 
-// ─── Task 15: commercial traffic goes to DSD, or nowhere ─────────────────────
-
-const DSD_ENTRY = {
-  entry: {
-    id: '11111111-1111-1111-1111-111111111111',
-    headword: 'rehearse',
-    headwordNormalized: 'rehearse',
-    language: 'en',
-    updatedAt: new Date('2026-08-03T09:00:00.000Z'),
-  },
-  senses: [
-    {
-      id: '22222222-2222-2222-2222-222222222222',
-      senseOrder: 1,
-      partOfSpeech: 'verb',
-      definitionEn: 'To practise beforehand.',
-      usageLabels: [],
-      translations: [{ id: 't1', locale: 'vi', text: 'diễn tập' }],
-      examples: [{ id: 'x1', exampleOrder: 1, exampleEn: 'They rehearse.', exampleVi: 'Họ diễn tập.' }],
-    },
-  ],
-  pronunciations: [{ id: 'p1', accent: 'en-US', ipa: 'rɪˈhɜːrs', priority: 1, audio: [] }],
-};
-
-/** A legacy word repository that would happily answer if it were asked. */
-function legacyRepoWithWord() {
-  const repo = emptyRepo();
-  repo.findOne = jest.fn().mockResolvedValue({
-    id: 42,
-    word: 'rehearse',
-    wordNormalized: 'rehearse',
-    definitions: [],
-    pronunciations: [],
-    wordForms: [],
-  });
-  repo.find = jest.fn().mockResolvedValue([{ id: 42, word: 'rehearse' }]);
-  return repo;
-}
-
-function dsdPublic(found: unknown = DSD_ENTRY) {
-  return {
-    dsdQueryService: {
-      available: true,
-      findCompleteEntry: jest.fn().mockResolvedValue(found),
-      search: jest.fn().mockResolvedValue(
-        found
-          ? [
-              {
-                id: DSD_ENTRY.entry.id,
-                headword: 'rehearse',
-                partOfSpeech: 'verb',
-                definitionEn: 'To practise beforehand.',
-                translationVi: 'diễn tập',
-              },
-            ]
-          : [],
-      ),
-    } as unknown as Partial<DsdQueryService>,
-    dsdConfig: {
-      releaseChannel: 'public' as const,
-      activeReleaseId: 'DSD-REL-V1-5000-a1b2c3d4',
-    },
-    config: { 'content.commercialSafeMode': true, 'llm.enableFallback': false },
-  };
-}
-
-describe('commercial mode routes to DSD only', () => {
-  it('serves a lookup from DSD', async () => {
-    const svc = await buildModule(dsdPublic());
-    const result: any = await svc.lookupWord('rehearse');
-    expect(result.word).toBe('rehearse');
-    expect(result.data_source).toBe('dsd');
-    expect(result.definitions[0].meaning_vi).toBe('diễn tập');
-  });
-
-  it('makes zero legacy repository calls', async () => {
-    // The assertion that matters: legacy holds the word and is never asked.
-    const wordRepository = legacyRepoWithWord();
-    const learnerEntryRepository = legacyRepoWithWord();
-    const svc = await buildModule({ ...dsdPublic(), wordRepository, learnerEntryRepository });
-
-    await svc.lookupWord('rehearse');
-
-    expect(wordRepository.findOne).not.toHaveBeenCalled();
-    expect(wordRepository.find).not.toHaveBeenCalled();
-    expect(learnerEntryRepository.findOne).not.toHaveBeenCalled();
-    expect(learnerEntryRepository.find).not.toHaveBeenCalled();
-  });
-
-  it('returns 404 on a DSD miss even though legacy has the word', async () => {
-    const wordRepository = legacyRepoWithWord();
-    const svc = await buildModule({ ...dsdPublic(null), wordRepository });
-
-    await expect(svc.lookupWord('rehearse')).rejects.toThrow(/not found in dictionary/);
-    expect(wordRepository.findOne).not.toHaveBeenCalled();
-  });
-
-  it('keeps generated fallback disabled on a miss', async () => {
-    const lookupDictionaryWord = jest.fn();
-    const svc = await buildModule({
-      ...dsdPublic(null),
-      llmService: { lookupDictionaryWord } as unknown as Partial<LlmService>,
-    });
-
-    await expect(svc.lookupWord('rehearse')).rejects.toThrow(/not found/);
-    expect(lookupDictionaryWord).not.toHaveBeenCalled();
-  });
-
-  it('serves search from DSD and asks no legacy repository', async () => {
-    const learnerEntryRepository = legacyRepoWithWord();
-    const svc = await buildModule({ ...dsdPublic(), learnerEntryRepository });
-
-    const result = await svc.searchWords({ q: 'reh', limit: 5 } as any);
-    expect(result.suggestions[0].word).toBe('rehearse');
-    expect(learnerEntryRepository.find).not.toHaveBeenCalled();
-  });
-});
-
-describe('the off channel serves nothing from DSD, and never falls back', () => {
-  it('does not consult DSD when the channel is off', async () => {
-    const dsd = {
-      available: false,
-      findCompleteEntry: jest.fn().mockResolvedValue(DSD_ENTRY),
-      search: jest.fn().mockResolvedValue([]),
-    } as unknown as Partial<DsdQueryService>;
-    const svc = await buildModule({
-      dsdQueryService: dsd,
-      dsdConfig: { releaseChannel: 'off', activeReleaseId: '' },
-      config: { 'content.commercialSafeMode': true, 'llm.enableFallback': false },
-    });
-
-    await expect(svc.lookupWord('rehearse')).rejects.toThrow();
-    expect(dsd.findCompleteEntry).not.toHaveBeenCalled();
-  });
-
-  it('does not serve DSD content on the internal channel to a public request', async () => {
-    const routed = dsdPublic();
-    const svc = await buildModule({
-      ...routed,
-      dsdConfig: { releaseChannel: 'internal', activeReleaseId: 'DSD-REL-PILOT-20260803-a1b2c3d4' },
-    });
-
-    await expect(svc.lookupWord('rehearse')).rejects.toThrow();
-    expect(routed.dsdQueryService.findCompleteEntry).not.toHaveBeenCalled();
-  });
-});
-
-describe('cache keys cannot mix corpora', () => {
-  async function keyFor(overrides: Parameters<typeof buildModule>[0]) {
+describe('primary dictionary cache keys', () => {
+  it('names the primary search schema and includes direction', async () => {
     const keys: string[] = [];
-    const svc = await buildModule(overrides);
-    // Keep the TTL helpers the service asks for; only getOrSet is observed.
+    const svc = await buildModule();
     const real = (svc as any).cacheService;
     (svc as any).cacheService = {
       ...real,
@@ -659,28 +517,11 @@ describe('cache keys cannot mix corpora', () => {
       getWordDetailTTL: () => 3600,
       getSearchTTL: () => 300,
     };
-    await svc.lookupWord('rehearse').catch(() => undefined);
-    return keys[0];
-  }
 
-  it('names the release, so a body cached under another release is not reused', async () => {
-    const key = await keyFor(dsdPublic());
-    expect(key).toContain('DSD-REL-V1-5000-a1b2c3d4');
-  });
+    await svc.searchWords({ q: 'hoc', limit: 5, direction: 'vi-en' });
 
-  it('differs between two DSD releases', async () => {
-    const first = await keyFor(dsdPublic());
-    const second = await keyFor({
-      ...dsdPublic(),
-      dsdConfig: { releaseChannel: 'public', activeReleaseId: 'DSD-REL-V1-20000-99887766' },
-    });
-    expect(first).not.toBe(second);
-  });
-
-  it('differs between reference and commercial mode', async () => {
-    const reference = await keyFor({ config: { 'content.commercialSafeMode': false } });
-    const commercial = await keyFor(dsdPublic());
-    expect(reference).not.toBe(commercial);
-    expect(reference).toContain('reference');
+    expect(keys[0]).toContain('primary:v1');
+    expect(keys[0]).toContain('vi-en');
+    expect(keys[0]).not.toContain('dsd');
   });
 });

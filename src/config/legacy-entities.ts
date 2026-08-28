@@ -19,11 +19,10 @@ import { VerbalMappingSession } from '../verbal-mapping/entities/verbal-mapping-
 import { WordList } from '../word-list/entities/word-list.entity';
 
 /**
- * Entities owned by the legacy application database.
+ * Entities owned by the primary application database.
  *
- * Keep this list explicit. A recursive entity glob also discovers the DSD
- * entities and silently registers them on the legacy connection, defeating the
- * separate-database boundary before either database is queried.
+ * Keep this list explicit so retired/operational entity modules cannot be
+ * registered on the production connection accidentally.
  */
 export const LEGACY_ENTITIES = [
   User,

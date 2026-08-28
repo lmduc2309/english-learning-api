@@ -62,6 +62,10 @@ services:
       CORS_ORIGINS: ${PUBLIC_ORIGIN:-https://eng.dsdtech.site}
       COMMERCIAL_SAFE_MODE: ${COMMERCIAL_SAFE_MODE:-true}
       COMMERCIAL_ALLOW_GENERATED_CONTENT: ${COMMERCIAL_ALLOW_GENERATED_CONTENT:-false}
+      DICTIONARY_DATA_SOURCE: ${DICTIONARY_DATA_SOURCE:-primary}
+      DICTIONARY_ALLOW_GENERATED_FALLBACK: ${DICTIONARY_ALLOW_GENERATED_FALLBACK:-false}
+      DICTIONARY_ALLOW_EXTERNAL_FALLBACK: ${DICTIONARY_ALLOW_EXTERNAL_FALLBACK:-false}
+      DICTIONARY_VI_SEARCH: ${DICTIONARY_VI_SEARCH:-true}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-https://openrouter.ai/api/v1}
       LLM_MODEL: ${LLM_MODEL:-openai/gpt-4o-mini}
@@ -69,31 +73,10 @@ services:
       LLM_APP_TITLE: ${LLM_APP_TITLE:-DSD English}
       LLM_HTTP_REFERER: ${PUBLIC_ORIGIN:-https://eng.dsdtech.site}
       TTS_SERVICE_URL: http://tts:8001
-      # ── DSD corpus ────────────────────────────────────────────────────────
-      # Activation is a two-step deploy on purpose. Ship code with the channel
-      # `off` or `internal`, verify the release signature and smoke tests
-      # against it, then set `public` in a second deploy. A rollback sets the
-      # channel back to `off`; it never falls back to legacy, because there is
-      # no fallback path in the code to reach.
-      #
-      # `public` also refuses a release id that is not public-eligible, and the
-      # scale is part of the id — so a pilot cannot be promoted by editing this
-      # file.
-      DSD_RELEASE_CHANNEL: ${DSD_RELEASE_CHANNEL:-off}
-      DSD_ACTIVE_RELEASE_ID: ${DSD_ACTIVE_RELEASE_ID:-}
-      DSD_DB_DATABASE: ${DSD_DB_DATABASE:-dsd_corpus_db}
-      # One URL per role; no role falls back to another's credential. Only the
-      # serving role belongs in the API container.
-      DSD_APP_DATABASE_URL: ${DSD_APP_DATABASE_URL:-}
-      DSD_AUDIO_PUBLIC_BASE_URL: ${DSD_AUDIO_PUBLIC_BASE_URL:-}
-      DSD_REVIEWER_USER_IDS: ${DSD_REVIEWER_USER_IDS:-}
-      DSD_BACKUP_PROOF_FILE: /app/data/dsd/runtime/backup-proof.json
-      DSD_RESTORE_MAX_AGE_HOURS: ${DSD_RESTORE_MAX_AGE_HOURS:-24}
     expose:
       - "7474"
     volumes:
       - uploads:/app/uploads
-      - runtime_evidence:/app/data/dsd/runtime:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -109,62 +92,6 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
-    networks:
-      - public
-      - private
-
-  # One-shot DSD migration process. The privileged URL exists here only and is
-  # never copied into the long-running API container.
-  dsd-migrator:
-    profiles: ["operations"]
-    build:
-      context: ..
-      dockerfile: Dockerfile
-      target: runtime
-    environment:
-      NODE_ENV: production
-      COMMERCIAL_SAFE_MODE: "true"
-      DSD_RELEASE_CHANNEL: off
-      DSD_DB_DATABASE: ${DSD_DB_DATABASE:-dsd_corpus_db}
-      DB_DATABASE: ${POSTGRES_DB:-english_learning_db}
-      DSD_MIGRATOR_DATABASE_URL: ${DSD_MIGRATOR_DATABASE_URL:?Set DSD_MIGRATOR_DATABASE_URL in deploy/.env.production}
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - private
-    command: ["npm", "run", "dsd:migration:show:prod"]
-
-  # Backup and restore tooling is also one-shot. It has no published port and
-  # no restart policy. Dedicated credentials are required by the scripts.
-  dsd-ops:
-    profiles: ["operations"]
-    build:
-      context: ..
-      dockerfile: Dockerfile
-      target: operations
-    environment:
-      NODE_ENV: production
-      DB_DATABASE: ${POSTGRES_DB:-english_learning_db}
-      DSD_DB_DATABASE: ${DSD_DB_DATABASE:-dsd_corpus_db}
-      LEGACY_BACKUP_DATABASE_URL: ${LEGACY_BACKUP_DATABASE_URL:?Set LEGACY_BACKUP_DATABASE_URL in deploy/.env.production}
-      DSD_BACKUP_DATABASE_URL: ${DSD_BACKUP_DATABASE_URL:?Set DSD_BACKUP_DATABASE_URL in deploy/.env.production}
-      DSD_RESTORE_DATABASE_URL: ${DSD_RESTORE_DATABASE_URL:?Set DSD_RESTORE_DATABASE_URL in deploy/.env.production}
-      DSD_BACKUP_S3_URI: ${DSD_BACKUP_S3_URI:?Set DSD_BACKUP_S3_URI in deploy/.env.production}
-      DSD_BACKUP_S3_REGION: ${DSD_BACKUP_S3_REGION:-ap-southeast-1}
-      DSD_BACKUP_S3_ENDPOINT: ${DSD_BACKUP_S3_ENDPOINT:-}
-      DSD_BACKUP_KMS_KEY_ID: ${DSD_BACKUP_KMS_KEY_ID:?Set DSD_BACKUP_KMS_KEY_ID in deploy/.env.production}
-      DSD_BACKUP_RETENTION_DAYS: ${DSD_BACKUP_RETENTION_DAYS:-30}
-      DSD_BACKUP_PROOF_FILE: /evidence/backup-proof.json
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
-      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
-    volumes:
-      - backup_data:/backups
-      - runtime_evidence:/evidence
-    depends_on:
-      postgres:
-        condition: service_healthy
     networks:
       - public
       - private
@@ -223,8 +150,6 @@ volumes:
   postgres_data:
   redis_data:
   uploads:
-  backup_data:
-  runtime_evidence:
 
 networks:
   public:

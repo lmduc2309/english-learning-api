@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -32,16 +32,24 @@ import {
   presentLearnerPronunciations,
   presentRawDefinitions,
 } from './dictionary-presenter';
-import { DSD_CORPUS_CONFIG } from '../dsd-corpus/dsd-corpus.module';
-import { DsdCorpusConfig } from '../dsd-corpus/dsd-corpus.config';
-import { DsdQueryService } from '../dsd-corpus/dsd-query.service';
-import { presentEntry, presentSearchHits } from '../dsd-corpus/dsd-presenter';
+
+interface RawVietnameseDefinitionRow {
+  id: string;
+  definition_vi: string;
+  definition_en: string;
+  part_of_speech: string;
+  definition_order: number;
+  word: string;
+  frequency_rank: number | null;
+}
 
 @Injectable()
 export class DictionaryService {
   private readonly logger = new Logger(DictionaryService.name);
   private readonly llmFallbackEnabled: boolean;
   private readonly commercialSafeMode: boolean;
+  private readonly allowExternalFallback: boolean;
+  private readonly vietnameseSearchEnabled: boolean;
 
   // Common English words for autocomplete (can be expanded)
   private readonly commonWords = [
@@ -76,127 +84,110 @@ export class DictionaryService {
     @InjectRepository(LearnerSenseTranslation)
     private learnerTranslationRepository: Repository<LearnerSenseTranslation>,
     private llmService: LlmService,
-    // Optional so the dictionary still constructs when the DSD module is absent
-    // or the channel is `off`. Absent means "serve nothing from DSD", never
-    // "fall back to legacy".
-    @Optional() private readonly dsdQueryService?: DsdQueryService,
-    @Optional() @Inject(DSD_CORPUS_CONFIG) private readonly dsdConfig?: DsdCorpusConfig,
   ) {
-    this.llmFallbackEnabled = this.configService.get<boolean>('llm.enableFallback');
+    const dataSource =
+      this.configService.get<string>('dictionary.dataSource') || 'primary';
+    if (dataSource !== 'primary') {
+      throw new Error(
+        `Unsupported DICTIONARY_DATA_SOURCE "${dataSource}"; expected "primary"`,
+      );
+    }
+    this.llmFallbackEnabled =
+      this.configService.get<boolean>('llm.enableFallback') === true
+      && this.configService.get<boolean>(
+        'dictionary.allowGeneratedFallback',
+      ) === true;
+    this.allowExternalFallback =
+      this.configService.get<boolean>('dictionary.allowExternalFallback') === true;
+    this.vietnameseSearchEnabled =
+      this.configService.get<boolean>('dictionary.vietnameseSearchEnabled') !== false;
     this.commercialSafeMode =
       this.configService.get<boolean>('content.commercialSafeMode') === true;
     this.logger.log(
       `LLM fallback ${this.llmFallbackEnabled ? 'enabled' : 'disabled'}`,
     );
     this.logger.log(
-      `Commercial-safe content boundary ${this.commercialSafeMode ? 'enabled' : 'disabled'}`,
+      `Primary production dictionary enabled; Vietnamese search ${this.vietnameseSearchEnabled ? 'enabled' : 'disabled'}`,
     );
   }
 
-  /**
-   * The corpus a cached body came from.
-   *
-   * Part of every cache key, so a response cached before a mode or release
-   * change cannot be served after it. Without the release id, switching from
-   * legacy to DSD — or from one DSD release to the next — would keep serving the
-   * old bodies until they expired, which is how a "commercial-safe" deployment
-   * quietly serves reference data.
-   */
+  /** Version the primary-data response shape so old Redis bodies cannot cross
+   * a serving-policy or search-schema change. */
   private get corpusTag(): string {
-    if (!this.commercialSafeMode) return 'reference';
-    const release = this.dsdConfig?.activeReleaseId;
-    return release ? `dsd:${release}` : 'commercial';
-  }
-
-  /**
-   * Whether a public request should be answered from DSD.
-   *
-   * Only on the `public` channel. On `off` and `internal` a public request gets
-   * nothing from DSD — and in commercial mode it gets nothing at all, because
-   * legacy is not a fallback.
-   */
-  private get dsdServesPublic(): boolean {
-    return (
-      this.commercialSafeMode
-      &&
-      this.dsdConfig?.releaseChannel === 'public'
-      && this.dsdQueryService?.available === true
-    );
+    return 'primary:v1';
   }
 
   async searchWords(dto: SearchWordDto): Promise<SearchWordResponseDto> {
     try {
-      const query = dto.q.toLowerCase();
+      const query = dto.q.toLowerCase().trim();
       const limit = dto.limit || 15;
-      const cacheKey = `search:${this.corpusTag}:${query}:${limit}`;
+      const direction = dto.direction || 'auto';
+      const cacheKey = `search:${this.corpusTag}:${direction}:${query}:${limit}`;
 
       // Try Redis cache first
       return await this.cacheService.getOrSet(
         cacheKey,
         async () => {
-          // DSD first, and exclusively: in commercial mode a DSD miss is the
-          // whole answer. No legacy repository is touched below this branch.
-          if (this.dsdServesPublic) {
-            const hits = await this.dsdQueryService!.search(
-              query,
-              limit,
-              this.dsdConfig!.activeReleaseId,
+          const hasVietnameseMarks = /[ăâđêôơưàáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ]/i.test(query);
+          const searchEnglish = direction !== 'vi-en' && !hasVietnameseMarks;
+          const searchVietnamese =
+            this.vietnameseSearchEnabled && direction !== 'en-vi';
+
+          const [englishResults, vietnameseMatches] = await Promise.all([
+            searchEnglish
+              ? this.searchIndexService.searchWords(query, limit)
+              : Promise.resolve([]),
+            searchVietnamese
+              ? this.searchVietnameseGlosses(query, limit)
+              : Promise.resolve([]),
+          ]);
+
+          const englishSuggestions: SearchWordResponseDto['suggestions'] = await Promise.all(
+            englishResults.map(async (result) => {
+              const wordDetails = await this.wordRepository.findOne({
+                where: { word: result.word },
+                relations: ['pronunciations', 'definitions'],
+              });
+              const pronunciation = wordDetails?.pronunciations?.find(
+                (candidate) => candidate.accent === 'US',
+              ) || wordDetails?.pronunciations?.[0];
+              return {
+                word: wordDetails?.word || result.word!,
+                ipa: pronunciation?.ipa,
+                pos: wordDetails?.definitions?.[0]?.partOfSpeech,
+                direction: 'en-vi' as const,
+              };
+            }),
+          );
+
+          if (searchEnglish && englishSuggestions.length === 0) {
+            englishSuggestions.push(
+              ...this.commonWords
+                .filter((word) => word.startsWith(query))
+                .slice(0, limit)
+                .map((word) => ({ word, direction: 'en-vi' as const })),
             );
-            const suggestions = presentSearchHits(hits).map((hit) => ({
-              word: hit.word,
-              pos: hit.part_of_speech,
-            }));
-            return { suggestions, count: suggestions.length };
           }
 
-          if (this.commercialSafeMode) {
-            return { suggestions: [], count: 0 };
+          const vietnameseSuggestions = vietnameseMatches.map((match) => ({
+            word: match.word,
+            pos: match.part_of_speech,
+            direction: 'vi-en' as const,
+            matched_text: match.definition_vi,
+            definition_vi: match.definition_vi,
+            definition_en: match.definition_en,
+            data_source: match.data_source,
+          }));
+
+          const suggestions = [] as SearchWordResponseDto['suggestions'];
+          const seen = new Set<string>();
+          for (const suggestion of [...englishSuggestions, ...vietnameseSuggestions]) {
+            const key = suggestion.word.toLocaleLowerCase('en');
+            if (seen.has(key)) continue;
+            seen.add(key);
+            suggestions.push(suggestion);
+            if (suggestions.length >= limit) break;
           }
-
-          // Use B+ tree search index for optimized prefix search
-          const results = await this.searchIndexService.searchWords(query, limit);
-
-          if (results.length > 0) {
-            // Fetch detailed information for each word
-            const suggestions = await Promise.all(
-              results.map(async (r) => {
-                const wordDetails = await this.wordRepository.findOne({
-                  where: { word: r.word },
-                  relations: ['pronunciations', 'definitions'],
-                });
-
-                if (wordDetails) {
-                  // Get first US pronunciation
-                  const pronunciation = wordDetails.pronunciations?.find(
-                    (p) => p.accent === 'US',
-                  ) || wordDetails.pronunciations?.[0];
-
-                  // Get first definition's POS
-                  const pos = wordDetails.definitions?.[0]?.partOfSpeech;
-
-                  return {
-                    word: wordDetails.word,
-                    ipa: pronunciation?.ipa,
-                    pos: pos,
-                  };
-                }
-
-                return { word: r.word! };
-              }),
-            );
-
-            return {
-              suggestions,
-              count: suggestions.length,
-            };
-          }
-
-          // Fallback to common words if no results
-          const suggestions = this.commonWords
-            .filter((word) => word.startsWith(query))
-            .slice(0, limit)
-            .map((word) => ({ word }));
-
           return { suggestions, count: suggestions.length };
         },
         {
@@ -225,51 +216,22 @@ export class DictionaryService {
       return await this.cacheService.getOrSet(
         cacheKey,
         async () => {
-          if (this.dsdServesPublic) {
-            const aggregate = await this.dsdQueryService!.findCompleteEntry(
-              normalizedWord,
-              this.dsdConfig!.activeReleaseId,
-            );
-            if (aggregate) {
-              const presented = presentEntry(aggregate, {
-                releaseId: this.dsdConfig!.activeReleaseId,
-                audioBaseUrl: process.env.DSD_AUDIO_PUBLIC_BASE_URL ?? '',
-              });
-              return {
-                word: presented.word,
-                pronunciations: presented.pronunciations.map((pronunciation) => ({
-                  ipa: pronunciation.ipa,
-                  audio_url: pronunciation.audio_url ?? undefined,
-                })),
-                definitions: presented.definitions.map((definition) => ({
-                  pos: definition.part_of_speech,
-                  meaning_en: definition.definition_en,
-                  meaning_vi: definition.definition_vi,
-                  examples: definition.examples,
-                })),
-                data_source: 'dsd',
-              } as unknown as LookupWordResponseDto;
-            }
-            // A DSD miss is a 404 even when legacy holds the word. Falling
-            // through to legacy here is the exact failure this task prevents.
-            throw new HttpException(
-              `Word "${word}" not found in dictionary`,
-              HttpStatus.NOT_FOUND,
-            );
-          }
-
-          if (this.commercialSafeMode) {
-            throw new HttpException(
-              `Word "${word}" not found in dictionary`,
-              HttpStatus.NOT_FOUND,
-            );
-          }
-
-          // Try to find word in database first
+          // The existing application database is the only dictionary source.
           const dbWord = await this.findWordInDatabase(normalizedWord);
           if (dbWord) {
             this.logger.log(`Found word "${word}" in database`);
             return dbWord;
+          }
+
+          // Compatibility for clients that still submit free text directly to
+          // /word/:word: a Vietnamese meaning resolves to its best English
+          // headword using only the primary database.
+          if (this.vietnameseSearchEnabled) {
+            const matches = await this.searchVietnameseGlosses(normalizedWord, 1);
+            const match = matches[0];
+            if (match && match.word.toLowerCase() !== normalizedWord) {
+              return this.lookupWord(match.word);
+            }
           }
 
           // Check if LLM fallback is enabled
@@ -315,22 +277,11 @@ export class DictionaryService {
       throw new HttpException('Query is required', HttpStatus.BAD_REQUEST);
     }
 
-    // The DSD serving API currently supports English headword lookup only.
-    // Never inspect legacy Vietnamese translations to infer or satisfy a
-    // reverse lookup in commercial mode.
-    if (this.commercialSafeMode) {
-      if (direction === 'vi-en') {
-        throw new HttpException(
-          'Vietnamese reverse lookup is not available in commercial-safe mode',
-          HttpStatus.NOT_FOUND,
-        );
-      }
-      return {
-        kind: 'dictionary' as const,
-        direction: 'en-vi' as const,
-        query: normalizedQuery,
-        entry: await this.lookupWord(normalizedQuery),
-      };
+    if (direction === 'vi-en' && !this.vietnameseSearchEnabled) {
+      throw new HttpException(
+        'Vietnamese dictionary search is disabled',
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     const hasVietnameseMarks = /[ăâđêôơưàáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ]/i.test(normalizedQuery);
@@ -340,25 +291,12 @@ export class DictionaryService {
       if (hasVietnameseMarks) {
         detectedDirection = 'vi-en';
       } else {
-        const englishHeadword = this.commercialSafeMode
-          ? await this.learnerEntryRepository.findOne({
-              where: [
-                {
-                  status: 'published',
-                  word: { word: normalizedQuery.toLowerCase() },
-                },
-                {
-                  status: 'published',
-                  word: { wordNormalized: normalizedQuery.toLowerCase() },
-                },
-              ],
-            })
-          : await this.wordRepository.findOne({
-              where: [
-                { word: normalizedQuery.toLowerCase() },
-                { wordNormalized: normalizedQuery.toLowerCase() },
-              ],
-            });
+        const englishHeadword = await this.wordRepository.findOne({
+          where: [
+            { word: normalizedQuery.toLowerCase() },
+            { wordNormalized: normalizedQuery.toLowerCase() },
+          ],
+        });
         if (englishHeadword) {
           detectedDirection = 'en-vi';
         } else {
@@ -379,7 +317,15 @@ export class DictionaryService {
       };
     }
 
-    if (!matches.length) matches = await this.searchVietnameseGlosses(normalizedQuery);
+    if (!matches.length && this.vietnameseSearchEnabled) {
+      matches = await this.searchVietnameseGlosses(normalizedQuery);
+    }
+    if (!matches.length && !this.allowExternalFallback) {
+      throw new HttpException(
+        `No Vietnamese dictionary match for "${normalizedQuery}"`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
     const translation = matches.length
       ? {
           original_text: normalizedQuery,
@@ -401,28 +347,66 @@ export class DictionaryService {
     };
   }
 
-  private async searchVietnameseGlosses(query: string): Promise<VietnameseGlossMatch[]> {
+  private async searchVietnameseGlosses(
+    query: string,
+    limit = 12,
+  ): Promise<VietnameseGlossMatch[]> {
     const normalizedQuery = normalizeVietnameseSearch(query);
-    if (!normalizedQuery) return [];
-    const translations = await this.learnerTranslationRepository.find({
-      where: {
-        locale: 'vi',
-        reviewStatus: 'approved',
-        textNormalized: Like(`%${normalizedQuery}%`),
-        sense: {
-          status: 'published',
-          entry: { status: 'published' },
+    if (!normalizedQuery || limit < 1 || !this.vietnameseSearchEnabled) return [];
+    const candidateLimit = Math.min(Math.max(limit * 20, 100), 1000);
+    const prefixUpperBound = `${normalizedQuery}!`;
+    const [translations, prefixDefinitions] = await Promise.all([
+      this.learnerTranslationRepository.find({
+        where: {
+          locale: 'vi',
+          reviewStatus: 'approved',
+          textNormalized: Like(`%${normalizedQuery}%`),
+          sense: {
+            status: 'published',
+            entry: { status: 'published' },
+          },
         },
-      },
-      relations: {
-        sense: {
-          entry: { word: true },
-          examples: true,
+        relations: {
+          sense: {
+            entry: { word: true },
+            examples: true,
+          },
         },
-      },
-    });
+        take: candidateLimit,
+      }),
+      this.definitionRepository.query(
+        `
+          SELECT d."id", d."definition_vi", d."definition_en",
+                 d."part_of_speech", d."definition_order",
+                 w."word", w."frequency_rank"
+            FROM "definitions" d
+            CROSS JOIN LATERAL (
+              SELECT source_word."word", source_word."frequency_rank"
+                FROM "words" source_word
+               WHERE source_word."id" = d."word_id"
+               OFFSET 0
+            ) w
+           WHERE d."definition_vi" IS NOT NULL
+             AND btrim(d."definition_vi") <> ''
+             AND NOT (d."quality_flags" && ARRAY[
+               'missing_vi', 'vi_contains_cjk', 'vi_equals_en',
+               'raw_markup', 'empty_definition'
+             ]::text[])
+             AND (d."definition_vi_normalized" COLLATE "C") >= $1
+             AND (d."definition_vi_normalized" COLLATE "C") < $2
+           ORDER BY CASE
+                      WHEN d."definition_vi_normalized" = $1 THEN 100
+                      ELSE 90
+                    END DESC,
+                    w."frequency_rank" ASC NULLS LAST,
+                    d."definition_order" ASC, w."word" ASC
+           LIMIT $3
+        `,
+        [normalizedQuery, prefixUpperBound, candidateLimit],
+      ) as Promise<RawVietnameseDefinitionRow[]>,
+    ]);
 
-    return rankVietnameseGlosses(query, translations.map((translation) => ({
+    const translationCandidates = translations.map((translation) => ({
       word: translation.sense.entry.word.word,
       definitionVi: translation.text,
       definitionEn: translation.sense.definitionEn,
@@ -430,11 +414,99 @@ export class DictionaryService {
       senseId: translation.sense.id,
       senseOrder: translation.sense.senseOrder,
       learnerRank: translation.sense.entry.learnerRank,
+      sourcePriority: 0,
+      dataSource: 'curated' as const,
       examples: (translation.sense.examples || [])
         .filter((example) => example.reviewStatus === 'approved')
         .sort((a, b) => a.exampleOrder - b.exampleOrder)
         .map((example) => ({ en: example.exampleEn, vi: example.exampleVi })),
-    })));
+    }));
+    const prefixCandidates = this.rawVietnameseCandidates(prefixDefinitions);
+    const prefixMatches = rankVietnameseGlosses(
+      query,
+      [...translationCandidates, ...prefixCandidates],
+      limit,
+    );
+
+    // Exact and prefix matches always outrank token/substring matches. Avoid
+    // the broader trigram scan when the fast indexed lane already fills the page.
+    if (
+      prefixMatches.length >= limit
+      && prefixMatches[prefixMatches.length - 1].score >= 90
+    ) {
+      return prefixMatches;
+    }
+
+    const broadDefinitions = await this.definitionRepository.query(
+      `
+        WITH candidates AS MATERIALIZED (
+          SELECT d."id", d."word_id", d."definition_vi", d."definition_en",
+                 d."part_of_speech", d."definition_order",
+                 d."definition_vi_normalized"
+            FROM "definitions" d
+           WHERE d."definition_vi" IS NOT NULL
+             AND btrim(d."definition_vi") <> ''
+             AND NOT (d."quality_flags" && ARRAY[
+               'missing_vi', 'vi_contains_cjk', 'vi_equals_en',
+               'raw_markup', 'empty_definition'
+             ]::text[])
+             AND d."definition_vi_normalized" LIKE $1
+             AND NOT (
+               (d."definition_vi_normalized" COLLATE "C") >= $2
+               AND (d."definition_vi_normalized" COLLATE "C") < $3
+             )
+           ORDER BY CASE
+                      WHEN (' ' || d."definition_vi_normalized" || ' ') LIKE $4
+                        THEN 80
+                      ELSE 65
+                    END DESC,
+                    d."definition_order" ASC
+           LIMIT $5
+        )
+        SELECT d."id", d."definition_vi", d."definition_en",
+               d."part_of_speech", d."definition_order",
+               w."word", w."frequency_rank"
+          FROM candidates d
+          CROSS JOIN LATERAL (
+            SELECT source_word."word", source_word."frequency_rank"
+              FROM "words" source_word
+             WHERE source_word."id" = d."word_id"
+             OFFSET 0
+          ) w
+      `,
+      [
+        `%${normalizedQuery}%`,
+        normalizedQuery,
+        prefixUpperBound,
+        `% ${normalizedQuery} %`,
+        candidateLimit,
+      ],
+    ) as RawVietnameseDefinitionRow[];
+
+    return rankVietnameseGlosses(
+      query,
+      [
+        ...translationCandidates,
+        ...prefixCandidates,
+        ...this.rawVietnameseCandidates(broadDefinitions),
+      ],
+      limit,
+    );
+  }
+
+  private rawVietnameseCandidates(definitions: RawVietnameseDefinitionRow[]) {
+    return definitions.map((definition) => ({
+      word: definition.word,
+      definitionVi: definition.definition_vi,
+      definitionEn: definition.definition_en,
+      partOfSpeech: definition.part_of_speech,
+      senseId: `definition:${definition.id}`,
+      senseOrder: definition.definition_order,
+      learnerRank: definition.frequency_rank,
+      sourcePriority: 1,
+      dataSource: 'raw_fallback' as const,
+      examples: [],
+    }));
   }
 
   /**
@@ -448,9 +520,7 @@ export class DictionaryService {
         { word: word },
         { wordNormalized: word },
       ],
-      relations: this.commercialSafeMode
-        ? []
-        : ['pronunciations', 'definitions', 'definitions.examples', 'wordForms'],
+      relations: ['pronunciations', 'definitions', 'definitions.examples', 'wordForms'],
     });
 
     if (!wordEntity) {
@@ -523,19 +593,13 @@ export class DictionaryService {
         // provenance/review model.
         word_forms: undefined,
         synonyms: undefined,
-        frequency_rank: this.commercialSafeMode
-          ? learnerEntry.learnerRank ?? undefined
-          : learnerEntry.learnerRank ?? wordEntity.frequencyRank,
+        frequency_rank: learnerEntry.learnerRank ?? wordEntity.frequencyRank,
         learner_band: learnerEntry.learnerBand || undefined,
         rank_source: learnerEntry.rankSource || undefined,
         rank_source_version: learnerEntry.rankSourceVersion || undefined,
         rank_source_license: learnerEntry.rankSourceLicense || undefined,
         data_source: 'curated',
       };
-    }
-
-    if (this.commercialSafeMode) {
-      return null;
     }
 
     return {
@@ -582,6 +646,15 @@ export class DictionaryService {
     try {
       return await this.llmService.translate(dto);
     } catch (llmError) {
+      if (!this.allowExternalFallback) {
+        this.logger.warn(
+          `LLM translation failed and external fallback is disabled: ${(llmError as Error).message}`,
+        );
+        throw new HttpException(
+          'Translation failed',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
       this.logger.warn(
         `LLM translation failed, using MyMemory fallback: ${(llmError as Error).message}`,
       );
@@ -613,20 +686,15 @@ export class DictionaryService {
   }
 
   getAttribution() {
-    if (this.commercialSafeMode) {
-      return {
-        commercial_safe_mode: true,
-        software_license: 'MIT',
-        data_policy:
-          'Only records from the active, signed DSD release are served. Legacy/reference corpus rows and generated fallbacks are excluded.',
-        sources: [],
-        release_id: this.dsdConfig?.activeReleaseId || null,
-      };
-    }
     return {
       commercial_safe_mode: this.commercialSafeMode,
       software_license: 'MIT',
-      data_policy: 'Only published learner-overlay content may be served commercially.',
+      dictionary_data_source: 'primary',
+      vietnamese_search_enabled: this.vietnameseSearchEnabled,
+      generated_fallback_enabled: this.llmFallbackEnabled,
+      external_fallback_enabled: this.allowExternalFallback,
+      data_policy:
+        'Dictionary responses use the existing primary production database. Reviewed learner content is preferred; existing production definitions provide fallback coverage.',
       sources: [
         {
           name: 'Open English WordNet',
@@ -645,8 +713,7 @@ export class DictionaryService {
             'New General Service List by Browne, C., Culligan, B., and Phillips, J.',
         },
       ],
-      excluded_data:
-        'Legacy/reference dictionary rows are not commercially distributed.',
+      excluded_data: 'DSD release data and generated dictionary entries are not served.',
     };
   }
 
@@ -789,11 +856,6 @@ export class DictionaryService {
     accent: 'US' | 'UK',
   ): Promise<{ audio_url: string | null }> {
     try {
-      if (this.commercialSafeMode) {
-        // Learner pronunciations currently carry reviewed IPA but no licensed
-        // audio artifact. Do not expose legacy or third-party fallback audio.
-        return { audio_url: null };
-      }
       // First check database
       const wordEntity = await this.wordRepository.findOne({
         where: [{ word }, { wordNormalized: word.toLowerCase() }],
@@ -811,6 +873,7 @@ export class DictionaryService {
       }
 
       // Fallback to fetching from external API
+      if (!this.allowExternalFallback) return { audio_url: null };
       const audioUrl = await this.audioService.getAudioUrl(word, accent);
       return { audio_url: audioUrl };
     } catch (error) {

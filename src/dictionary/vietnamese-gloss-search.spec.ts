@@ -54,4 +54,14 @@ describe('Vietnamese gloss search', () => {
   it('returns no match for unrelated text', () => {
     expect(rankVietnameseGlosses('bầu trời', candidates)).toEqual([]);
   });
+
+  it('prefers reviewed learner data when match quality is equal', () => {
+    const result = rankVietnameseGlosses('học', [
+      { ...candidates[0], word: 'raw-word', senseId: 'raw', definitionVi: 'học', sourcePriority: 1 },
+      { ...candidates[0], word: 'curated-word', senseId: 'curated', definitionVi: 'học', sourcePriority: 0, dataSource: 'curated' },
+    ]);
+
+    expect(result.map((match) => match.word)).toEqual(['curated-word', 'raw-word']);
+    expect(result[0].data_source).toBe('curated');
+  });
 });

@@ -10,9 +10,6 @@ on:
         type: choice
         options:
           - backup-only
-          - legacy-counts-only
-          - preflight-only
-          - stage-ai-pilot
           - deploy
 
 concurrency:
@@ -21,13 +18,12 @@ concurrency:
 
 jobs:
   backup-only:
-    name: Create verified production database dumps
+    name: Back up the primary production database
     if: inputs.operation == 'backup-only'
     runs-on: ubuntu-latest
     environment: production
-
     steps:
-      - name: Back up production databases without deploying
+      - name: Create and verify a production database dump
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -43,295 +39,39 @@ jobs:
             API_DIR="$ROOT/english-learning-api"
             COMPOSE_FILE="$API_DIR/deploy/compose.yml"
             ENV_FILE="$API_DIR/deploy/.env.production"
-            BACKUP_DIR="$ROOT/backups/manual-pre-import"
+            BACKUP_DIR="$ROOT/backups/manual"
 
             test -d "$API_DIR/.git"
             test -f "$COMPOSE_FILE"
             test -f "$ENV_FILE"
-
             cd "$API_DIR"
+
             COMPOSE="docker compose --env-file $ENV_FILE -f $COMPOSE_FILE"
             $COMPOSE config --quiet
-            test "$($COMPOSE ps --status running --services | grep -c '^postgres$')" = 1
+            POSTGRES_CONTAINER="$($COMPOSE ps -q postgres)"
+            test -n "$POSTGRES_CONTAINER"
+            DATABASE="$(docker exec "$POSTGRES_CONTAINER" printenv POSTGRES_DB)"
+            STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 
             mkdir -p "$BACKUP_DIR"
             chmod 700 "$BACKUP_DIR"
-
-            POSTGRES_CONTAINER="$($COMPOSE ps -q postgres)"
-            test -n "$POSTGRES_CONTAINER"
-            LEGACY_DB="$(docker exec "$POSTGRES_CONTAINER" printenv POSTGRES_DB)"
-            DSD_DB="$(sed -n 's/^DSD_DB_DATABASE=//p' "$ENV_FILE" | tail -n 1)"
-            DSD_DB="${DSD_DB:-dsd_corpus_db}"
-
-            case "$LEGACY_DB" in
-              (*[!A-Za-z0-9_]*) echo "Unsafe legacy database name"; exit 1 ;;
-            esac
-            case "$DSD_DB" in
-              (*[!A-Za-z0-9_]*) echo "Unsafe DSD database name"; exit 1 ;;
-            esac
-            test "$LEGACY_DB" != "$DSD_DB"
-            DATABASE_LIST="$(docker exec "$POSTGRES_CONTAINER" sh -c \
-              'psql -U "$POSTGRES_USER" -d postgres -At -v ON_ERROR_STOP=1 -c "SELECT datname FROM pg_database"')"
-
-            backup_database() {
-              DATABASE="$1"
-              if ! printf '%s\n' "$DATABASE_LIST" | grep -Fxq "$DATABASE"; then
-                echo "Database not present; skipped: $DATABASE"
-                return 0
-              fi
-
-              STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-              DUMP_FILE="$BACKUP_DIR/${DATABASE}-${STAMP}.dump"
-              MANIFEST_FILE="$DUMP_FILE.sha256"
-              PARTIAL_FILE="$DUMP_FILE.partial"
-
-              DATABASE_BYTES="$(docker exec "$POSTGRES_CONTAINER" sh -c \
-                'psql -U "$POSTGRES_USER" -d "$1" -At -v ON_ERROR_STOP=1 -c "SELECT pg_database_size(current_database())"' \
-                sh "$DATABASE")"
-              AVAILABLE_BYTES="$(( $(df -Pk "$BACKUP_DIR" | awk 'NR == 2 { print $4 }') * 1024 ))"
-              if [ "$AVAILABLE_BYTES" -le "$DATABASE_BYTES" ]; then
-                echo "Insufficient free space to back up $DATABASE"
-                exit 1
-              fi
-
-              docker exec "$POSTGRES_CONTAINER" sh -c \
-                'exec pg_dump -U "$POSTGRES_USER" -d "$1" --format=custom --no-owner --no-privileges' \
-                sh "$DATABASE" > "$PARTIAL_FILE"
-              test -s "$PARTIAL_FILE"
-              docker exec -i "$POSTGRES_CONTAINER" pg_restore --list < "$PARTIAL_FILE" > /dev/null
-              mv "$PARTIAL_FILE" "$DUMP_FILE"
-              chmod 600 "$DUMP_FILE"
-              sha256sum "$DUMP_FILE" > "$MANIFEST_FILE"
-              chmod 600 "$MANIFEST_FILE"
-
-              DUMP_BYTES="$(wc -c < "$DUMP_FILE" | tr -d ' ')"
-              DUMP_SHA256="$(awk '{ print $1 }' "$MANIFEST_FILE")"
-              echo "Verified production dump"
-              echo "  database=$DATABASE"
-              echo "  created_at=$STAMP"
-              echo "  path=$DUMP_FILE"
-              echo "  bytes=$DUMP_BYTES"
-              echo "  sha256=$DUMP_SHA256"
-            }
-
-            backup_database "$LEGACY_DB"
-            backup_database "$DSD_DB"
-
-  legacy-counts-only:
-    name: Count legacy production corpus
-    if: inputs.operation == 'legacy-counts-only'
-    runs-on: ubuntu-latest
-    environment: production
-
-    steps:
-      - name: Report aggregate-only legacy corpus counts
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
-          command_timeout: 15m
-          script: |
-            set -eu
-
-            API_DIR=/var/www/sites/dsd-english/english-learning-api
-            COMPOSE_FILE="$API_DIR/deploy/compose.yml"
-            ENV_FILE="$API_DIR/deploy/.env.production"
-
-            test -f "$COMPOSE_FILE"
-            test -f "$ENV_FILE"
-            cd "$API_DIR"
-
-            COMPOSE="docker compose --env-file $ENV_FILE -f $COMPOSE_FILE"
-            $COMPOSE config --quiet
-            POSTGRES_CONTAINER="$($COMPOSE ps -q postgres)"
-            test -n "$POSTGRES_CONTAINER"
-
-            echo "LEGACY_CORPUS_AGGREGATES_BEGIN"
-            docker exec -i "$POSTGRES_CONTAINER" sh -c \
-              'exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -F "=" -v ON_ERROR_STOP=1' <<'SQL'
-            WITH english_words AS (
-              SELECT id, word, word_normalized
-                FROM words
-               WHERE language = 'en'
-            ),
-            normalized_groups AS (
-              SELECT word_normalized, count(*) AS rows_in_group
-                FROM english_words
-               WHERE word_normalized IS NOT NULL
-                 AND btrim(word_normalized) <> ''
-               GROUP BY word_normalized
-            ),
-            definition_words AS (
-              SELECT DISTINCT w.id
-                FROM english_words w
-                JOIN definitions d ON d.word_id = w.id
-            ),
-            pronunciation_words AS (
-              SELECT DISTINCT w.id
-                FROM english_words w
-                JOIN pronunciations p ON p.word_id = w.id
-            )
-            SELECT metric, value::text
-              FROM (
-                SELECT 10 AS position, 'words_all_languages_total' AS metric,
-                       (SELECT count(*) FROM words) AS value
-                UNION ALL
-                SELECT 20, 'words_english_total',
-                       (SELECT count(*) FROM english_words)
-                UNION ALL
-                SELECT 30, 'words_english_unique_stored_normalized',
-                       (SELECT count(*) FROM normalized_groups)
-                UNION ALL
-                SELECT 40, 'words_english_duplicate_normalized_rows',
-                       (SELECT coalesce(sum(rows_in_group - 1), 0) FROM normalized_groups)
-                UNION ALL
-                SELECT 50, 'words_english_duplicate_normalized_groups',
-                       (SELECT count(*) FROM normalized_groups WHERE rows_in_group > 1)
-                UNION ALL
-                SELECT 60, 'words_english_empty_or_null_normalized',
-                       (SELECT count(*) FROM english_words
-                         WHERE word_normalized IS NULL OR btrim(word_normalized) = '')
-                UNION ALL
-                SELECT 70, 'words_english_with_definition',
-                       (SELECT count(*) FROM definition_words)
-                UNION ALL
-                SELECT 80, 'words_english_with_pronunciation',
-                       (SELECT count(*) FROM pronunciation_words)
-                UNION ALL
-                SELECT 90, 'words_english_with_definition_and_pronunciation',
-                       (SELECT count(*) FROM definition_words d
-                         JOIN pronunciation_words p USING (id))
-              ) aggregates
-             ORDER BY position;
-            SQL
-            echo "LEGACY_CORPUS_AGGREGATES_END"
-
-  preflight-only:
-    name: Inspect DSD production readiness
-    if: inputs.operation == 'preflight-only'
-    runs-on: ubuntu-latest
-    environment: production
-
-    steps:
-      - name: Inspect production without changing it
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
-          command_timeout: 15m
-          script: |
-            set -eu
-
-            ROOT=/var/www/sites/dsd-english
-            API_DIR="$ROOT/english-learning-api"
-            COMPOSE_FILE="$API_DIR/deploy/compose.yml"
-            ENV_FILE="$API_DIR/deploy/.env.production"
-            BACKUP_DIR="$ROOT/backups/manual-pre-import"
-            MISSING=0
-
-            test -d "$API_DIR/.git"
-            test -f "$COMPOSE_FILE"
-            test -f "$ENV_FILE"
-            cd "$API_DIR"
-
-            echo "server_api_head=$(git rev-parse HEAD)"
-            echo "server_api_branch=$(git branch --show-current)"
-            if test -n "$(git status --porcelain)"; then
-              echo "server_api_worktree=dirty"
-              MISSING=$((MISSING + 1))
-            else
-              echo "server_api_worktree=clean"
-            fi
-
-            COMPOSE="docker compose --env-file $ENV_FILE -f $COMPOSE_FILE"
-            POSTGRES_CONTAINER="$($COMPOSE ps -q postgres)"
-            test -n "$POSTGRES_CONTAINER"
-
-            REQUIRED_KEYS="
-            DSD_APP_DATABASE_URL
-            DSD_CURATOR_DATABASE_URL
-            DSD_AUDIT_DATABASE_URL
-            DSD_MIGRATOR_DATABASE_URL
-            DSD_BACKUP_DATABASE_URL
-            DSD_RESTORE_DATABASE_URL
-            LEGACY_AUDIT_DATABASE_URL
-            LEGACY_BACKUP_DATABASE_URL
-            DSD_BACKUP_S3_URI
-            DSD_BACKUP_KMS_KEY_ID
-            AWS_ACCESS_KEY_ID
-            AWS_SECRET_ACCESS_KEY
-            "
-            for KEY in $REQUIRED_KEYS; do
-              LINE="$(grep -E "^${KEY}=" "$ENV_FILE" | tail -n 1 || true)"
-              VALUE="${LINE#*=}"
-              case "$VALUE" in
-                ''|*CHANGE_ME*|*replace-with*)
-                  echo "$KEY=missing"
-                  MISSING=$((MISSING + 1))
-                  ;;
-                *) echo "$KEY=configured" ;;
-              esac
-            done
-
-            if grep -Eq '^COMMERCIAL_SAFE_MODE=true$' "$ENV_FILE"; then
-              echo "COMMERCIAL_SAFE_MODE=true"
-            else
-              echo "COMMERCIAL_SAFE_MODE=invalid_or_missing"
-              MISSING=$((MISSING + 1))
-            fi
-
-            DSD_DB="$(sed -n 's/^DSD_DB_DATABASE=//p' "$ENV_FILE" | tail -n 1)"
-            DSD_DB="${DSD_DB:-dsd_corpus_db}"
-            case "$DSD_DB" in
-              (*[!A-Za-z0-9_]*) echo "DSD_DB_DATABASE=unsafe"; exit 1 ;;
-            esac
-
-            DATABASE_LIST="$(docker exec "$POSTGRES_CONTAINER" sh -c \
-              'psql -U "$POSTGRES_USER" -d postgres -At -v ON_ERROR_STOP=1 -c "SELECT datname FROM pg_database"')"
-            if printf '%s\n' "$DATABASE_LIST" | grep -Fxq "$DSD_DB"; then
-              echo "DSD_DATABASE=present"
-            else
-              echo "DSD_DATABASE=missing"
-              MISSING=$((MISSING + 1))
-            fi
-
-            ROLE_LIST="$(docker exec "$POSTGRES_CONTAINER" sh -c \
-              'psql -U "$POSTGRES_USER" -d postgres -At -v ON_ERROR_STOP=1 -c "SELECT rolname FROM pg_roles"')"
-            for ROLE in dsd_owner dsd_migrator dsd_curator dsd_app dsd_auditor dsd_backup dsd_restore_operator dsd_similarity_reader legacy_backup; do
-              if printf '%s\n' "$ROLE_LIST" | grep -Fxq "$ROLE"; then
-                echo "role_${ROLE}=present"
-              else
-                echo "role_${ROLE}=missing"
-                MISSING=$((MISSING + 1))
-              fi
-            done
-
-            LATEST_DUMP="$(find "$BACKUP_DIR" -maxdepth 1 -type f -name 'english_learning_db-*.dump' -print 2>/dev/null | sort | tail -n 1)"
-            if [ -n "$LATEST_DUMP" ] && [ -f "$LATEST_DUMP.sha256" ] && sha256sum -c "$LATEST_DUMP.sha256" > /dev/null; then
-              echo "legacy_backup=verified"
-              echo "legacy_backup_path=$LATEST_DUMP"
-            else
-              echo "legacy_backup=missing_or_invalid"
-              MISSING=$((MISSING + 1))
-            fi
-
-            if [ "$MISSING" -eq 0 ]; then
-              echo "DSD_PRODUCTION_PREFLIGHT=GO"
-            else
-              echo "DSD_PRODUCTION_PREFLIGHT=NO-GO"
-              echo "blocking_findings=$MISSING"
-              exit 1
-            fi
+            PARTIAL="$BACKUP_DIR/${DATABASE}-${STAMP}.dump.partial"
+            DUMP="$BACKUP_DIR/${DATABASE}-${STAMP}.dump"
+            docker exec "$POSTGRES_CONTAINER" sh -c \
+              'exec pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom --no-owner --no-privileges' \
+              > "$PARTIAL"
+            test -s "$PARTIAL"
+            docker exec -i "$POSTGRES_CONTAINER" pg_restore --list < "$PARTIAL" > /dev/null
+            mv "$PARTIAL" "$DUMP"
+            chmod 600 "$DUMP"
+            sha256sum "$DUMP" > "$DUMP.sha256"
+            chmod 600 "$DUMP.sha256"
+            echo "Verified primary database dump: $DUMP"
 
   validate-api:
     name: Validate API
-    if: inputs.operation == 'deploy' || inputs.operation == 'stage-ai-pilot'
+    if: inputs.operation == 'deploy'
     runs-on: ubuntu-latest
-
     steps:
       - name: Check out API
         uses: actions/checkout@v4
@@ -346,10 +86,7 @@ jobs:
         run: npm ci
 
       - name: Run API tests
-        run: npm test -- --runInBand --no-watchman
-
-      - name: Run corpus and operations script tests
-        run: npm run test:scripts -- --runInBand --no-watchman
+        run: npm test -- --runInBand --watchman=false
 
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
@@ -357,15 +94,14 @@ jobs:
       - name: Build API
         run: npm run build
 
-  stage-dsd-ai-pilot:
-    name: Provision and stage AI pilot as drafts
-    if: inputs.operation == 'stage-ai-pilot'
+  deploy:
+    name: Deploy primary dictionary stack
+    if: inputs.operation == 'deploy'
     runs-on: ubuntu-latest
     needs: validate-api
     environment: production
-
     steps:
-      - name: Provision isolated DSD database and import the validated package
+      - name: Deploy through the existing VPS
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -379,342 +115,53 @@ jobs:
 
             ROOT=/var/www/sites/dsd-english
             API_DIR="$ROOT/english-learning-api"
-            ENV_FILE="$API_DIR/deploy/.env.production"
-            BACKUP_DIR="$ROOT/backups/manual-pre-import"
-            CONFIG_BACKUP_DIR="$ROOT/backups/config"
-            DEPLOY_SHA='${{ github.sha }}'
-            DEPLOY_REF='${{ github.ref_name }}'
-            EXPECTED_LEGACY_DUMP="$BACKUP_DIR/english_learning_db-20260809T053702Z.dump"
-            EXPECTED_LEGACY_SHA=b3a9ef918a4ef0b58e52154335d65dcfc83dcea07bf986363e94c1cd7919a895
-            DSD_DB=dsd_corpus_db
-            BATCH=DSD-AI-PILOT-050-B001
-            INVENTORY_FILE=data/dsd/inventory/dsd-pilot-050.csv
-            CURATION_FILE=data/dsd/curation/pilot-050/batch-ai-001.json
-            INPUT_SHA=02a9fbfca3112a7178ea8e379266ec910e46c2110cf0cd5179dd07c94572552e
-
-            case "$DEPLOY_SHA" in
-              (*[!0-9a-f]*|'') echo "Unsafe deployment SHA"; exit 1 ;;
-            esac
-            test "${#DEPLOY_SHA}" = 40
-            case "$DEPLOY_REF" in
-              (*[!A-Za-z0-9._/-]*|'') echo "Unsafe deployment ref"; exit 1 ;;
-            esac
-
-            test -d "$API_DIR/.git"
-            test -f "$ENV_FILE"
-            test -f "$EXPECTED_LEGACY_DUMP"
-            printf '%s  %s\n' "$EXPECTED_LEGACY_SHA" "$EXPECTED_LEGACY_DUMP" | sha256sum -c -
-
-            mkdir -p "$CONFIG_BACKUP_DIR"
-            chmod 700 "$CONFIG_BACKUP_DIR"
-            # An early version placed this sensitive backup beside the env
-            # file, making the production repository dirty. Move only that
-            # exact, workflow-owned pattern outside the repository.
-            for OLD_CONFIG_BACKUP in "$API_DIR"/deploy/.env.production.pre-dsd-*; do
-              if [ -f "$OLD_CONFIG_BACKUP" ]; then
-                mv "$OLD_CONFIG_BACKUP" "$CONFIG_BACKUP_DIR/$(basename "$OLD_CONFIG_BACKUP")"
-              fi
-            done
-            test -z "$(git -C "$API_DIR" status --porcelain)"
-
-            COMPOSE="docker compose --env-file $ENV_FILE -f $API_DIR/deploy/compose.yml"
-            POSTGRES_CONTAINER="$($COMPOSE ps -q postgres)"
-            test -n "$POSTGRES_CONTAINER"
-            POSTGRES_USER="$(docker exec "$POSTGRES_CONTAINER" printenv POSTGRES_USER)"
-            LEGACY_DB="$(docker exec "$POSTGRES_CONTAINER" printenv POSTGRES_DB)"
-            case "$POSTGRES_USER" in (*[!a-z0-9_]*|'') echo "Unsafe PostgreSQL user"; exit 1 ;; esac
-            case "$LEGACY_DB" in (*[!a-z0-9_]*|'') echo "Unsafe legacy database"; exit 1 ;; esac
-            test "$LEGACY_DB" != "$DSD_DB"
-
-            env_value() {
-              sed -n "s/^$1=//p" "$ENV_FILE" | tail -n 1
-            }
-
-            is_configured() {
-              VALUE="$(env_value "$1")"
-              case "$VALUE" in
-                ''|*CHANGE_ME*|*replace-with*) return 1 ;;
-                *) return 0 ;;
-              esac
-            }
-
-            set_env_key() {
-              KEY="$1"
-              VALUE="$2"
-              TMP_FILE="$(mktemp "$ROOT/.env.production.dsd.XXXXXX")"
-              awk -v key="$KEY" 'index($0, key "=") != 1 { print }' "$ENV_FILE" > "$TMP_FILE"
-              printf '%s=%s\n' "$KEY" "$VALUE" >> "$TMP_FILE"
-              chmod 600 "$TMP_FILE"
-              mv "$TMP_FILE" "$ENV_FILE"
-            }
-
-            URL_KEYS="DSD_APP_DATABASE_URL DSD_CURATOR_DATABASE_URL DSD_AUDIT_DATABASE_URL DSD_MIGRATOR_DATABASE_URL DSD_BACKUP_DATABASE_URL DSD_RESTORE_DATABASE_URL LEGACY_AUDIT_DATABASE_URL LEGACY_BACKUP_DATABASE_URL"
-            CONFIGURED=0
-            for KEY in $URL_KEYS; do
-              if is_configured "$KEY"; then CONFIGURED=$((CONFIGURED + 1)); fi
-            done
-            if [ "$CONFIGURED" -ne 0 ] && [ "$CONFIGURED" -ne 8 ]; then
-              echo "Refusing partial DSD credential configuration ($CONFIGURED/8 URLs configured)"
-              exit 1
-            fi
-
-            ENV_STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-            cp "$ENV_FILE" "$CONFIG_BACKUP_DIR/.env.production-$ENV_STAMP"
-            chmod 600 "$CONFIG_BACKUP_DIR/.env.production-$ENV_STAMP"
-
-            if [ "$CONFIGURED" -eq 0 ]; then
-              APP_PW="$(openssl rand -hex 32)"
-              CURATOR_PW="$(openssl rand -hex 32)"
-              AUDITOR_PW="$(openssl rand -hex 32)"
-              MIGRATOR_PW="$(openssl rand -hex 32)"
-              BACKUP_PW="$(openssl rand -hex 32)"
-              RESTORE_PW="$(openssl rand -hex 32)"
-              SIMILARITY_PW="$(openssl rand -hex 32)"
-              LEGACY_BACKUP_PW="$(openssl rand -hex 32)"
-
-              set_env_key DSD_APP_DATABASE_URL "postgres://dsd_app:$APP_PW@postgres:5432/$DSD_DB"
-              set_env_key DSD_CURATOR_DATABASE_URL "postgres://dsd_curator:$CURATOR_PW@postgres:5432/$DSD_DB"
-              set_env_key DSD_AUDIT_DATABASE_URL "postgres://dsd_auditor:$AUDITOR_PW@postgres:5432/$DSD_DB"
-              set_env_key DSD_MIGRATOR_DATABASE_URL "postgres://dsd_migrator:$MIGRATOR_PW@postgres:5432/$DSD_DB"
-              set_env_key DSD_BACKUP_DATABASE_URL "postgres://dsd_backup:$BACKUP_PW@postgres:5432/$DSD_DB"
-              set_env_key DSD_RESTORE_DATABASE_URL "postgres://dsd_restore_operator:$RESTORE_PW@postgres:5432/postgres"
-              set_env_key LEGACY_AUDIT_DATABASE_URL "postgres://dsd_similarity_reader:$SIMILARITY_PW@postgres:5432/$LEGACY_DB"
-              set_env_key LEGACY_BACKUP_DATABASE_URL "postgres://legacy_backup:$LEGACY_BACKUP_PW@postgres:5432/$LEGACY_DB"
-            fi
-
-            set_env_key DSD_DB_DATABASE "$DSD_DB"
-            set_env_key DSD_RELEASE_CHANNEL off
-            set_env_key DSD_ACTIVE_RELEASE_ID ''
-            set_env_key COMMERCIAL_SAFE_MODE true
-
-            password_from_url() {
-              KEY="$1"
-              ROLE="$2"
-              URL="$(env_value "$KEY")"
-              PREFIX="postgres://$ROLE:"
-              case "$URL" in
-                "$PREFIX"*@postgres:5432/*) ;;
-                *) echo "Invalid $KEY role/host shape" >&2; exit 1 ;;
-              esac
-              REST="${URL#"$PREFIX"}"
-              PASSWORD="${REST%%@*}"
-              case "$PASSWORD" in
-                *[!0-9a-f]*|'') echo "Unsafe or non-DSD-generated password in $KEY" >&2; exit 1 ;;
-              esac
-              test "${#PASSWORD}" = 64
-              printf '%s' "$PASSWORD"
-            }
-
-            APP_PW="$(password_from_url DSD_APP_DATABASE_URL dsd_app)"
-            CURATOR_PW="$(password_from_url DSD_CURATOR_DATABASE_URL dsd_curator)"
-            AUDITOR_PW="$(password_from_url DSD_AUDIT_DATABASE_URL dsd_auditor)"
-            MIGRATOR_PW="$(password_from_url DSD_MIGRATOR_DATABASE_URL dsd_migrator)"
-            BACKUP_PW="$(password_from_url DSD_BACKUP_DATABASE_URL dsd_backup)"
-            RESTORE_PW="$(password_from_url DSD_RESTORE_DATABASE_URL dsd_restore_operator)"
-            SIMILARITY_PW="$(password_from_url LEGACY_AUDIT_DATABASE_URL dsd_similarity_reader)"
-            LEGACY_BACKUP_PW="$(password_from_url LEGACY_BACKUP_DATABASE_URL legacy_backup)"
-
-            WORK_ROOT="$(mktemp -d /tmp/dsd-stage.XXXXXX)"
-            WORKTREE="$WORK_ROOT/repo"
-            PROVISION_ENV="$(mktemp "$ROOT/dsd-provision.XXXXXX")"
-            CONTAINER_TMP="/tmp/dsd-stage-${DEPLOY_SHA}"
-            cleanup() {
-              docker exec "$POSTGRES_CONTAINER" rm -f "$CONTAINER_TMP/provision.env" \
-                "$CONTAINER_TMP/provision-dsd-database.sh" \
-                "$CONTAINER_TMP/grant-legacy-similarity-reader.sql" >/dev/null 2>&1 || true
-              docker exec "$POSTGRES_CONTAINER" rmdir "$CONTAINER_TMP" >/dev/null 2>&1 || true
-              rm -f "$PROVISION_ENV"
-              git -C "$API_DIR" worktree remove --force "$WORKTREE" >/dev/null 2>&1 || true
-              rmdir "$WORK_ROOT" >/dev/null 2>&1 || true
-            }
-            trap cleanup EXIT
-
-            git -C "$API_DIR" fetch origin "$DEPLOY_REF"
-            git -C "$API_DIR" cat-file -e "$DEPLOY_SHA^{commit}"
-            git -C "$API_DIR" worktree add --detach "$WORKTREE" "$DEPLOY_SHA"
-
-            printf '%s\n' \
-              "DSD_DB_HOST=/var/run/postgresql" \
-              "DSD_DB_PORT=5432" \
-              "DSD_ADMIN_USER=$POSTGRES_USER" \
-              "DSD_DB_DATABASE=$DSD_DB" \
-              "DB_DATABASE=$LEGACY_DB" \
-              "DB_USERNAME=$POSTGRES_USER" \
-              "DSD_PASSWORD_DSD_APP=$APP_PW" \
-              "DSD_PASSWORD_DSD_CURATOR=$CURATOR_PW" \
-              "DSD_PASSWORD_DSD_AUDITOR=$AUDITOR_PW" \
-              "DSD_PASSWORD_DSD_MIGRATOR=$MIGRATOR_PW" \
-              "DSD_PASSWORD_DSD_BACKUP=$BACKUP_PW" \
-              "DSD_PASSWORD_DSD_RESTORE_OPERATOR=$RESTORE_PW" \
-              "DSD_PASSWORD_DSD_SIMILARITY_READER=$SIMILARITY_PW" \
-              "DSD_PASSWORD_LEGACY_BACKUP=$LEGACY_BACKUP_PW" > "$PROVISION_ENV"
-            chmod 600 "$PROVISION_ENV"
-
-            docker exec "$POSTGRES_CONTAINER" mkdir -p "$CONTAINER_TMP"
-            docker cp "$WORKTREE/scripts/dsd/provision-dsd-database.sh" \
-              "$POSTGRES_CONTAINER:$CONTAINER_TMP/provision-dsd-database.sh"
-            docker cp "$WORKTREE/scripts/dsd/grant-legacy-similarity-reader.sql" \
-              "$POSTGRES_CONTAINER:$CONTAINER_TMP/grant-legacy-similarity-reader.sql"
-            docker cp "$PROVISION_ENV" "$POSTGRES_CONTAINER:$CONTAINER_TMP/provision.env"
-            docker exec "$POSTGRES_CONTAINER" chmod 600 "$CONTAINER_TMP/provision.env"
-            docker exec "$POSTGRES_CONTAINER" sh -c \
-              'set -a; . "$1"; set +a; exec bash "$2" apply' \
-              sh "$CONTAINER_TMP/provision.env" "$CONTAINER_TMP/provision-dsd-database.sh"
-            rm -f "$PROVISION_ENV"
-            docker exec "$POSTGRES_CONTAINER" rm -f "$CONTAINER_TMP/provision.env"
-
-            SHORT_SHA="$(printf '%s' "$DEPLOY_SHA" | cut -c1-12)"
-            IMAGE="dsd-ai-pilot:$SHORT_SHA"
-            docker build --target operations -t "$IMAGE" "$WORKTREE"
-            PRIVATE_NETWORK="$(docker inspect "$POSTGRES_CONTAINER" \
-              --format '{{range $name, $network := .NetworkSettings.Networks}}{{println $name}}{{end}}' \
-              | head -n 1)"
-            test -n "$PRIVATE_NETWORK"
-
-            run_dsd() {
-              docker run --rm --network "$PRIVATE_NETWORK" --env-file "$ENV_FILE" \
-                -e "DB_DATABASE=$LEGACY_DB" \
-                -v "$WORKTREE/data/dsd:/app/data/dsd:ro" \
-                "$IMAGE" "$@"
-            }
-
-            run_dsd npm run dsd:registry:validate
-            run_dsd npm run dsd:inventory:validate -- --file "$INVENTORY_FILE"
-            run_dsd npm run dsd:curation:validate -- --file "$CURATION_FILE"
-            run_dsd npm run dsd:migration:run
-            run_dsd sh -eu -c '
-              test "$(psql "$LEGACY_AUDIT_DATABASE_URL" -At -v ON_ERROR_STOP=1 \
-                -c "SELECT current_user")" = dsd_similarity_reader
-              psql "$LEGACY_AUDIT_DATABASE_URL" -At -v ON_ERROR_STOP=1 \
-                -c "SELECT headword, part_of_speech, record_kind, content_en, content_digest
-                      FROM dsd_compliance.english_similarity_input LIMIT 1" >/dev/null
-              if psql "$LEGACY_AUDIT_DATABASE_URL" -At -v ON_ERROR_STOP=1 \
-                -c "SELECT definition_vi FROM public.definitions LIMIT 1" >/dev/null 2>&1; then
-                echo "Similarity reader can access legacy Vietnamese" >&2
-                exit 1
-              fi
-              if psql "$LEGACY_AUDIT_DATABASE_URL" -At -v ON_ERROR_STOP=1 \
-                -c "SELECT * FROM public.learner_entries LIMIT 1" >/dev/null 2>&1; then
-                echo "Similarity reader can access learner overlays" >&2
-                exit 1
-              fi
-            '
-            run_dsd npm run dsd:inventory:import -- --file "$INVENTORY_FILE" --write
-            run_dsd npm run dsd:curation:import -- --file "$CURATION_FILE" --write
-            run_dsd npm run dsd:quality:audit -- --batch "$BATCH"
-
-            COUNTS="$(docker exec "$POSTGRES_CONTAINER" psql \
-              -U "$POSTGRES_USER" -d "$DSD_DB" -At -v ON_ERROR_STOP=1 -F '|' -c \
-              "SELECT (SELECT count(*) FROM dsd_entries),
-                      (SELECT count(*) FROM dsd_senses),
-                      (SELECT count(*) FROM dsd_translations),
-                      (SELECT count(*) FROM dsd_examples),
-                      (SELECT count(*) FROM dsd_provenance_events WHERE event_type='generated');")"
-            test "$COUNTS" = "50|50|50|50|150"
-            MISMATCH="$(docker exec "$POSTGRES_CONTAINER" psql \
-              -U "$POSTGRES_USER" -d "$DSD_DB" -At -v ON_ERROR_STOP=1 -c \
-              "SELECT count(*) FROM dsd_provenance_events
-                WHERE event_type='generated'
-                  AND (input_hash IS NULL OR input_hash <> '$INPUT_SHA'
-                    OR tool_id <> 'openai-codex-text-generation'
-                    OR evidence_id <> 'EV-OPENAI-OUTPUT-TERMS-20260101');")"
-            test "$MISMATCH" = 0
-
-            mkdir -p "$BACKUP_DIR"
-            chmod 700 "$BACKUP_DIR"
-            STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-            DUMP_FILE="$BACKUP_DIR/${DSD_DB}-${STAMP}.dump"
-            PARTIAL_FILE="$DUMP_FILE.partial"
-            docker exec "$POSTGRES_CONTAINER" sh -c \
-              'exec pg_dump -U "$POSTGRES_USER" -d "$1" --format=custom --no-owner --no-privileges' \
-              sh "$DSD_DB" > "$PARTIAL_FILE"
-            test -s "$PARTIAL_FILE"
-            docker exec -i "$POSTGRES_CONTAINER" pg_restore --list < "$PARTIAL_FILE" > /dev/null
-            mv "$PARTIAL_FILE" "$DUMP_FILE"
-            chmod 600 "$DUMP_FILE"
-            sha256sum "$DUMP_FILE" > "$DUMP_FILE.sha256"
-            chmod 600 "$DUMP_FILE.sha256"
-
-            echo "DSD_AI_PILOT_STAGED=YES"
-            echo "release_channel=off"
-            echo "content_status=draft"
-            echo "counts=$COUNTS"
-            echo "provenance_mismatch=$MISMATCH"
-            echo "post_import_dump=$DUMP_FILE"
-            echo "post_import_dump_sha256=$(awk '{print $1}' "$DUMP_FILE.sha256")"
-
-  deploy:
-    name: Deploy production stack
-    if: inputs.operation == 'deploy'
-    runs-on: ubuntu-latest
-    needs: validate-api
-    environment: production
-
-    steps:
-      - name: Deploy through the existing VPS
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
-          command_timeout: 45m
-          script: |
-            set -eu
-
-            ROOT=/var/www/sites/dsd-english
-            API_DIR="$ROOT/english-learning-api"
             WEB_DIR="$ROOT/english-learning-games"
             TTS_DIR="$ROOT/tts-service"
             COMPOSE_FILE="$API_DIR/deploy/compose.yml"
             ENV_FILE="$API_DIR/deploy/.env.production"
+            BACKUP_DIR="$ROOT/backups/pre-deploy"
 
             for repo_dir in "$API_DIR" "$WEB_DIR" "$TTS_DIR"; do
-              if [ ! -d "$repo_dir/.git" ]; then
-                echo "Missing provisioned repository: $repo_dir"
-                exit 1
-              fi
+              test -d "$repo_dir/.git"
+              test -z "$(git -C "$repo_dir" status --porcelain)"
             done
-
-            if [ ! -f "$ENV_FILE" ]; then
-              echo "Missing production environment: $ENV_FILE"
-              exit 1
-            fi
+            test -f "$ENV_FILE"
 
             git -C "$API_DIR" pull --ff-only origin main
             git -C "$WEB_DIR" pull --ff-only origin main
             git -C "$TTS_DIR" pull --ff-only origin main
 
             cd "$API_DIR"
-            COMPOSE="docker compose --profile operations --env-file $ENV_FILE -f $COMPOSE_FILE"
+            COMPOSE="docker compose --env-file $ENV_FILE -f $COMPOSE_FILE"
             $COMPOSE config --quiet
             $COMPOSE build
             $COMPOSE up -d postgres redis
-
-            echo "=== migration state before backup ==="
             $COMPOSE run --rm api npm run migration:show:prod
-            $COMPOSE run --rm dsd-migrator npm run dsd:migration:show:prod
 
-            # Each command creates a snapshot-bound dump and manifest, uploads
-            # both to versioned KMS storage with retention, and verifies the
-            # exact remote object versions. set -e blocks all migrations if
-            # any local or off-host verification fails.
-            $COMPOSE run --rm dsd-ops sh -c \
-              'npm run dsd:backup:offhost -- --database "$DB_DATABASE" --out-dir /backups'
-            $COMPOSE run --rm dsd-ops sh -c \
-              'npm run dsd:backup:offhost -- --database "$DSD_DB_DATABASE" --out-dir /backups'
+            POSTGRES_CONTAINER="$($COMPOSE ps -q postgres)"
+            DATABASE="$(docker exec "$POSTGRES_CONTAINER" printenv POSTGRES_DB)"
+            STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+            mkdir -p "$BACKUP_DIR"
+            chmod 700 "$BACKUP_DIR"
+            PARTIAL="$BACKUP_DIR/${DATABASE}-${STAMP}.dump.partial"
+            DUMP="$BACKUP_DIR/${DATABASE}-${STAMP}.dump"
+            docker exec "$POSTGRES_CONTAINER" sh -c \
+              'exec pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom --no-owner --no-privileges' \
+              > "$PARTIAL"
+            test -s "$PARTIAL"
+            docker exec -i "$POSTGRES_CONTAINER" pg_restore --list < "$PARTIAL" > /dev/null
+            mv "$PARTIAL" "$DUMP"
+            chmod 600 "$DUMP"
+            sha256sum "$DUMP" > "$DUMP.sha256"
 
-            echo "=== applying legacy migrations ==="
             $COMPOSE run --rm api npm run migration:run:prod
-            echo "=== applying DSD migrations ==="
-            $COMPOSE run --rm dsd-migrator npm run dsd:migration:run:prod
-
-            echo "=== migration state after migration ==="
             $COMPOSE run --rm api npm run migration:show:prod
-            $COMPOSE run --rm dsd-migrator npm run dsd:migration:show:prod
-
-            # Profiles do not start one-shot operation services here.
-            docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d
+            $COMPOSE up -d
 
             curl -fS -H 'Host: eng.dsdtech.site' http://127.0.0.1/healthz
             curl -fS -H 'Host: eng.dsdtech.site' http://127.0.0.1/
+            curl -fSG -H 'Host: eng.dsdtech.site' \
+              --data-urlencode 'q=học' \
+              --data-urlencode 'direction=vi-en' \
+              --data-urlencode 'limit=5' \
+              http://127.0.0.1/serious/dictionary/search

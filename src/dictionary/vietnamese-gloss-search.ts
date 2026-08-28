@@ -6,6 +6,8 @@ export interface VietnameseGlossCandidate {
   senseId: string;
   senseOrder: number;
   learnerRank?: number | null;
+  sourcePriority?: number;
+  dataSource?: 'curated' | 'raw_fallback';
   examples?: Array<{ en: string; vi: string }>;
 }
 
@@ -16,6 +18,7 @@ export interface VietnameseGlossMatch {
   part_of_speech: string;
   sense_id: string;
   score: number;
+  data_source: 'curated' | 'raw_fallback';
   examples: Array<{ en: string; vi: string }>;
 }
 
@@ -71,6 +74,7 @@ export function rankVietnameseGlosses(
     .filter(({ score }) => score > 0)
     .sort((a, b) => (
       b.score - a.score
+      || (a.candidate.sourcePriority ?? 1) - (b.candidate.sourcePriority ?? 1)
       || (a.candidate.learnerRank ?? Number.MAX_SAFE_INTEGER)
         - (b.candidate.learnerRank ?? Number.MAX_SAFE_INTEGER)
       || a.candidate.senseOrder - b.candidate.senseOrder
@@ -84,6 +88,7 @@ export function rankVietnameseGlosses(
       part_of_speech: candidate.partOfSpeech,
       sense_id: candidate.senseId,
       score,
+      data_source: candidate.dataSource || 'raw_fallback',
       examples: candidate.examples || [],
     }));
 }
