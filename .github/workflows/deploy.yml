@@ -26,7 +26,7 @@ jobs:
         run: npm ci
 
       - name: Run API tests
-        run: npm test -- --runInBand --no-watchman
+        run: npm test -- --runInBand --watchman=false
 
       - name: Build API
         run: npm run build
@@ -100,3 +100,8 @@ jobs:
 
             curl -fS -H 'Host: eng.dsdtech.site' http://127.0.0.1/healthz
             curl -fS -H 'Host: eng.dsdtech.site' http://127.0.0.1/
+            curl -fSG -H 'Host: eng.dsdtech.site' \
+              --data-urlencode 'q=học' \
+              --data-urlencode 'direction=vi-en' \
+              --data-urlencode 'limit=5' \
+              http://127.0.0.1/serious/dictionary/search

@@ -1,4 +1,4 @@
-import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -33,10 +33,22 @@ import {
   presentRawDefinitions,
 } from './dictionary-presenter';
 
+interface RawVietnameseDefinitionRow {
+  id: string;
+  definition_vi: string;
+  definition_en: string;
+  part_of_speech: string;
+  definition_order: number;
+  word: string;
+  frequency_rank: number | null;
+}
+
 @Injectable()
 export class DictionaryService {
   private readonly logger = new Logger(DictionaryService.name);
   private readonly llmFallbackEnabled: boolean;
+  private readonly allowExternalFallback: boolean;
+  private readonly vietnameseSearchEnabled: boolean;
 
   // Common English words for autocomplete (can be expanded)
   private readonly commonWords = [
@@ -72,66 +84,110 @@ export class DictionaryService {
     private learnerTranslationRepository: Repository<LearnerSenseTranslation>,
     private llmService: LlmService,
   ) {
-    this.llmFallbackEnabled = this.configService.get<boolean>('llm.enableFallback');
+    const dataSource =
+      this.configService.get<string>('dictionary.dataSource') || 'primary';
+    if (dataSource !== 'primary') {
+      throw new Error(
+        `Unsupported DICTIONARY_DATA_SOURCE "${dataSource}"; expected "primary"`,
+      );
+    }
+    this.llmFallbackEnabled =
+      this.configService.get<boolean>('llm.enableFallback') === true
+      && this.configService.get<boolean>(
+        'dictionary.allowGeneratedFallback',
+      ) === true;
+    this.allowExternalFallback =
+      this.configService.get<boolean>('dictionary.allowExternalFallback') === true;
+    this.vietnameseSearchEnabled =
+      this.configService.get<boolean>('dictionary.vietnameseSearchEnabled') !== false;
     this.logger.log(
       `LLM fallback ${this.llmFallbackEnabled ? 'enabled' : 'disabled'}`,
     );
+    this.logger.log(
+      `Primary production dictionary enabled; Vietnamese search ${this.vietnameseSearchEnabled ? 'enabled' : 'disabled'}`,
+    );
+  }
+
+  /** Version the primary-data response shape so old Redis bodies cannot cross
+   * a serving-policy or search-schema change. */
+  private get corpusTag(): string {
+    return 'primary:v1';
   }
 
   async searchWords(dto: SearchWordDto): Promise<SearchWordResponseDto> {
     try {
-      const query = dto.q.toLowerCase();
+      const query = dto.q.toLowerCase().trim();
       const limit = dto.limit || 15;
-      const cacheKey = `search:${query}:${limit}`;
+      const direction = dto.direction || 'auto';
+      const cacheKey = `search:${this.corpusTag}:${direction}:${query}:${limit}`;
 
       // Try Redis cache first
       return await this.cacheService.getOrSet(
         cacheKey,
         async () => {
-          // Use B+ tree search index for optimized prefix search
-          const results = await this.searchIndexService.searchWords(query, limit);
+          const hasVietnameseMarks = this.hasVietnameseMarks(query);
+          const searchEnglish = direction !== 'vi-en' && !hasVietnameseMarks;
+          const searchVietnamese =
+            this.vietnameseSearchEnabled && direction !== 'en-vi';
 
-          if (results.length > 0) {
-            // Fetch detailed information for each word
-            const suggestions = await Promise.all(
-              results.map(async (r) => {
-                const wordDetails = await this.wordRepository.findOne({
-                  where: { word: r.word },
-                  relations: ['pronunciations', 'definitions'],
-                });
+          const [englishResults, vietnameseMatches] = await Promise.all([
+            searchEnglish
+              ? this.searchIndexService.searchWords(query, limit)
+              : Promise.resolve([]),
+            searchVietnamese
+              ? this.searchVietnameseGlosses(query, limit)
+              : Promise.resolve([]),
+          ]);
 
-                if (wordDetails) {
-                  // Get first US pronunciation
-                  const pronunciation = wordDetails.pronunciations?.find(
-                    (p) => p.accent === 'US',
-                  ) || wordDetails.pronunciations?.[0];
+          const englishSuggestions: SearchWordResponseDto['suggestions'] = await Promise.all(
+            englishResults.map(async (result) => {
+              const wordDetails = await this.wordRepository.findOne({
+                where: { word: result.word },
+                relations: ['pronunciations', 'definitions'],
+              });
+              const pronunciation = wordDetails?.pronunciations?.find(
+                (candidate) => candidate.accent === 'US',
+              ) || wordDetails?.pronunciations?.[0];
+              return {
+                word: wordDetails?.word || result.word!,
+                ipa: pronunciation?.ipa,
+                pos: wordDetails?.definitions?.[0]?.partOfSpeech,
+                direction: 'en-vi' as const,
+              };
+            }),
+          );
 
-                  // Get first definition's POS
-                  const pos = wordDetails.definitions?.[0]?.partOfSpeech;
-
-                  return {
-                    word: wordDetails.word,
-                    ipa: pronunciation?.ipa,
-                    pos: pos,
-                  };
-                }
-
-                return { word: r.word! };
-              }),
+          if (searchEnglish && englishSuggestions.length === 0) {
+            englishSuggestions.push(
+              ...this.commonWords
+                .filter((word) => word.startsWith(query))
+                .slice(0, limit)
+                .map((word) => ({ word, direction: 'en-vi' as const })),
             );
-
-            return {
-              suggestions,
-              count: suggestions.length,
-            };
           }
 
-          // Fallback to common words if no results
-          const suggestions = this.commonWords
-            .filter((word) => word.startsWith(query))
-            .slice(0, limit)
-            .map((word) => ({ word }));
+          const vietnameseSuggestions = vietnameseMatches.map((match) => ({
+            word: match.word,
+            pos: match.part_of_speech,
+            direction: 'vi-en' as const,
+            matched_text: match.definition_vi,
+            definition_vi: match.definition_vi,
+            definition_en: match.definition_en,
+            data_source: match.data_source,
+          }));
 
+          const suggestions = [] as SearchWordResponseDto['suggestions'];
+          const seen = new Set<string>();
+          const lanes = direction === 'auto' && !hasVietnameseMarks
+            ? this.interleaveSuggestions(englishSuggestions, vietnameseSuggestions)
+            : [...englishSuggestions, ...vietnameseSuggestions];
+          for (const suggestion of lanes) {
+            const key = suggestion.word.toLocaleLowerCase('en');
+            if (seen.has(key)) continue;
+            seen.add(key);
+            suggestions.push(suggestion);
+            if (suggestions.length >= limit) break;
+          }
           return { suggestions, count: suggestions.length };
         },
         {
@@ -160,11 +216,38 @@ export class DictionaryService {
       return await this.cacheService.getOrSet(
         cacheKey,
         async () => {
-          // Try to find word in database first
+          // Marked Vietnamese input is unambiguous. Resolve it before checking
+          // whether the multilingual word table happens to contain that text.
+          if (
+            this.vietnameseSearchEnabled
+            && this.hasVietnameseMarks(normalizedWord)
+          ) {
+            const matches = await this.searchVietnameseGlosses(normalizedWord, 1);
+            const match = matches[0];
+            if (match && match.word.toLowerCase() !== normalizedWord) {
+              return this.lookupWord(match.word);
+            }
+          }
+
+          // The existing application database is the only dictionary source.
           const dbWord = await this.findWordInDatabase(normalizedWord);
           if (dbWord) {
             this.logger.log(`Found word "${word}" in database`);
             return dbWord;
+          }
+
+          // Compatibility for clients that still submit free text directly to
+          // /word/:word: a Vietnamese meaning resolves to its best English
+          // headword using only the primary database.
+          if (
+            this.vietnameseSearchEnabled
+            && !this.hasVietnameseMarks(normalizedWord)
+          ) {
+            const matches = await this.searchVietnameseGlosses(normalizedWord, 1);
+            const match = matches[0];
+            if (match && match.word.toLowerCase() !== normalizedWord) {
+              return this.lookupWord(match.word);
+            }
           }
 
           // Check if LLM fallback is enabled
@@ -208,7 +291,14 @@ export class DictionaryService {
       throw new HttpException('Query is required', HttpStatus.BAD_REQUEST);
     }
 
-    const hasVietnameseMarks = /[ăâđêôơưàáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ]/i.test(normalizedQuery);
+    if (direction === 'vi-en' && !this.vietnameseSearchEnabled) {
+      throw new HttpException(
+        'Vietnamese dictionary search is disabled',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const hasVietnameseMarks = this.hasVietnameseMarks(normalizedQuery);
     let detectedDirection: 'en-vi' | 'vi-en';
     let matches: VietnameseGlossMatch[] = [];
     if (direction === 'auto') {
@@ -241,7 +331,15 @@ export class DictionaryService {
       };
     }
 
-    if (!matches.length) matches = await this.searchVietnameseGlosses(normalizedQuery);
+    if (!matches.length && this.vietnameseSearchEnabled) {
+      matches = await this.searchVietnameseGlosses(normalizedQuery);
+    }
+    if (!matches.length && !this.allowExternalFallback) {
+      throw new HttpException(
+        `No Vietnamese dictionary match for "${normalizedQuery}"`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
     const translation = matches.length
       ? {
           original_text: normalizedQuery,
@@ -263,28 +361,66 @@ export class DictionaryService {
     };
   }
 
-  private async searchVietnameseGlosses(query: string): Promise<VietnameseGlossMatch[]> {
+  private async searchVietnameseGlosses(
+    query: string,
+    limit = 12,
+  ): Promise<VietnameseGlossMatch[]> {
     const normalizedQuery = normalizeVietnameseSearch(query);
-    if (!normalizedQuery) return [];
-    const translations = await this.learnerTranslationRepository.find({
-      where: {
-        locale: 'vi',
-        reviewStatus: 'approved',
-        textNormalized: Like(`%${normalizedQuery}%`),
-        sense: {
-          status: 'published',
-          entry: { status: 'published' },
+    if (!normalizedQuery || limit < 1 || !this.vietnameseSearchEnabled) return [];
+    const candidateLimit = Math.min(Math.max(limit * 20, 100), 1000);
+    const prefixUpperBound = `${normalizedQuery}!`;
+    const [translations, prefixDefinitions] = await Promise.all([
+      this.learnerTranslationRepository.find({
+        where: {
+          locale: 'vi',
+          reviewStatus: 'approved',
+          textNormalized: Like(`%${normalizedQuery}%`),
+          sense: {
+            status: 'published',
+            entry: { status: 'published' },
+          },
         },
-      },
-      relations: {
-        sense: {
-          entry: { word: true },
-          examples: true,
+        relations: {
+          sense: {
+            entry: { word: true },
+            examples: true,
+          },
         },
-      },
-    });
+        take: candidateLimit,
+      }),
+      this.definitionRepository.query(
+        `
+          SELECT d."id", d."definition_vi", d."definition_en",
+                 d."part_of_speech", d."definition_order",
+                 w."word", w."frequency_rank"
+            FROM "definitions" d
+            CROSS JOIN LATERAL (
+              SELECT source_word."word", source_word."frequency_rank"
+                FROM "words" source_word
+               WHERE source_word."id" = d."word_id"
+               OFFSET 0
+            ) w
+           WHERE d."definition_vi" IS NOT NULL
+             AND btrim(d."definition_vi") <> ''
+             AND NOT (d."quality_flags" && ARRAY[
+               'missing_vi', 'vi_contains_cjk', 'vi_equals_en',
+               'raw_markup', 'empty_definition'
+             ]::text[])
+             AND (d."definition_vi_normalized" COLLATE "C") >= $1
+             AND (d."definition_vi_normalized" COLLATE "C") < $2
+           ORDER BY CASE
+                      WHEN d."definition_vi_normalized" = $1 THEN 100
+                      ELSE 90
+                    END DESC,
+                    w."frequency_rank" ASC NULLS LAST,
+                    d."definition_order" ASC, w."word" ASC
+           LIMIT $3
+        `,
+        [normalizedQuery, prefixUpperBound, candidateLimit],
+      ) as Promise<RawVietnameseDefinitionRow[]>,
+    ]);
 
-    return rankVietnameseGlosses(query, translations.map((translation) => ({
+    const translationCandidates = translations.map((translation) => ({
       word: translation.sense.entry.word.word,
       definitionVi: translation.text,
       definitionEn: translation.sense.definitionEn,
@@ -292,11 +428,117 @@ export class DictionaryService {
       senseId: translation.sense.id,
       senseOrder: translation.sense.senseOrder,
       learnerRank: translation.sense.entry.learnerRank,
+      sourcePriority: 0,
+      dataSource: 'curated' as const,
       examples: (translation.sense.examples || [])
         .filter((example) => example.reviewStatus === 'approved')
         .sort((a, b) => a.exampleOrder - b.exampleOrder)
         .map((example) => ({ en: example.exampleEn, vi: example.exampleVi })),
-    })));
+    }));
+    const prefixCandidates = this.rawVietnameseCandidates(prefixDefinitions);
+    const prefixMatches = rankVietnameseGlosses(
+      query,
+      [...translationCandidates, ...prefixCandidates],
+      limit,
+    );
+
+    // Exact and prefix matches always outrank token/substring matches. Avoid
+    // the broader trigram scan when the fast indexed lane already fills the page.
+    if (
+      prefixMatches.length >= limit
+      && prefixMatches[prefixMatches.length - 1].score >= 90
+    ) {
+      return prefixMatches;
+    }
+
+    const broadDefinitions = await this.definitionRepository.query(
+      `
+        WITH candidates AS MATERIALIZED (
+          SELECT d."id", d."word_id", d."definition_vi", d."definition_en",
+                 d."part_of_speech", d."definition_order",
+                 d."definition_vi_normalized"
+            FROM "definitions" d
+           WHERE d."definition_vi" IS NOT NULL
+             AND btrim(d."definition_vi") <> ''
+             AND NOT (d."quality_flags" && ARRAY[
+               'missing_vi', 'vi_contains_cjk', 'vi_equals_en',
+               'raw_markup', 'empty_definition'
+             ]::text[])
+             AND d."definition_vi_normalized" LIKE $1
+             AND NOT (
+               (d."definition_vi_normalized" COLLATE "C") >= $2
+               AND (d."definition_vi_normalized" COLLATE "C") < $3
+             )
+           ORDER BY CASE
+                      WHEN (' ' || d."definition_vi_normalized" || ' ') LIKE $4
+                        THEN 80
+                      ELSE 65
+                    END DESC,
+                    d."definition_order" ASC
+           LIMIT $5
+        )
+        SELECT d."id", d."definition_vi", d."definition_en",
+               d."part_of_speech", d."definition_order",
+               w."word", w."frequency_rank"
+          FROM candidates d
+          CROSS JOIN LATERAL (
+            SELECT source_word."word", source_word."frequency_rank"
+              FROM "words" source_word
+             WHERE source_word."id" = d."word_id"
+             OFFSET 0
+          ) w
+      `,
+      [
+        `%${normalizedQuery}%`,
+        normalizedQuery,
+        prefixUpperBound,
+        `% ${normalizedQuery} %`,
+        candidateLimit,
+      ],
+    ) as RawVietnameseDefinitionRow[];
+
+    return rankVietnameseGlosses(
+      query,
+      [
+        ...translationCandidates,
+        ...prefixCandidates,
+        ...this.rawVietnameseCandidates(broadDefinitions),
+      ],
+      limit,
+    );
+  }
+
+  private rawVietnameseCandidates(definitions: RawVietnameseDefinitionRow[]) {
+    return definitions.map((definition) => ({
+      word: definition.word,
+      definitionVi: definition.definition_vi,
+      definitionEn: definition.definition_en,
+      partOfSpeech: definition.part_of_speech,
+      senseId: `definition:${definition.id}`,
+      senseOrder: definition.definition_order,
+      learnerRank: definition.frequency_rank,
+      sourcePriority: 1,
+      dataSource: 'raw_fallback' as const,
+      examples: [],
+    }));
+  }
+
+  private interleaveSuggestions(
+    english: SearchWordResponseDto['suggestions'],
+    vietnamese: SearchWordResponseDto['suggestions'],
+  ): SearchWordResponseDto['suggestions'] {
+    const combined: SearchWordResponseDto['suggestions'] = [];
+    const length = Math.max(english.length, vietnamese.length);
+    for (let index = 0; index < length; index += 1) {
+      if (english[index]) combined.push(english[index]);
+      if (vietnamese[index]) combined.push(vietnamese[index]);
+    }
+    return combined;
+  }
+
+  private hasVietnameseMarks(value: string): boolean {
+    return /[ăâđêôơưàáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ]/i
+      .test(value);
   }
 
   /**
@@ -460,6 +702,37 @@ export class DictionaryService {
     };
   }
 
+  getAttribution() {
+    return {
+      software_license: 'MIT',
+      dictionary_data_source: 'primary',
+      vietnamese_search_enabled: this.vietnameseSearchEnabled,
+      generated_fallback_enabled: this.llmFallbackEnabled,
+      external_fallback_enabled: this.allowExternalFallback,
+      data_policy:
+        'Dictionary responses use the existing primary production database. Reviewed learner content is preferred; existing production definitions provide fallback coverage.',
+      sources: [
+        {
+          name: 'Open English WordNet',
+          version: '2025',
+          license: 'CC BY 4.0',
+          url: 'https://github.com/globalwordnet/english-wordnet/releases/tag/2025-edition',
+          attribution:
+            'Open English WordNet 2025, © 2019-present The Open English WordNet Team.',
+        },
+        {
+          name: 'New General Service List',
+          version: '1.2',
+          license: 'CC BY-SA 4.0',
+          url: 'https://www.newgeneralservicelist.com/new-general-service-list',
+          attribution:
+            'New General Service List by Browne, C., Culligan, B., and Phillips, J.',
+        },
+      ],
+      excluded_data: 'DSD release data and generated dictionary entries are not served.',
+    };
+  }
+
   /**
    * Import word data into database
    * Used by admin import script
@@ -616,6 +889,7 @@ export class DictionaryService {
       }
 
       // Fallback to fetching from external API
+      if (!this.allowExternalFallback) return { audio_url: null };
       const audioUrl = await this.audioService.getAudioUrl(word, accent);
       return { audio_url: audioUrl };
     } catch (error) {
