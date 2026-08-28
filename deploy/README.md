@@ -52,6 +52,11 @@ mode dictionary fallback generation is disabled, `/serious/llm/health` reports
 `disabled`, and the rest of the API remains available. Supply a valid key
 before enabling the fallback.
 
+Dictionary serving uses the existing primary production database;
+`DICTIONARY_ALLOW_GENERATED_FALLBACK=false` and
+`DICTIONARY_ALLOW_EXTERNAL_FALLBACK=false` keep generated entries and external
+providers out of dictionary lookup.
+
 ## Validate and start
 
 Take and verify a PostgreSQL backup before running migrations. Then:

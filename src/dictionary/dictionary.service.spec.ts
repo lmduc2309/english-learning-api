@@ -24,6 +24,7 @@ function emptyRepo() {
     save: jest.fn(),
     create: jest.fn((x: unknown) => x),
     update: jest.fn(),
+    query: jest.fn().mockResolvedValue([]),
   };
 }
 
@@ -32,15 +33,17 @@ async function buildModule(overrides: {
   config?: Record<string, unknown>;
   httpService?: Partial<HttpService>;
   wordRepository?: ReturnType<typeof emptyRepo>;
+  definitionRepository?: ReturnType<typeof emptyRepo>;
   learnerEntryRepository?: ReturnType<typeof emptyRepo>;
   learnerTranslationRepository?: ReturnType<typeof emptyRepo>;
+  searchIndexService?: { searchWords: jest.Mock };
 } = {}) {
   const module = await Test.createTestingModule({
     providers: [
       DictionaryService,
       { provide: getRepositoryToken(Word), useValue: overrides.wordRepository || emptyRepo() },
       { provide: getRepositoryToken(Pronunciation), useValue: emptyRepo() },
-      { provide: getRepositoryToken(Definition), useValue: emptyRepo() },
+      { provide: getRepositoryToken(Definition), useValue: overrides.definitionRepository || emptyRepo() },
       { provide: getRepositoryToken(Example), useValue: emptyRepo() },
       { provide: getRepositoryToken(WordForm), useValue: emptyRepo() },
       { provide: getRepositoryToken(Synonym), useValue: emptyRepo() },
@@ -50,7 +53,14 @@ async function buildModule(overrides: {
         provide: ConfigService,
         useValue: {
           get: (key: string) =>
-            ({ 'llm.enableFallback': true, ...overrides.config } as Record<string, unknown>)[key],
+            ({
+              'llm.enableFallback': true,
+              'dictionary.dataSource': 'primary',
+              'dictionary.allowGeneratedFallback': true,
+              'dictionary.allowExternalFallback': true,
+              'dictionary.vietnameseSearchEnabled': true,
+              ...overrides.config,
+            } as Record<string, unknown>)[key],
         },
       },
       {
@@ -66,13 +76,18 @@ async function buildModule(overrides: {
         },
       },
       { provide: AudioService, useValue: { getAudioUrl: jest.fn().mockResolvedValue(null) } },
-      { provide: SearchIndexService, useValue: { searchWords: jest.fn().mockResolvedValue([]) } },
+      {
+        provide: SearchIndexService,
+        useValue: overrides.searchIndexService
+          || { searchWords: jest.fn().mockResolvedValue([]) },
+      },
       {
         provide: RedisCacheService,
         useValue: {
           // Pass-through cache: just execute the factory each time
           getOrSet: jest.fn(async (_key: string, factory: () => Promise<unknown>) => factory()),
           getWordDetailTTL: jest.fn().mockReturnValue(60),
+          getSearchTTL: jest.fn().mockReturnValue(60),
         },
       },
     ],
@@ -244,6 +259,70 @@ describe('DictionaryService.lookupWord — curated learner path', () => {
   });
 });
 
+describe('DictionaryService — primary production data boundary', () => {
+  it('reports the primary database and disabled fallbacks', async () => {
+    const svc = await buildModule({
+      config: {
+        'dictionary.allowGeneratedFallback': false,
+        'dictionary.allowExternalFallback': false,
+      },
+    });
+
+    expect(svc.getAttribution()).toMatchObject({
+      software_license: 'MIT',
+      dictionary_data_source: 'primary',
+      generated_fallback_enabled: false,
+      external_fallback_enabled: false,
+    });
+  });
+
+  it('serves an existing primary-database word', async () => {
+    const wordRepository = emptyRepo();
+    wordRepository.findOne.mockResolvedValue({
+      id: 7,
+      word: 'study',
+      frequencyRank: 42,
+      pronunciations: [],
+      definitions: [{
+        definitionOrder: 1,
+        partOfSpeech: 'verb',
+        definitionEn: 'To learn about a subject.',
+        definitionVi: 'học về một môn học',
+        qualityFlags: [],
+        examples: [],
+      }],
+      wordForms: [],
+    });
+    const svc = await buildModule({
+      wordRepository,
+      config: {
+        'dictionary.allowGeneratedFallback': false,
+      },
+    });
+
+    const result = await svc.lookupWord('study');
+    expect(result).toMatchObject({
+      word: 'study',
+      data_source: 'raw_fallback',
+      frequency_rank: 42,
+    });
+  });
+
+  it('does not generate a replacement when the primary database misses', async () => {
+    const llmService = { lookupDictionaryWord: jest.fn() };
+    const svc = await buildModule({
+      llmService,
+      config: {
+        'dictionary.allowGeneratedFallback': false,
+      },
+    });
+
+    await expect(svc.lookupWord('study')).rejects.toMatchObject({ status: 404 });
+    expect(llmService.lookupDictionaryWord).not.toHaveBeenCalled();
+  });
+
+});
+
 describe('DictionaryService.translate', () => {
   it('returns LlmService.translate result on success', async () => {
     const llmService = {
@@ -352,6 +431,37 @@ describe('DictionaryService.resolve — bilingual direction', () => {
     expect(lookup).toHaveBeenCalledWith('study');
   });
 
+  it('searches Vietnamese meanings in the existing production definitions', async () => {
+    const definitionRepository = emptyRepo();
+    definitionRepository.query.mockResolvedValueOnce([{
+      id: '77',
+      definition_vi: 'học về một môn học',
+      definition_en: 'To spend time learning about a subject.',
+      part_of_speech: 'verb',
+      definition_order: 1,
+      word: 'study',
+      frequency_rank: 100,
+    }]).mockResolvedValueOnce([]);
+    const svc = await buildModule({ definitionRepository });
+
+    const result = await svc.resolve('học', 'vi-en');
+
+    expect(result).toMatchObject({
+      kind: 'translation',
+      direction: 'vi-en',
+      translation: { translated_text: 'study' },
+      matches: [{
+        word: 'study',
+        definition_vi: 'học về một môn học',
+        data_source: 'raw_fallback',
+      }],
+    });
+    expect(definitionRepository.query).toHaveBeenCalledWith(
+      expect.stringContaining('definition_vi_normalized'),
+      ['hoc', 'hoc!', 240],
+    );
+  });
+
   it('falls back to sentence translation when no reviewed gloss matches', async () => {
     const learnerTranslationRepository = emptyRepo();
     const llmService = {
@@ -372,5 +482,111 @@ describe('DictionaryService.resolve — bilingual direction', () => {
       matches: [],
       translation: { translated_text: 'blue sky' },
     });
+  });
+});
+
+describe('primary dictionary cache keys', () => {
+  it('reserves auto-search space for accent-free Vietnamese matches', async () => {
+    const wordRepository = emptyRepo();
+    wordRepository.findOne.mockImplementation(async ({ where }: any) => ({
+      word: where.word,
+      pronunciations: [],
+      definitions: [],
+    }));
+    const definitionRepository = emptyRepo();
+    definitionRepository.query
+      .mockResolvedValueOnce([{
+        id: '77',
+        definition_vi: 'học về một môn học',
+        definition_en: 'To spend time learning about a subject.',
+        part_of_speech: 'verb',
+        definition_order: 1,
+        word: 'study',
+        frequency_rank: 100,
+      }])
+      .mockResolvedValueOnce([]);
+    const searchIndexService = {
+      searchWords: jest.fn().mockResolvedValue([
+        { word: 'hoc' },
+        { word: 'hockey' },
+      ]),
+    };
+    const svc = await buildModule({
+      wordRepository,
+      definitionRepository,
+      searchIndexService,
+    });
+
+    const result = await svc.searchWords({ q: 'hoc', limit: 2, direction: 'auto' });
+
+    expect(result.suggestions).toEqual([
+      expect.objectContaining({ word: 'hoc', direction: 'en-vi' }),
+      expect.objectContaining({
+        word: 'study',
+        direction: 'vi-en',
+        matched_text: 'học về một môn học',
+      }),
+    ]);
+  });
+
+  it('resolves marked Vietnamese before an exact multilingual headword', async () => {
+    const wordRepository = emptyRepo();
+    wordRepository.findOne.mockImplementation(async ({ where }: any) => {
+      const clauses = Array.isArray(where) ? where : [where];
+      const requested = clauses[0]?.word;
+      if (requested !== 'study') return null;
+      return {
+        id: 7,
+        word: 'study',
+        frequencyRank: 100,
+        pronunciations: [],
+        definitions: [{
+          definitionEn: 'To learn about a subject.',
+          definitionVi: 'học về một môn học',
+          definitionOrder: 1,
+          partOfSpeech: 'verb',
+          qualityFlags: [],
+          examples: [],
+        }],
+        wordForms: [],
+      };
+    });
+    const definitionRepository = emptyRepo();
+    definitionRepository.query.mockResolvedValueOnce([{
+      id: '77',
+      definition_vi: 'học về một môn học',
+      definition_en: 'To spend time learning about a subject.',
+      part_of_speech: 'verb',
+      definition_order: 1,
+      word: 'study',
+      frequency_rank: 100,
+    }]);
+    const svc = await buildModule({ wordRepository, definitionRepository });
+
+    const result = await svc.lookupWord('học');
+
+    expect(result).toMatchObject({ word: 'study', data_source: 'raw_fallback' });
+    expect(wordRepository.findOne).toHaveBeenCalledTimes(1);
+  });
+
+  it('names the primary search schema and includes direction', async () => {
+    const keys: string[] = [];
+    const svc = await buildModule();
+    const real = (svc as any).cacheService;
+    (svc as any).cacheService = {
+      ...real,
+      getOrSet: jest.fn(async (key: string, factory: () => Promise<unknown>) => {
+        keys.push(key);
+        return factory();
+      }),
+      getWordDetailTTL: () => 3600,
+      getSearchTTL: () => 300,
+    };
+
+    await svc.searchWords({ q: 'hoc', limit: 5, direction: 'vi-en' });
+
+    expect(keys[0]).toContain('primary:v1');
+    expect(keys[0]).toContain('vi-en');
+    expect(keys[0]).not.toContain('dsd');
   });
 });
