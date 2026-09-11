@@ -298,9 +298,10 @@ describe('LlmService.generateRecallClues', () => {
       { word: 'brief', clue: 'Something lasting only a short amount of time fits this description.' },
     ]);
     expect(mockCreate.mock.calls[0][0]).toMatchObject({
-      response_format: { type: 'json_object' },
       temperature: 0.45,
+      max_tokens: 1200,
     });
+    expect(mockCreate.mock.calls[0][0]).not.toHaveProperty('response_format');
   });
 
   it('rejects clues that reveal an answer or omit a requested word', async () => {
@@ -317,6 +318,7 @@ describe('LlmService.generateRecallClues', () => {
     await expect(svc.generateRecallClues(['resilient', 'brief'])).rejects.toMatchObject({
       status: HttpStatus.UNPROCESSABLE_ENTITY,
     });
+    expect(mockCreate).toHaveBeenCalledTimes(2);
   });
 });
 
