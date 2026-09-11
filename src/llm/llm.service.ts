@@ -26,6 +26,11 @@ interface ChatOpts {
   timeoutMs?: number;
 }
 
+export interface RecallClue {
+  word: string;
+  clue: string;
+}
+
 @Injectable()
 export class LlmService {
   private readonly logger = new Logger(LlmService.name);
@@ -134,6 +139,68 @@ Format: Return only the sentences, one per line, without numbering.`,
       maxTokens: dto.maxTokens,
     });
     return { response: text };
+  }
+
+  async generateRecallClues(words: string[]): Promise<RecallClue[]> {
+    const uniqueWords = [...new Set(words.map((word) => word.trim().toLocaleLowerCase()))]
+      .filter(Boolean)
+      .slice(0, 30);
+    const messages: ChatMessage[] = [
+      {
+        role: 'system',
+        content:
+          'You are an English vocabulary teacher creating safe recall clues. Return only valid JSON.',
+      },
+      {
+        role: 'user',
+        content: `Create exactly one English recall clue for every vocabulary word below.
+
+Rules:
+- Each clue is one natural sentence that defines or clearly suggests the word's meaning.
+- The player will read the clue and type the vocabulary word.
+- Never include the answer word, an inflection, or a derivative of it in the clue.
+- Do not use blanks or ask a question.
+- Keep every clue under 22 words.
+- Preserve every requested word in the output.
+
+Return exactly this JSON shape:
+{"cards":[{"word":"answer","clue":"definition sentence"}]}
+
+Words: ${JSON.stringify(uniqueWords)}`,
+      },
+    ];
+    const text = await this.chat(messages, {
+      temperature: 0.45,
+      maxTokens: Math.min(2000, 80 * uniqueWords.length),
+      responseFormat: { type: 'json_object' },
+    });
+
+    let parsed: { cards?: Array<{ word?: unknown; clue?: unknown }> };
+    try {
+      parsed = JSON.parse(text) as typeof parsed;
+    } catch {
+      throw new HttpException(
+        'AI returned invalid flashcard clues. Please try again.',
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+
+    const requested = new Set(uniqueWords);
+    const byWord = new Map<string, RecallClue>();
+    for (const card of parsed.cards ?? []) {
+      if (typeof card.word !== 'string' || typeof card.clue !== 'string') continue;
+      const word = card.word.trim().toLocaleLowerCase();
+      const clue = card.clue.trim();
+      if (!requested.has(word) || !this.isSafeRecallClue(word, clue)) continue;
+      byWord.set(word, { word, clue });
+    }
+    if (byWord.size !== uniqueWords.length) {
+      throw new HttpException(
+        'AI could not create safe clues for every word. Please adjust the list and try again.',
+        HttpStatus.UNPROCESSABLE_ENTITY,
+      );
+    }
+    return uniqueWords.map((word) => byWord.get(word)!);
   }
 
   async lookupDictionaryWord(word: string): Promise<LookupWordResponseDto> {
@@ -376,6 +443,24 @@ Grade the learner. Return ONLY valid JSON in this exact format:
       model: this.model,
       url: this.baseUrl,
     };
+  }
+
+  private isSafeRecallClue(word: string, clue: string): boolean {
+    if (!clue || clue.length > 220 || /_{2,}/.test(clue)) return false;
+    const normalizedClue = clue.toLocaleLowerCase();
+    const forms = new Set([word, `${word}s`, `${word}ed`, `${word}ing`]);
+    if (word.endsWith('e')) {
+      forms.add(`${word}d`);
+      forms.add(`${word.slice(0, -1)}ing`);
+    }
+    if (word.endsWith('y') && !/[aeiou]y$/.test(word)) {
+      forms.add(`${word.slice(0, -1)}ies`);
+      forms.add(`${word.slice(0, -1)}ied`);
+    }
+    return ![...forms].some((form) => {
+      const escaped = form.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(`(^|[^\\p{L}])${escaped}([^\\p{L}]|$)`, 'iu').test(normalizedClue);
+    });
   }
 
   private async chat(messages: ChatMessage[], opts: ChatOpts = {}): Promise<string> {
