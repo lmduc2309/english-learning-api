@@ -10,6 +10,7 @@ import { VerbalMappingModule } from './verbal-mapping/verbal-mapping.module';
 import { TtsModule } from './shared/tts/tts.module';
 import { LearningModule } from './learning/learning.module';
 import configuration from './config/configuration';
+import { CompetitionModule } from './competition/competition.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import configuration from './config/configuration';
     VerbalMappingModule,
     TtsModule,
     LearningModule,
+    CompetitionModule,
   ],
 })
 export class AppModule {}
