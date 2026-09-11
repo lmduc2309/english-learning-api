@@ -19,6 +19,7 @@ import {
 import { CompetitionAnswer } from './entities/competition-answer.entity';
 import { CompetitionPlayer } from './entities/competition-player.entity';
 import { CompetitionQuestion, CompetitionRoom } from './entities/competition-room.entity';
+import { LlmService } from '../llm/llm.service';
 
 const ROOM_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 const MAX_PLAYERS = 12;
@@ -33,11 +34,14 @@ export class CompetitionService {
     @InjectRepository(CompetitionAnswer)
     private readonly answers: Repository<CompetitionAnswer>,
     private readonly dataSource: DataSource,
+    private readonly llm: LlmService,
   ) {}
 
   async createRoom(dto: CreateCompetitionRoomDto) {
     const hostToken = this.makeToken();
     const playerToken = this.makeToken();
+    const words = [...new Set(dto.words.map((word) => word.trim().toLocaleLowerCase()))];
+    const generated = await this.llm.generateRecallClues(words);
     const room = this.rooms.create({
       code: await this.makeRoomCode(),
       name: dto.name.trim(),
@@ -47,10 +51,10 @@ export class CompetitionService {
       status: 'lobby',
       startedAt: null,
       endedAt: null,
-      questions: dto.questions.map((question) => ({
-        prompt: question.prompt.trim(),
-        answer: question.answer.trim(),
-        hint: question.hint.trim() || this.makeHint(question.answer),
+      questions: generated.map((card) => ({
+        prompt: card.clue,
+        answer: card.word,
+        hint: this.makeHint(card.word),
       })),
     });
     await this.rooms.save(room);
@@ -339,10 +343,12 @@ export class CompetitionService {
   }
 
   private makeHint(answer: string) {
-    return answer
-      .split(/\s+/)
-      .map((word) => `${word.charAt(0)}${'•'.repeat(Math.max(0, word.length - 1))}`)
+    const words = answer.split(/\s+/);
+    const shape = words
+      .map((word) => `${word.charAt(0).toUpperCase()}${'•'.repeat(Math.max(0, word.length - 1))}`)
       .join(' ');
+    const letters = words.reduce((total, word) => total + word.length, 0);
+    return `${shape} · ${letters} letter${letters === 1 ? '' : 's'}`;
   }
 
   private makeToken() {

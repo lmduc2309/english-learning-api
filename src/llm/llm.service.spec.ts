@@ -270,6 +270,56 @@ describe('LlmService.chatWithUser', () => {
   });
 });
 
+describe('LlmService.generateRecallClues', () => {
+  let mockCreate: jest.Mock;
+  let svc: LlmService;
+
+  beforeEach(() => {
+    mockCreate = jest.fn();
+    svc = makeServiceWithMock(mockCreate);
+  });
+
+  it('returns one safe AI clue for each requested word in input order', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            cards: [
+              { word: 'brief', clue: 'Something lasting only a short amount of time fits this description.' },
+              { word: 'resilient', clue: 'Able to recover quickly after difficulties or sudden changes.' },
+            ],
+          }),
+        },
+      }],
+    });
+
+    await expect(svc.generateRecallClues(['Resilient', 'brief'])).resolves.toEqual([
+      { word: 'resilient', clue: 'Able to recover quickly after difficulties or sudden changes.' },
+      { word: 'brief', clue: 'Something lasting only a short amount of time fits this description.' },
+    ]);
+    expect(mockCreate.mock.calls[0][0]).toMatchObject({
+      response_format: { type: 'json_object' },
+      temperature: 0.45,
+    });
+  });
+
+  it('rejects clues that reveal an answer or omit a requested word', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            cards: [{ word: 'resilient', clue: 'A resilient person recovers quickly.' }],
+          }),
+        },
+      }],
+    });
+
+    await expect(svc.generateRecallClues(['resilient', 'brief'])).rejects.toMatchObject({
+      status: HttpStatus.UNPROCESSABLE_ENTITY,
+    });
+  });
+});
+
 describe('LlmService.lookupDictionaryWord', () => {
   let mockCreate: jest.Mock;
   let svc: LlmService;

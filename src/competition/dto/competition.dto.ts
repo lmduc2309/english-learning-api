@@ -1,34 +1,16 @@
-import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
+  ArrayUnique,
   IsArray,
   IsInt,
-  IsOptional,
   IsString,
   Length,
   Max,
   MaxLength,
   Min,
   MinLength,
-  ValidateNested,
 } from 'class-validator';
-
-export class CompetitionQuestionDto {
-  @IsString()
-  @MinLength(1)
-  @MaxLength(240)
-  prompt: string;
-
-  @IsString()
-  @MinLength(1)
-  @MaxLength(120)
-  answer: string;
-
-  @IsString()
-  @MaxLength(180)
-  hint: string;
-}
 
 export class CreateCompetitionRoomDto {
   @IsString()
@@ -49,9 +31,11 @@ export class CreateCompetitionRoomDto {
   @IsArray()
   @ArrayMinSize(3)
   @ArrayMaxSize(30)
-  @ValidateNested({ each: true })
-  @Type(() => CompetitionQuestionDto)
-  questions: CompetitionQuestionDto[];
+  @ArrayUnique((word: string) => word.trim().toLocaleLowerCase())
+  @IsString({ each: true })
+  @MinLength(1, { each: true })
+  @MaxLength(80, { each: true })
+  words: string[];
 }
 
 export class JoinCompetitionRoomDto {
