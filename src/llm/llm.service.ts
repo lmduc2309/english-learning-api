@@ -169,38 +169,22 @@ Return exactly this JSON shape:
 Words: ${JSON.stringify(uniqueWords)}`,
       },
     ];
-    const text = await this.chat(messages, {
-      temperature: 0.45,
-      maxTokens: Math.min(2000, 80 * uniqueWords.length),
-      responseFormat: { type: 'json_object' },
-    });
-
-    let parsed: { cards?: Array<{ word?: unknown; clue?: unknown }> };
-    try {
-      parsed = JSON.parse(text) as typeof parsed;
-    } catch {
-      throw new HttpException(
-        'AI returned invalid flashcard clues. Please try again.',
-        HttpStatus.BAD_GATEWAY,
-      );
+    // GPT-OSS models use part of the completion budget for internal reasoning.
+    // A small max_tokens value can therefore produce an empty answer. We avoid
+    // provider-specific JSON mode here and validate the prompted JSON ourselves.
+    const maxTokens = Math.max(1200, Math.min(4000, 120 * uniqueWords.length));
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const text = await this.chat(messages, {
+        temperature: attempt === 0 ? 0.45 : 0.2,
+        maxTokens,
+      });
+      const cards = this.parseRecallClues(text, uniqueWords);
+      if (cards) return cards;
     }
-
-    const requested = new Set(uniqueWords);
-    const byWord = new Map<string, RecallClue>();
-    for (const card of parsed.cards ?? []) {
-      if (typeof card.word !== 'string' || typeof card.clue !== 'string') continue;
-      const word = card.word.trim().toLocaleLowerCase();
-      const clue = card.clue.trim();
-      if (!requested.has(word) || !this.isSafeRecallClue(word, clue)) continue;
-      byWord.set(word, { word, clue });
-    }
-    if (byWord.size !== uniqueWords.length) {
-      throw new HttpException(
-        'AI could not create safe clues for every word. Please adjust the list and try again.',
-        HttpStatus.UNPROCESSABLE_ENTITY,
-      );
-    }
-    return uniqueWords.map((word) => byWord.get(word)!);
+    throw new HttpException(
+      'AI could not create safe clues for every word. Please adjust the list and try again.',
+      HttpStatus.UNPROCESSABLE_ENTITY,
+    );
   }
 
   async lookupDictionaryWord(word: string): Promise<LookupWordResponseDto> {
@@ -461,6 +445,29 @@ Grade the learner. Return ONLY valid JSON in this exact format:
       const escaped = form.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       return new RegExp(`(^|[^\\p{L}])${escaped}([^\\p{L}]|$)`, 'iu').test(normalizedClue);
     });
+  }
+
+  private parseRecallClues(text: string, words: string[]): RecallClue[] | null {
+    const json = text.match(/\{[\s\S]*\}/)?.[0];
+    if (!json) return null;
+    let parsed: { cards?: Array<{ word?: unknown; clue?: unknown }> };
+    try {
+      parsed = JSON.parse(json) as typeof parsed;
+    } catch {
+      return null;
+    }
+
+    const requested = new Set(words);
+    const byWord = new Map<string, RecallClue>();
+    for (const card of parsed.cards ?? []) {
+      if (typeof card.word !== 'string' || typeof card.clue !== 'string') continue;
+      const word = card.word.trim().toLocaleLowerCase();
+      const clue = card.clue.trim();
+      if (!requested.has(word) || !this.isSafeRecallClue(word, clue)) continue;
+      byWord.set(word, { word, clue });
+    }
+    if (byWord.size !== words.length) return null;
+    return words.map((word) => byWord.get(word)!);
   }
 
   private async chat(messages: ChatMessage[], opts: ChatOpts = {}): Promise<string> {
