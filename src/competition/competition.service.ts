@@ -18,8 +18,12 @@ import {
 } from './dto/competition.dto';
 import { CompetitionAnswer } from './entities/competition-answer.entity';
 import { CompetitionPlayer } from './entities/competition-player.entity';
-import { CompetitionQuestion, CompetitionRoom } from './entities/competition-room.entity';
+import { CompetitionRoom } from './entities/competition-room.entity';
 import { LlmService } from '../llm/llm.service';
+import {
+  inferCompetitionQuestionMode,
+  makeCompetitionQuestionRequests,
+} from './competition-questions';
 
 const ROOM_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 const MAX_PLAYERS = 12;
@@ -41,7 +45,9 @@ export class CompetitionService {
     const hostToken = this.makeToken();
     const playerToken = this.makeToken();
     const words = [...new Set(dto.words.map((word) => word.trim().toLocaleLowerCase()))];
-    const generated = await this.llm.generateRecallClues(words);
+    const questionMode = dto.questionMode ?? 'recall';
+    const requests = makeCompetitionQuestionRequests(words, questionMode);
+    const generated = await this.llm.generateCompetitionCards(requests);
     const room = this.rooms.create({
       code: await this.makeRoomCode(),
       name: dto.name.trim(),
@@ -52,7 +58,8 @@ export class CompetitionService {
       startedAt: null,
       endedAt: null,
       questions: generated.map((card) => ({
-        prompt: card.clue,
+        type: card.type,
+        prompt: card.prompt,
         answer: card.word,
         hint: this.makeHint(card.word),
       })),
@@ -138,12 +145,14 @@ export class CompetitionService {
       name: room.name,
       hostName: room.hostName,
       status: room.status,
+      questionMode: inferCompetitionQuestionMode(room.questions),
       questionCount: room.questions.length,
       secondsPerQuestion: room.secondsPerQuestion,
       startedAt: room.startedAt?.toISOString() ?? null,
       serverNow: new Date(now).toISOString(),
       questionIndex,
       question: question ? {
+        type: question.type ?? 'recall',
         prompt: question.prompt,
         hint: currentAnswer?.usedHint ? question.hint : null,
         answer: currentAnswer?.isCorrect != null || (questionEnd != null && now >= questionEnd)

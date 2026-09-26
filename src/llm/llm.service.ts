@@ -31,6 +31,17 @@ export interface RecallClue {
   clue: string;
 }
 
+export type CompetitionCardType = 'recall' | 'fill-blank';
+
+export interface CompetitionCardRequest {
+  word: string;
+  type: CompetitionCardType;
+}
+
+export interface CompetitionCard extends CompetitionCardRequest {
+  prompt: string;
+}
+
 @Injectable()
 export class LlmService {
   private readonly logger = new Logger(LlmService.name);
@@ -145,44 +156,69 @@ Format: Return only the sentences, one per line, without numbering.`,
     const uniqueWords = [...new Set(words.map((word) => word.trim().toLocaleLowerCase()))]
       .filter(Boolean)
       .slice(0, 30);
+    const cards = await this.generateCompetitionCards(
+      uniqueWords.map((word) => ({ word, type: 'recall' })),
+    );
+    return cards.map(({ word, prompt }) => ({ word, clue: prompt }));
+  }
+
+  async generateCompetitionCards(
+    requests: CompetitionCardRequest[],
+  ): Promise<CompetitionCard[]> {
+    const normalizedRequests = requests
+      .map((request) => ({
+        word: request.word.trim().toLocaleLowerCase(),
+        type: request.type,
+      }))
+      .filter((request) => request.word)
+      .slice(0, 30);
     const messages: ChatMessage[] = [
       {
         role: 'system',
         content:
-          'You are an English vocabulary teacher creating safe recall clues. Return only valid JSON.',
+          'You are an English vocabulary teacher creating safe game cards. Return only valid JSON.',
       },
       {
         role: 'user',
-        content: `Create exactly one English recall clue for every vocabulary word below.
+        content: `Create exactly one English vocabulary card for every request below.
 
-Rules:
-- Each clue is one natural sentence that defines or clearly suggests the word's meaning.
-- The player will read the clue and type the vocabulary word.
-- Never include the answer word, an inflection, or a derivative of it in the clue.
+Rules for type "recall":
+- The prompt is one natural sentence that defines or clearly suggests the word's meaning.
+- Never include the answer, an inflection, or a derivative of it in the prompt.
 - Do not use blanks or ask a question.
-- Keep every clue under 22 words.
-- Preserve every requested word in the output.
+- Keep the prompt under 22 words.
 
 Return exactly this JSON shape:
-{"cards":[{"word":"answer","clue":"definition sentence"}]}
+{"cards":[{"word":"answer","type":"recall","prompt":"definition sentence"}]}
 
-Words: ${JSON.stringify(uniqueWords)}`,
+Rules for type "fill-blank":
+- The prompt is one natural example sentence containing exactly one blank written as _____.
+- The requested word must complete the blank grammatically without changing its spelling.
+- Do not include the answer anywhere else in the sentence.
+- Give enough context for the missing word to be reasonably inferred.
+- Keep the prompt under 24 words.
+
+General rules:
+- Preserve every requested word and type in the output.
+- Return only the JSON object and no commentary.
+
+Requests: ${JSON.stringify(normalizedRequests)}`,
       },
     ];
     // GPT-OSS models use part of the completion budget for internal reasoning.
     // A small max_tokens value can therefore produce an empty answer. We avoid
     // provider-specific JSON mode here and validate the prompted JSON ourselves.
-    const maxTokens = Math.max(1200, Math.min(4000, 120 * uniqueWords.length));
+    const maxTokens = Math.max(1200, Math.min(4000, 140 * normalizedRequests.length));
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const text = await this.chat(messages, {
         temperature: attempt === 0 ? 0.45 : 0.2,
         maxTokens,
       });
-      const cards = this.parseRecallClues(text, uniqueWords);
+      const cards = this.parseCompetitionCards(text, normalizedRequests);
       if (cards) return cards;
     }
     throw new HttpException(
-      'AI could not create safe clues for every word. Please adjust the list and try again.',
+      'AI could not create safe cards for every word. Please adjust the list and try again.',
       HttpStatus.UNPROCESSABLE_ENTITY,
     );
   }
@@ -447,27 +483,55 @@ Grade the learner. Return ONLY valid JSON in this exact format:
     });
   }
 
-  private parseRecallClues(text: string, words: string[]): RecallClue[] | null {
+  private isSafeFillBlankPrompt(word: string, prompt: string): boolean {
+    if (!prompt || prompt.length > 240) return false;
+    if ((prompt.match(/_____/g) ?? []).length !== 1) return false;
+    const withoutBlank = prompt.replace('_____', ' ');
+    if (/_{2,}/.test(withoutBlank)) return false;
+    return this.isSafeRecallClue(word, withoutBlank);
+  }
+
+  private parseCompetitionCards(
+    text: string,
+    requests: CompetitionCardRequest[],
+  ): CompetitionCard[] | null {
     const json = text.match(/\{[\s\S]*\}/)?.[0];
     if (!json) return null;
-    let parsed: { cards?: Array<{ word?: unknown; clue?: unknown }> };
+    let parsed: {
+      cards?: Array<{
+        word?: unknown;
+        type?: unknown;
+        prompt?: unknown;
+        clue?: unknown;
+      }>;
+    };
     try {
       parsed = JSON.parse(json) as typeof parsed;
     } catch {
       return null;
     }
 
-    const requested = new Set(words);
-    const byWord = new Map<string, RecallClue>();
+    const requested = new Map(requests.map((request) => [request.word, request.type]));
+    const byWord = new Map<string, CompetitionCard>();
     for (const card of parsed.cards ?? []) {
-      if (typeof card.word !== 'string' || typeof card.clue !== 'string') continue;
+      const rawPrompt = card.prompt ?? card.clue;
+      if (
+        typeof card.word !== 'string'
+        || typeof card.type !== 'string'
+        || typeof rawPrompt !== 'string'
+      ) continue;
       const word = card.word.trim().toLocaleLowerCase();
-      const clue = card.clue.trim();
-      if (!requested.has(word) || !this.isSafeRecallClue(word, clue)) continue;
-      byWord.set(word, { word, clue });
+      const type = card.type as CompetitionCardType;
+      const prompt = rawPrompt.trim();
+      if (requested.get(word) !== type) continue;
+      const safe = type === 'fill-blank'
+        ? this.isSafeFillBlankPrompt(word, prompt)
+        : type === 'recall' && this.isSafeRecallClue(word, prompt);
+      if (!safe) continue;
+      byWord.set(word, { word, type, prompt });
     }
-    if (byWord.size !== words.length) return null;
-    return words.map((word) => byWord.get(word)!);
+    if (byWord.size !== requests.length) return null;
+    return requests.map(({ word }) => byWord.get(word)!);
   }
 
   private async chat(messages: ChatMessage[], opts: ChatOpts = {}): Promise<string> {
