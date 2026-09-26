@@ -285,8 +285,8 @@ describe('LlmService.generateRecallClues', () => {
         message: {
           content: JSON.stringify({
             cards: [
-              { word: 'brief', clue: 'Something lasting only a short amount of time fits this description.' },
-              { word: 'resilient', clue: 'Able to recover quickly after difficulties or sudden changes.' },
+              { word: 'brief', type: 'recall', prompt: 'Something lasting only a short amount of time fits this description.' },
+              { word: 'resilient', type: 'recall', prompt: 'Able to recover quickly after difficulties or sudden changes.' },
             ],
           }),
         },
@@ -309,7 +309,7 @@ describe('LlmService.generateRecallClues', () => {
       choices: [{
         message: {
           content: JSON.stringify({
-            cards: [{ word: 'resilient', clue: 'A resilient person recovers quickly.' }],
+            cards: [{ word: 'resilient', type: 'recall', prompt: 'A resilient person recovers quickly.' }],
           }),
         },
       }],
@@ -318,6 +318,66 @@ describe('LlmService.generateRecallClues', () => {
     await expect(svc.generateRecallClues(['resilient', 'brief'])).rejects.toMatchObject({
       status: HttpStatus.UNPROCESSABLE_ENTITY,
     });
+    expect(mockCreate).toHaveBeenCalledTimes(2);
+  });
+
+  it('creates recall and fill-in-the-blank cards in request order', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            cards: [
+              {
+                word: 'vivid',
+                type: 'fill-blank',
+                prompt: 'She gave a _____ description that made the scene easy to imagine.',
+              },
+              {
+                word: 'brief',
+                type: 'recall',
+                prompt: 'Lasting for only a short amount of time.',
+              },
+            ],
+          }),
+        },
+      }],
+    });
+
+    await expect(svc.generateCompetitionCards([
+      { word: 'brief', type: 'recall' },
+      { word: 'vivid', type: 'fill-blank' },
+    ])).resolves.toEqual([
+      {
+        word: 'brief',
+        type: 'recall',
+        prompt: 'Lasting for only a short amount of time.',
+      },
+      {
+        word: 'vivid',
+        type: 'fill-blank',
+        prompt: 'She gave a _____ description that made the scene easy to imagine.',
+      },
+    ]);
+  });
+
+  it('rejects fill-in-the-blank prompts without exactly one safe blank', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            cards: [{
+              word: 'vivid',
+              type: 'fill-blank',
+              prompt: 'She gave a vivid description with no blank.',
+            }],
+          }),
+        },
+      }],
+    });
+
+    await expect(svc.generateCompetitionCards([
+      { word: 'vivid', type: 'fill-blank' },
+    ])).rejects.toMatchObject({ status: HttpStatus.UNPROCESSABLE_ENTITY });
     expect(mockCreate).toHaveBeenCalledTimes(2);
   });
 });

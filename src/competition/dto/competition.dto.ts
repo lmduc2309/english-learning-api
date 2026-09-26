@@ -4,6 +4,8 @@ import {
   ArrayUnique,
   IsArray,
   IsInt,
+  IsIn,
+  IsOptional,
   IsString,
   Length,
   Max,
@@ -11,6 +13,7 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
+import { CompetitionQuestionMode } from '../entities/competition-room.entity';
 
 export class CreateCompetitionRoomDto {
   @IsString()
@@ -27,6 +30,10 @@ export class CreateCompetitionRoomDto {
   @Min(10)
   @Max(60)
   secondsPerQuestion: number;
+
+  @IsOptional()
+  @IsIn(['recall', 'fill-blank', 'mixed'])
+  questionMode?: CompetitionQuestionMode;
 
   @IsArray()
   @ArrayMinSize(3)
