@@ -59,6 +59,7 @@ export class CompetitionService {
       endedAt: null,
       questions: generated.map((card) => ({
         type: card.type,
+        partOfSpeech: card.partOfSpeech,
         prompt: card.prompt,
         answer: card.word,
         hint: this.makeHint(card.word),
@@ -153,6 +154,7 @@ export class CompetitionService {
       questionIndex,
       question: question ? {
         type: question.type ?? 'recall',
+        partOfSpeech: question.partOfSpeech,
         prompt: question.prompt,
         hint: currentAnswer?.usedHint ? question.hint : null,
         answer: currentAnswer?.isCorrect != null || (questionEnd != null && now >= questionEnd)

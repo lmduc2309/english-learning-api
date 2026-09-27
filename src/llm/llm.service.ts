@@ -32,6 +32,7 @@ export interface RecallClue {
 }
 
 export type CompetitionCardType = 'recall' | 'fill-blank';
+export type CompetitionPartOfSpeech = 'noun' | 'adjective' | 'verb';
 
 export interface CompetitionCardRequest {
   word: string;
@@ -39,6 +40,7 @@ export interface CompetitionCardRequest {
 }
 
 export interface CompetitionCard extends CompetitionCardRequest {
+  partOfSpeech: CompetitionPartOfSpeech;
   prompt: string;
 }
 
@@ -188,8 +190,10 @@ Rules for type "recall":
 - Do not use blanks or ask a question.
 - Keep the prompt under 22 words.
 
+For every card, also classify the target word as exactly one of: noun, adjective, verb.
+
 Return exactly this JSON shape:
-{"cards":[{"word":"answer","type":"recall","prompt":"definition sentence"}]}
+{"cards":[{"word":"answer","type":"recall","partOfSpeech":"noun","prompt":"definition sentence"}]}
 
 Rules for type "fill-blank":
 - The prompt is one natural example sentence containing exactly one blank written as _____.
@@ -200,6 +204,7 @@ Rules for type "fill-blank":
 
 General rules:
 - Preserve every requested word and type in the output.
+- Use only noun, adjective, or verb for partOfSpeech.
 - Return only the JSON object and no commentary.
 
 Requests: ${JSON.stringify(normalizedRequests)}`,
@@ -501,6 +506,7 @@ Grade the learner. Return ONLY valid JSON in this exact format:
       cards?: Array<{
         word?: unknown;
         type?: unknown;
+        partOfSpeech?: unknown;
         prompt?: unknown;
         clue?: unknown;
       }>;
@@ -518,17 +524,20 @@ Grade the learner. Return ONLY valid JSON in this exact format:
       if (
         typeof card.word !== 'string'
         || typeof card.type !== 'string'
+        || typeof card.partOfSpeech !== 'string'
         || typeof rawPrompt !== 'string'
       ) continue;
       const word = card.word.trim().toLocaleLowerCase();
       const type = card.type as CompetitionCardType;
+      const partOfSpeech = card.partOfSpeech as CompetitionPartOfSpeech;
       const prompt = rawPrompt.trim();
       if (requested.get(word) !== type) continue;
+      if (!['noun', 'adjective', 'verb'].includes(partOfSpeech)) continue;
       const safe = type === 'fill-blank'
         ? this.isSafeFillBlankPrompt(word, prompt)
         : type === 'recall' && this.isSafeRecallClue(word, prompt);
       if (!safe) continue;
-      byWord.set(word, { word, type, prompt });
+      byWord.set(word, { word, type, partOfSpeech, prompt });
     }
     if (byWord.size !== requests.length) return null;
     return requests.map(({ word }) => byWord.get(word)!);
