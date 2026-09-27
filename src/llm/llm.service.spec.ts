@@ -285,8 +285,8 @@ describe('LlmService.generateRecallClues', () => {
         message: {
           content: JSON.stringify({
             cards: [
-              { word: 'brief', type: 'recall', prompt: 'Something lasting only a short amount of time fits this description.' },
-              { word: 'resilient', type: 'recall', prompt: 'Able to recover quickly after difficulties or sudden changes.' },
+              { word: 'brief', type: 'recall', partOfSpeech: 'adjective', prompt: 'Something lasting only a short amount of time fits this description.' },
+              { word: 'resilient', type: 'recall', partOfSpeech: 'adjective', prompt: 'Able to recover quickly after difficulties or sudden changes.' },
             ],
           }),
         },
@@ -309,7 +309,7 @@ describe('LlmService.generateRecallClues', () => {
       choices: [{
         message: {
           content: JSON.stringify({
-            cards: [{ word: 'resilient', type: 'recall', prompt: 'A resilient person recovers quickly.' }],
+            cards: [{ word: 'resilient', type: 'recall', partOfSpeech: 'adjective', prompt: 'A resilient person recovers quickly.' }],
           }),
         },
       }],
@@ -330,11 +330,13 @@ describe('LlmService.generateRecallClues', () => {
               {
                 word: 'vivid',
                 type: 'fill-blank',
+                partOfSpeech: 'adjective',
                 prompt: 'She gave a _____ description that made the scene easy to imagine.',
               },
               {
                 word: 'brief',
                 type: 'recall',
+                partOfSpeech: 'adjective',
                 prompt: 'Lasting for only a short amount of time.',
               },
             ],
@@ -350,11 +352,13 @@ describe('LlmService.generateRecallClues', () => {
       {
         word: 'brief',
         type: 'recall',
+        partOfSpeech: 'adjective',
         prompt: 'Lasting for only a short amount of time.',
       },
       {
         word: 'vivid',
         type: 'fill-blank',
+        partOfSpeech: 'adjective',
         prompt: 'She gave a _____ description that made the scene easy to imagine.',
       },
     ]);
@@ -368,6 +372,7 @@ describe('LlmService.generateRecallClues', () => {
             cards: [{
               word: 'vivid',
               type: 'fill-blank',
+              partOfSpeech: 'adjective',
               prompt: 'She gave a vivid description with no blank.',
             }],
           }),

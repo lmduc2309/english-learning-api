@@ -11,10 +11,12 @@ import { CompetitionPlayer } from './competition-player.entity';
 export type CompetitionRoomStatus = 'lobby' | 'playing' | 'finished';
 export type CompetitionQuestionType = 'recall' | 'fill-blank';
 export type CompetitionQuestionMode = CompetitionQuestionType | 'mixed';
+export type CompetitionPartOfSpeech = 'noun' | 'adjective' | 'verb';
 
 export interface CompetitionQuestion {
   // Optional so rooms created before question modes were introduced remain playable.
   type?: CompetitionQuestionType;
+  partOfSpeech?: CompetitionPartOfSpeech;
   prompt: string;
   answer: string;
   hint: string;
