@@ -13,7 +13,10 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
-import { CompetitionQuestionMode } from '../entities/competition-room.entity';
+import {
+  CompetitionGameMode,
+  CompetitionQuestionMode,
+} from '../entities/competition-room.entity';
 
 export class CreateCompetitionRoomDto {
   @IsString()
@@ -34,6 +37,10 @@ export class CreateCompetitionRoomDto {
   @IsOptional()
   @IsIn(['recall', 'fill-blank', 'mixed'])
   questionMode?: CompetitionQuestionMode;
+
+  @IsOptional()
+  @IsIn(['typed', 'voice-buzz'])
+  gameMode?: CompetitionGameMode;
 
   @IsArray()
   @ArrayMinSize(3)
@@ -78,6 +85,12 @@ export class SubmitCompetitionAnswerDto extends PlayerCredentialsDto {
 }
 
 export class UseCompetitionHintDto extends PlayerCredentialsDto {
+  @IsInt()
+  @Min(0)
+  questionIndex: number;
+}
+
+export class ClaimCompetitionTurnDto extends PlayerCredentialsDto {
   @IsInt()
   @Min(0)
   questionIndex: number;
