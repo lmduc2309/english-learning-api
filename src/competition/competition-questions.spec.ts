@@ -1,4 +1,5 @@
 import {
+  inferCompetitionGameMode,
   inferCompetitionQuestionMode,
   makeCompetitionQuestionRequests,
 } from './competition-questions';
@@ -37,5 +38,14 @@ describe('competition question modes', () => {
       { type: 'recall', prompt: 'A clue.', answer: 'brief', hint: 'B••••' },
       { type: 'fill-blank', prompt: 'A _____ scene.', answer: 'vivid', hint: 'V••••' },
     ])).toBe('mixed');
+  });
+
+  it('defaults legacy rooms to typed play and preserves voice-buzz mode', () => {
+    expect(inferCompetitionGameMode([
+      { prompt: 'A clue.', answer: 'brief', hint: 'B••••' },
+    ])).toBe('typed');
+    expect(inferCompetitionGameMode([
+      { gameMode: 'voice-buzz', type: 'fill-blank', prompt: 'A _____ scene.', answer: 'vivid', hint: 'V••••' },
+    ])).toBe('voice-buzz');
   });
 });

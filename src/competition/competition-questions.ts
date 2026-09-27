@@ -2,6 +2,7 @@ import {
   CompetitionQuestion,
   CompetitionQuestionMode,
   CompetitionQuestionType,
+  CompetitionGameMode,
 } from './entities/competition-room.entity';
 
 export function makeCompetitionQuestionRequests(
@@ -20,6 +21,10 @@ export function inferCompetitionQuestionMode(
   const types = new Set(questions.map((question) => question.type ?? 'recall'));
   if (types.size > 1) return 'mixed';
   return types.values().next().value ?? 'recall';
+}
+
+export function inferCompetitionGameMode(questions: CompetitionQuestion[]): CompetitionGameMode {
+  return questions[0]?.gameMode ?? 'typed';
 }
 
 function questionTypeAt(

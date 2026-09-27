@@ -10,6 +10,7 @@ import { createHash, randomBytes } from 'crypto';
 import { DataSource, Repository } from 'typeorm';
 import {
   CreateCompetitionRoomDto,
+  ClaimCompetitionTurnDto,
   JoinCompetitionRoomDto,
   PlayerCredentialsDto,
   StartCompetitionDto,
@@ -22,11 +23,16 @@ import { CompetitionRoom } from './entities/competition-room.entity';
 import { LlmService } from '../llm/llm.service';
 import {
   inferCompetitionQuestionMode,
+  inferCompetitionGameMode,
   makeCompetitionQuestionRequests,
 } from './competition-questions';
 
 const ROOM_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 const MAX_PLAYERS = 12;
+const MAX_VOICE_ATTEMPTS = 3;
+const VOICE_COUNTDOWN_MS = 3000;
+const VOICE_SPEAKING_MS = 6000;
+const VOICE_CLAIM_WINDOW_MS = VOICE_COUNTDOWN_MS + VOICE_SPEAKING_MS;
 
 @Injectable()
 export class CompetitionService {
@@ -46,7 +52,9 @@ export class CompetitionService {
     const playerToken = this.makeToken();
     const words = [...new Set(dto.words.map((word) => word.trim().toLocaleLowerCase()))];
     const questionMode = dto.questionMode ?? 'recall';
-    const requests = makeCompetitionQuestionRequests(words, questionMode);
+    const gameMode = dto.gameMode ?? 'typed';
+    const effectiveQuestionMode = gameMode === 'voice-buzz' ? 'fill-blank' : questionMode;
+    const requests = makeCompetitionQuestionRequests(words, effectiveQuestionMode);
     const generated = await this.llm.generateCompetitionCards(requests);
     const room = this.rooms.create({
       code: await this.makeRoomCode(),
@@ -59,6 +67,7 @@ export class CompetitionService {
       endedAt: null,
       questions: generated.map((card) => ({
         type: card.type,
+        gameMode,
         partOfSpeech: card.partOfSpeech,
         prompt: card.prompt,
         answer: card.word,
@@ -122,12 +131,23 @@ export class CompetitionService {
       where: { roomId: room.id },
       order: { score: 'DESC', joinedAt: 'ASC' },
     });
+    const now = Date.now();
+    const questionIndex = this.currentQuestionIndex(room, now);
+    const gameMode = inferCompetitionGameMode(room.questions);
     const playerAnswers = await this.answers.find({
       where: { roomId: room.id, playerId: player.id },
       order: { questionIndex: 'ASC' },
     });
-    const now = Date.now();
-    const questionIndex = this.currentQuestionIndex(room, now);
+    const allAnswers = gameMode === 'voice-buzz' && questionIndex >= 0
+      ? await this.answers.find({
+        where: { roomId: room.id, questionIndex },
+        order: { createdAt: 'ASC' },
+        relations: { player: true },
+      })
+      : [];
+    const claim = gameMode === 'voice-buzz'
+      ? this.describeVoiceClaim(allAnswers, room.questions[questionIndex], now)
+      : null;
     const currentAnswer = questionIndex >= 0
       ? playerAnswers.find((answer) => answer.questionIndex === questionIndex)
       : undefined;
@@ -146,6 +166,7 @@ export class CompetitionService {
       name: room.name,
       hostName: room.hostName,
       status: room.status,
+      gameMode,
       questionMode: inferCompetitionQuestionMode(room.questions),
       questionCount: room.questions.length,
       secondsPerQuestion: room.secondsPerQuestion,
@@ -154,10 +175,16 @@ export class CompetitionService {
       questionIndex,
       question: question ? {
         type: question.type ?? 'recall',
+        gameMode: question.gameMode ?? 'typed',
         partOfSpeech: question.partOfSpeech,
         prompt: question.prompt,
         hint: currentAnswer?.usedHint ? question.hint : null,
-        answer: currentAnswer?.isCorrect != null || (questionEnd != null && now >= questionEnd)
+        claim,
+        answer: gameMode === 'voice-buzz'
+          ? (claim?.status === 'resolved' || claim?.status === 'exhausted' || (questionEnd != null && now >= questionEnd))
+            ? question.answer
+            : null
+          : currentAnswer?.isCorrect != null || (questionEnd != null && now >= questionEnd)
           ? question.answer
           : null,
       } : null,
@@ -237,6 +264,57 @@ export class CompetitionService {
     return { hint: room.questions[dto.questionIndex].hint, pointMultiplier: 0.5 };
   }
 
+  async claimTurn(rawCode: string, dto: ClaimCompetitionTurnDto) {
+    const room = await this.getRoom(rawCode);
+    const player = await this.authenticatePlayer(room, dto);
+    if (inferCompetitionGameMode(room.questions) !== 'voice-buzz') {
+      throw new ConflictException('This room uses typed answers.');
+    }
+    this.assertActiveQuestion(room, dto.questionIndex);
+
+    return this.dataSource.transaction(async (manager) => {
+      const lockedRoom = await manager.findOne(CompetitionRoom, {
+        where: { id: room.id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedRoom) throw new NotFoundException('Room not found.');
+      const attempts = await manager.find(CompetitionAnswer, {
+        where: { roomId: room.id, questionIndex: dto.questionIndex },
+        order: { createdAt: 'ASC' },
+      });
+      if (attempts.some((attempt) => attempt.isCorrect === true)) {
+        throw new ConflictException('This question has already been solved.');
+      }
+      if (attempts.length >= MAX_VOICE_ATTEMPTS) {
+        throw new ConflictException('This question has used all 3 attempts.');
+      }
+      const pending = attempts.find((attempt) => attempt.isCorrect === null
+        && Date.now() - attempt.createdAt.getTime() < VOICE_CLAIM_WINDOW_MS);
+      if (pending) {
+        throw new ConflictException('Another player currently has the speaking turn.');
+      }
+      if (attempts.some((attempt) => attempt.playerId === player.id)) {
+        throw new ConflictException('You already used your turn on this question.');
+      }
+      const attempt = await manager.save(manager.create(CompetitionAnswer, {
+        roomId: room.id,
+        playerId: player.id,
+        questionIndex: dto.questionIndex,
+        answer: '',
+        isCorrect: null,
+        usedHint: false,
+        points: 0,
+        responseMs: null,
+      }));
+      return {
+        attemptCount: attempts.length + 1,
+        maxAttempts: MAX_VOICE_ATTEMPTS,
+        claimedBy: { id: player.id, name: player.name },
+        claimEndsAt: new Date(attempt.createdAt.getTime() + VOICE_CLAIM_WINDOW_MS).toISOString(),
+      };
+    });
+  }
+
   async submitAnswer(rawCode: string, dto: SubmitCompetitionAnswerDto) {
     const room = await this.getRoom(rawCode);
     await this.authenticatePlayer(room, dto);
@@ -259,6 +337,22 @@ export class CompetitionService {
       }
 
       const question = room.questions[dto.questionIndex];
+      const isVoiceBuzz = inferCompetitionGameMode(room.questions) === 'voice-buzz';
+      if (isVoiceBuzz) {
+        if (!attempt) throw new ConflictException('Claim the speaking turn first.');
+        const claimAge = Date.now() - attempt.createdAt.getTime();
+        if (claimAge < VOICE_COUNTDOWN_MS) {
+          throw new ConflictException('Wait for the countdown to finish.');
+        }
+        if (claimAge >= VOICE_CLAIM_WINDOW_MS) {
+          attempt.answer = dto.answer.trim();
+          attempt.isCorrect = false;
+          attempt.points = 0;
+          attempt.responseMs = VOICE_CLAIM_WINDOW_MS;
+          await manager.save(attempt);
+          return { correct: false, points: 0, score: player.score, answer: question.answer };
+        }
+      }
       const correct = this.isCorrect(dto.answer, question.answer);
       const responseMs = Date.now()
         - room.startedAt!.getTime()
@@ -360,6 +454,34 @@ export class CompetitionService {
       .join(' ');
     const letters = words.reduce((total, word) => total + word.length, 0);
     return `${shape} · ${letters} letter${letters === 1 ? '' : 's'}`;
+  }
+
+  private describeVoiceClaim(
+    attempts: CompetitionAnswer[],
+    question: { answer: string } | undefined,
+    now: number,
+  ) {
+    if (!question) return null;
+    const attemptCount = attempts.length;
+    if (attempts.some((attempt) => attempt.isCorrect === true)) {
+      return { status: 'resolved' as const, attemptCount, maxAttempts: MAX_VOICE_ATTEMPTS, claimedBy: null, claimEndsAt: null };
+    }
+    const pending = attempts.find((attempt) => attempt.isCorrect === null
+      && now - attempt.createdAt.getTime() < VOICE_CLAIM_WINDOW_MS);
+    if (pending) {
+      const countdownEndsAt = pending.createdAt.getTime() + VOICE_COUNTDOWN_MS;
+      return {
+        status: now < countdownEndsAt ? 'countdown' as const : 'speaking' as const,
+        attemptCount,
+        maxAttempts: MAX_VOICE_ATTEMPTS,
+        claimedBy: pending.player ? { id: pending.player.id, name: pending.player.name } : { id: pending.playerId, name: 'A player' },
+        claimEndsAt: new Date(pending.createdAt.getTime() + VOICE_CLAIM_WINDOW_MS).toISOString(),
+      };
+    }
+    if (attemptCount >= MAX_VOICE_ATTEMPTS) {
+      return { status: 'exhausted' as const, attemptCount, maxAttempts: MAX_VOICE_ATTEMPTS, claimedBy: null, claimEndsAt: null };
+    }
+    return { status: 'idle' as const, attemptCount, maxAttempts: MAX_VOICE_ATTEMPTS, claimedBy: null, claimEndsAt: null };
   }
 
   private makeToken() {
