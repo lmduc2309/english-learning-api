@@ -61,6 +61,11 @@ jobs:
             ENV_FILE="$API_DIR/deploy/.env.production"
             BACKUP_DIR="$ROOT/backups/postgres"
 
+            # GitHub concurrency groups are per-repository, so the API and web
+            # workflows can deploy this Compose project at the same time. Serialize on the VPS.
+            exec 9>"$ROOT/.deploy.lock"
+            flock -w 2700 9
+
             for repo_dir in "$API_DIR" "$WEB_DIR" "$TTS_DIR"; do
               if [ ! -d "$repo_dir/.git" ]; then
                 echo "Missing provisioned repository: $repo_dir"
@@ -95,6 +100,13 @@ jobs:
             fi
 
             docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" build
+
+            # An interrupted recreate leaves the old container renamed to <id>_<name>,
+            # which blocks every later recreate of that service.
+            docker ps -a --filter label=com.docker.compose.project=dsd-english --format '{{.ID}} {{.Names}}' \
+              | awk '$2 ~ /^[0-9a-f]+_dsd-english-/ { print $1 }' \
+              | xargs -r docker rm -f
+
             docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d postgres redis
             docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" run --rm api npm run migration:show:prod
             docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" run --rm api npm run migration:run:prod
