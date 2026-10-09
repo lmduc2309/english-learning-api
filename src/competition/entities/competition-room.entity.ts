@@ -12,7 +12,7 @@ export type CompetitionRoomStatus = 'lobby' | 'playing' | 'finished';
 export type CompetitionQuestionType = 'recall' | 'fill-blank';
 export type CompetitionQuestionMode = CompetitionQuestionType | 'mixed';
 export type CompetitionPartOfSpeech = 'noun' | 'adjective' | 'verb';
-export type CompetitionGameMode = 'typed' | 'voice-buzz';
+export type CompetitionGameMode = 'typed' | 'voice-buzz' | 'paragraph-race';
 
 export interface CompetitionQuestion {
   // Optional so rooms created before question modes were introduced remain playable.
@@ -21,6 +21,8 @@ export interface CompetitionQuestion {
   partOfSpeech?: CompetitionPartOfSpeech;
   prompt: string;
   answer: string;
+  answers?: string[];
+  options?: string[];
   hint: string;
 }
 

@@ -44,6 +44,11 @@ export interface CompetitionCard extends CompetitionCardRequest {
   prompt: string;
 }
 
+export interface ParagraphRaceCard {
+  prompt: string;
+  answers: string[];
+}
+
 @Injectable()
 export class LlmService {
   private readonly logger = new Logger(LlmService.name);
@@ -226,6 +231,58 @@ Requests: ${JSON.stringify(normalizedRequests)}`,
       'AI could not create safe cards for every word. Please adjust the list and try again.',
       HttpStatus.UNPROCESSABLE_ENTITY,
     );
+  }
+
+  async generateParagraphRaceCards(wordSets: string[][]): Promise<ParagraphRaceCard[]> {
+    const indexedSets = wordSets.map((answers, id) => ({ id, answers }));
+    const result: ParagraphRaceCard[] = [];
+
+    for (let offset = 0; offset < indexedSets.length; offset += 10) {
+      const batch = indexedSets.slice(offset, offset + 10);
+      const messages: ChatMessage[] = [
+        {
+          role: 'system',
+          content:
+            'You are an English teacher creating concise cloze paragraphs for a multiplayer game. Return only valid JSON.',
+        },
+        {
+          role: 'user',
+          content: `Create exactly one short, coherent English paragraph for every item below.
+
+Rules:
+- Write 2 or 3 connected sentences and 24 to 65 words per paragraph.
+- Use every supplied answer exactly once, replacing it with its matching marker: [[1]], [[2]], [[3]], [[4]], and [[5]] when present.
+- [[1]] represents the first answer in the item, [[2]] the second, and so on.
+- Do not write any supplied answer anywhere else in that paragraph.
+- Context and grammar must make the placement of each answer clear.
+- Do not change the spelling or form of an answer.
+- Keep the subject safe and suitable for language learners.
+
+Return exactly this JSON shape and no commentary:
+{"cards":[{"id":0,"prompt":"A short paragraph with [[1]] markers."}]}
+
+Items: ${JSON.stringify(batch)}`,
+        },
+      ];
+
+      let parsed: ParagraphRaceCard[] | null = null;
+      for (let attempt = 0; attempt < 2 && !parsed; attempt += 1) {
+        const text = await this.chat(messages, {
+          temperature: attempt === 0 ? 0.55 : 0.2,
+          maxTokens: 3200,
+        });
+        parsed = this.parseParagraphRaceCards(text, batch);
+      }
+      if (!parsed) {
+        throw new HttpException(
+          'AI could not create safe paragraphs for this word list. Please adjust the list and try again.',
+          HttpStatus.UNPROCESSABLE_ENTITY,
+        );
+      }
+      result.push(...parsed);
+    }
+
+    return result;
   }
 
   async lookupDictionaryWord(word: string): Promise<LookupWordResponseDto> {
@@ -541,6 +598,52 @@ Grade the learner. Return ONLY valid JSON in this exact format:
     }
     if (byWord.size !== requests.length) return null;
     return requests.map(({ word }) => byWord.get(word)!);
+  }
+
+  private parseParagraphRaceCards(
+    text: string,
+    wordSets: Array<{ id: number; answers: string[] }>,
+  ): ParagraphRaceCard[] | null {
+    const json = text.match(/\{[\s\S]*\}/)?.[0];
+    if (!json) return null;
+    let parsed: { cards?: Array<{ id?: unknown; prompt?: unknown }> };
+    try {
+      parsed = JSON.parse(json) as typeof parsed;
+    } catch {
+      return null;
+    }
+
+    const requested = new Map(wordSets.map((set) => [set.id, set.answers]));
+    const byId = new Map<number, ParagraphRaceCard>();
+    for (const card of parsed.cards ?? []) {
+      if (typeof card.id !== 'number' || typeof card.prompt !== 'string') continue;
+      const answers = requested.get(card.id);
+      const prompt = card.prompt.trim();
+      if (!answers || !this.isSafeParagraphPrompt(prompt, answers)) continue;
+      byId.set(card.id, { prompt, answers });
+    }
+    if (byId.size !== wordSets.length) return null;
+    return wordSets.map(({ id }) => byId.get(id)!);
+  }
+
+  private isSafeParagraphPrompt(prompt: string, answers: string[]): boolean {
+    if (!prompt || prompt.length > 700 || ![4, 5].includes(answers.length)) return false;
+    const markers = prompt.match(/\[\[\d+\]\]/g) ?? [];
+    if (markers.length !== answers.length) return false;
+    for (let index = 0; index < answers.length; index += 1) {
+      const marker = `[[${index + 1}]]`;
+      if (markers.filter((entry) => entry === marker).length !== 1) return false;
+      if (markers[index] !== marker) return false;
+    }
+    if (markers.some((marker) => Number(marker.slice(2, -2)) > answers.length)) return false;
+
+    const visibleText = prompt.replace(/\[\[\d+\]\]/g, ' ');
+    const wordCount = visibleText.split(/\s+/).filter(Boolean).length;
+    if (wordCount < 20 || wordCount > 70) return false;
+    return answers.every((answer) => {
+      const escaped = answer.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return !new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}([^\\p{L}\\p{N}]|$)`, 'iu').test(visibleText);
+    });
   }
 
   private async chat(messages: ChatMessage[], opts: ChatOpts = {}): Promise<string> {
