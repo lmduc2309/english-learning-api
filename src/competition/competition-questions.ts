@@ -27,6 +27,19 @@ export function inferCompetitionGameMode(questions: CompetitionQuestion[]): Comp
   return questions[0]?.gameMode ?? 'typed';
 }
 
+export const PARAGRAPH_RACE_SECONDS = 45;
+
+/** Points for an answer; `remainingRatio` is the share of the round's time still left (0–1). */
+export function competitionPoints(
+  gameMode: CompetitionGameMode,
+  correct: boolean,
+  remainingRatio: number,
+): number {
+  if (!correct) return 0;
+  const [base, speedBonus] = gameMode === 'paragraph-race' ? [500, 500] : [700, 300];
+  return base + Math.round(speedBonus * remainingRatio);
+}
+
 export function makeParagraphWordSets(words: string[], count = 30): string[][] {
   let cursor = 0;
   return Array.from({ length: count }, (_, index) => {
