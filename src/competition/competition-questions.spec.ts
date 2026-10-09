@@ -1,4 +1,5 @@
 import {
+  competitionPoints,
   inferCompetitionGameMode,
   inferCompetitionQuestionMode,
   makeParagraphWordSets,
@@ -93,5 +94,22 @@ describe('parseManualParagraph', () => {
     expect(parseManualParagraph('[went] and [] here.')).toEqual({ error: 'has an empty or unclosed [ ]' });
     expect(parseManualParagraph('[went] and [brief here.')).toEqual({ error: 'has an empty or unclosed [ ]' });
     expect(parseManualParagraph(`[went] [brief] ${'x'.repeat(700)}`)).toEqual({ error: 'is longer than 700 characters' });
+  });
+});
+
+describe('competitionPoints', () => {
+  it('scores Paragraph Race from 500 to 1000 by time left', () => {
+    expect(competitionPoints('paragraph-race', true, 1)).toBe(1000);
+    expect(competitionPoints('paragraph-race', true, 0.5)).toBe(750);
+    expect(competitionPoints('paragraph-race', true, 0)).toBe(500);
+  });
+
+  it('keeps 700 to 1000 for the other modes', () => {
+    expect(competitionPoints('typed', true, 1)).toBe(1000);
+    expect(competitionPoints('voice-buzz', true, 0)).toBe(700);
+  });
+
+  it('gives nothing for a wrong answer', () => {
+    expect(competitionPoints('paragraph-race', false, 1)).toBe(0);
   });
 });

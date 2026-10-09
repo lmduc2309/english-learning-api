@@ -25,12 +25,14 @@ import {
 } from './entities/competition-room.entity';
 import { LlmService } from '../llm/llm.service';
 import {
+  competitionPoints,
   inferCompetitionQuestionMode,
   inferCompetitionGameMode,
   makeParagraphWordSets,
   makeCompetitionQuestionRequests,
   paragraphAnswersMatch,
   parseManualParagraph,
+  PARAGRAPH_RACE_SECONDS,
 } from './competition-questions';
 
 const ROOM_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -103,7 +105,7 @@ export class CompetitionService {
       name: dto.name.trim(),
       hostName: dto.hostName.trim(),
       hostTokenHash: this.hash(hostToken),
-      secondsPerQuestion: gameMode === 'paragraph-race' ? 30 : dto.secondsPerQuestion,
+      secondsPerQuestion: gameMode === 'paragraph-race' ? PARAGRAPH_RACE_SECONDS : dto.secondsPerQuestion,
       status: 'lobby',
       startedAt: null,
       endedAt: null,
@@ -406,7 +408,7 @@ export class CompetitionService {
         - room.startedAt!.getTime()
         - dto.questionIndex * room.secondsPerQuestion * 1000;
       const remainingRatio = Math.max(0, 1 - responseMs / (room.secondsPerQuestion * 1000));
-      const rawPoints = correct ? 700 + Math.round(300 * remainingRatio) : 0;
+      const rawPoints = competitionPoints(inferCompetitionGameMode(room.questions), correct, remainingRatio);
       const points = attempt?.usedHint ? Math.round(rawPoints * 0.5) : rawPoints;
 
       if (!attempt) {

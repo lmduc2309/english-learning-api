@@ -52,7 +52,7 @@ describe('CompetitionService paragraph race rooms', () => {
     expect(sets).toHaveLength(30);
     expect(new Set(sets.flat())).toEqual(new Set(words));
     const roomInput = (rooms.create as jest.Mock).mock.calls[0][0] as CompetitionRoom;
-    expect(roomInput.secondsPerQuestion).toBe(30);
+    expect(roomInput.secondsPerQuestion).toBe(45);
     expect(roomInput.questions).toHaveLength(30);
     roomInput.questions.forEach((question) => {
       expect(question.options).toHaveLength(question.answers!.length);
