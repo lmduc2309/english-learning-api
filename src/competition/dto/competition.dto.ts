@@ -39,12 +39,12 @@ export class CreateCompetitionRoomDto {
   questionMode?: CompetitionQuestionMode;
 
   @IsOptional()
-  @IsIn(['typed', 'voice-buzz'])
+  @IsIn(['typed', 'voice-buzz', 'paragraph-race'])
   gameMode?: CompetitionGameMode;
 
   @IsArray()
   @ArrayMinSize(3)
-  @ArrayMaxSize(30)
+  @ArrayMaxSize(90)
   @ArrayUnique((word: string) => word.trim().toLocaleLowerCase())
   @IsString({ each: true })
   @MinLength(1, { each: true })
@@ -76,7 +76,7 @@ export class StartCompetitionDto extends PlayerCredentialsDto {
 
 export class SubmitCompetitionAnswerDto extends PlayerCredentialsDto {
   @IsString()
-  @MaxLength(160)
+  @MaxLength(1000)
   answer: string;
 
   @IsInt()

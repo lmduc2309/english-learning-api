@@ -385,6 +385,52 @@ describe('LlmService.generateRecallClues', () => {
     ])).rejects.toMatchObject({ status: HttpStatus.UNPROCESSABLE_ENTITY });
     expect(mockCreate).toHaveBeenCalledTimes(2);
   });
+
+  it('creates paragraph race cards with four or five ordered blanks', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            cards: [{
+              id: 0,
+              prompt: 'Maya felt [[1]] about the difficult hike, but the [[2]] guide offered a [[3]] plan. By sunset, the whole group could [[4]] the final hill together and celebrate safely.',
+            }],
+          }),
+        },
+      }],
+    });
+
+    await expect(svc.generateParagraphRaceCards([[
+      'hesitant', 'experienced', 'practical', 'climb',
+    ]])).resolves.toEqual([{
+      prompt: 'Maya felt [[1]] about the difficult hike, but the [[2]] guide offered a [[3]] plan. By sunset, the whole group could [[4]] the final hill together and celebrate safely.',
+      answers: ['hesitant', 'experienced', 'practical', 'climb'],
+    }]);
+    expect(mockCreate.mock.calls[0][0]).toMatchObject({
+      temperature: 0.55,
+      max_tokens: 3200,
+    });
+  });
+
+  it('rejects paragraph cards that leak answers or omit markers', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            cards: [{
+              id: 0,
+              prompt: 'The practical guide gave us a [[1]] route with [[2]] views, so we could [[3]] the trip and [[4]] home safely.',
+            }],
+          }),
+        },
+      }],
+    });
+
+    await expect(svc.generateParagraphRaceCards([[
+      'practical', 'scenic', 'finish', 'return',
+    ]])).rejects.toMatchObject({ status: HttpStatus.UNPROCESSABLE_ENTITY });
+    expect(mockCreate).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('LlmService.lookupDictionaryWord', () => {

@@ -19,12 +19,17 @@ import {
 } from './dto/competition.dto';
 import { CompetitionAnswer } from './entities/competition-answer.entity';
 import { CompetitionPlayer } from './entities/competition-player.entity';
-import { CompetitionRoom } from './entities/competition-room.entity';
+import {
+  CompetitionQuestion,
+  CompetitionRoom,
+} from './entities/competition-room.entity';
 import { LlmService } from '../llm/llm.service';
 import {
   inferCompetitionQuestionMode,
   inferCompetitionGameMode,
+  makeParagraphWordSets,
   makeCompetitionQuestionRequests,
+  paragraphAnswersMatch,
 } from './competition-questions';
 
 const ROOM_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -50,29 +55,55 @@ export class CompetitionService {
   async createRoom(dto: CreateCompetitionRoomDto) {
     const hostToken = this.makeToken();
     const playerToken = this.makeToken();
-    const words = [...new Set(dto.words.map((word) => word.trim().toLocaleLowerCase()))];
+    const words = [...new Set(dto.words
+      .map((word) => word.trim().toLocaleLowerCase())
+      .filter(Boolean))];
     const questionMode = dto.questionMode ?? 'recall';
     const gameMode = dto.gameMode ?? 'typed';
-    const effectiveQuestionMode = gameMode === 'voice-buzz' ? 'fill-blank' : questionMode;
-    const requests = makeCompetitionQuestionRequests(words, effectiveQuestionMode);
-    const generated = await this.llm.generateCompetitionCards(requests);
-    const room = this.rooms.create({
-      code: await this.makeRoomCode(),
-      name: dto.name.trim(),
-      hostName: dto.hostName.trim(),
-      hostTokenHash: this.hash(hostToken),
-      secondsPerQuestion: dto.secondsPerQuestion,
-      status: 'lobby',
-      startedAt: null,
-      endedAt: null,
-      questions: generated.map((card) => ({
+    if (gameMode === 'paragraph-race' && (words.length < 60 || words.length > 90)) {
+      throw new BadRequestException('Paragraph Race requires 60 to 90 unique words.');
+    }
+    if (gameMode !== 'paragraph-race' && words.length > 30) {
+      throw new BadRequestException('Flashcard races support up to 30 unique words.');
+    }
+
+    let questions: CompetitionQuestion[];
+    if (gameMode === 'paragraph-race') {
+      const generated = await this.llm.generateParagraphRaceCards(
+        makeParagraphWordSets(words),
+      );
+      questions = generated.map((card) => ({
+        type: 'fill-blank',
+        gameMode,
+        prompt: card.prompt,
+        answer: JSON.stringify(card.answers),
+        answers: card.answers,
+        options: this.shuffle(card.answers),
+        hint: '',
+      }));
+    } else {
+      const effectiveQuestionMode = gameMode === 'voice-buzz' ? 'fill-blank' : questionMode;
+      const requests = makeCompetitionQuestionRequests(words, effectiveQuestionMode);
+      const generated = await this.llm.generateCompetitionCards(requests);
+      questions = generated.map((card) => ({
         type: card.type,
         gameMode,
         partOfSpeech: card.partOfSpeech,
         prompt: card.prompt,
         answer: card.word,
         hint: this.makeHint(card.word),
-      })),
+      }));
+    }
+    const room = this.rooms.create({
+      code: await this.makeRoomCode(),
+      name: dto.name.trim(),
+      hostName: dto.hostName.trim(),
+      hostTokenHash: this.hash(hostToken),
+      secondsPerQuestion: gameMode === 'paragraph-race' ? 30 : dto.secondsPerQuestion,
+      status: 'lobby',
+      startedAt: null,
+      endedAt: null,
+      questions,
     });
     await this.rooms.save(room);
     const player = await this.players.save(this.players.create({
@@ -160,6 +191,8 @@ export class CompetitionService {
     const questionEnd = questionStart == null
       ? null
       : questionStart + room.secondsPerQuestion * 1000;
+    const revealAnswer = currentAnswer?.isCorrect != null
+      || (questionEnd != null && now >= questionEnd);
 
     return {
       code: room.code,
@@ -180,11 +213,17 @@ export class CompetitionService {
         prompt: question.prompt,
         hint: currentAnswer?.usedHint ? question.hint : null,
         claim,
-        answer: gameMode === 'voice-buzz'
+        options: gameMode === 'paragraph-race' ? question.options ?? [] : undefined,
+        answers: gameMode === 'paragraph-race'
+          ? revealAnswer ? question.answers ?? [] : null
+          : undefined,
+        answer: gameMode === 'paragraph-race'
+          ? null
+          : gameMode === 'voice-buzz'
           ? (claim?.status === 'resolved' || claim?.status === 'exhausted' || (questionEnd != null && now >= questionEnd))
             ? question.answer
             : null
-          : currentAnswer?.isCorrect != null || (questionEnd != null && now >= questionEnd)
+          : revealAnswer
           ? question.answer
           : null,
       } : null,
@@ -237,6 +276,9 @@ export class CompetitionService {
   async useHint(rawCode: string, dto: UseCompetitionHintDto) {
     const room = await this.getRoom(rawCode);
     const player = await this.authenticatePlayer(room, dto);
+    if (inferCompetitionGameMode(room.questions) === 'paragraph-race') {
+      throw new ConflictException('Hints are not used in Paragraph Race.');
+    }
     this.assertActiveQuestion(room, dto.questionIndex);
 
     let answer = await this.answers.findOneBy({
@@ -353,7 +395,9 @@ export class CompetitionService {
           return { correct: false, points: 0, score: player.score, answer: question.answer };
         }
       }
-      const correct = this.isCorrect(dto.answer, question.answer);
+      const correct = isVoiceBuzz || inferCompetitionGameMode(room.questions) !== 'paragraph-race'
+        ? this.isCorrect(dto.answer, question.answer)
+        : paragraphAnswersMatch(dto.answer, question.answers ?? []);
       const responseMs = Date.now()
         - room.startedAt!.getTime()
         - dto.questionIndex * room.secondsPerQuestion * 1000;
@@ -382,7 +426,12 @@ export class CompetitionService {
         correct,
         points,
         score: player.score,
-        answer: question.answer,
+        answer: inferCompetitionGameMode(room.questions) === 'paragraph-race'
+          ? null
+          : question.answer,
+        answers: inferCompetitionGameMode(room.questions) === 'paragraph-race'
+          ? question.answers ?? []
+          : undefined,
       };
     });
   }
@@ -445,6 +494,18 @@ export class CompetitionService {
   private isCorrect(given: string, expected: string) {
     const normalized = this.normalize(given);
     return expected.split(/[|/]/).some((answer) => this.normalize(answer) === normalized);
+  }
+
+  private shuffle(words: string[]) {
+    const result = [...words];
+    for (let index = result.length - 1; index > 0; index -= 1) {
+      const randomIndex = randomBytes(1)[0] % (index + 1);
+      [result[index], result[randomIndex]] = [result[randomIndex], result[index]];
+    }
+    if (result.length > 1 && result.every((word, index) => word === words[index])) {
+      result.push(result.shift()!);
+    }
+    return result;
   }
 
   private makeHint(answer: string) {
