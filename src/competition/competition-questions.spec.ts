@@ -4,6 +4,7 @@ import {
   makeParagraphWordSets,
   makeCompetitionQuestionRequests,
   paragraphAnswersMatch,
+  parseManualParagraph,
   parseParagraphAnswer,
 } from './competition-questions';
 
@@ -71,5 +72,26 @@ describe('competition question modes', () => {
     expect(paragraphAnswersMatch('["Brief!","vivid"]', ['brief', 'vivid'])).toBe(true);
     expect(paragraphAnswersMatch('["vivid","brief"]', ['brief', 'vivid'])).toBe(false);
     expect(paragraphAnswersMatch('["brief"]', ['brief', 'vivid'])).toBe(false);
+  });
+});
+
+describe('parseManualParagraph', () => {
+  it('turns bracketed words into ordered markers and answers', () => {
+    expect(parseManualParagraph('  Maya [went] to the coast with a [ brief ] map.\n')).toEqual({
+      prompt: 'Maya [[1]] to the coast with a [[2]] map.',
+      answers: ['went', 'brief'],
+    });
+  });
+
+  it('requires two to six blanks', () => {
+    expect(parseManualParagraph('Only [one] blank here.')).toEqual({ error: 'needs 2 to 6 words in [brackets]' });
+    expect(parseManualParagraph('[a] [b] [c] [d] [e] [f] [g]')).toEqual({ error: 'needs 2 to 6 words in [brackets]' });
+  });
+
+  it('rejects repeated answers, empty or stray brackets, and long paragraphs', () => {
+    expect(parseManualParagraph('[Brief] and [brief] again.')).toEqual({ error: 'uses the same word twice' });
+    expect(parseManualParagraph('[went] and [] here.')).toEqual({ error: 'has an empty or unclosed [ ]' });
+    expect(parseManualParagraph('[went] and [brief here.')).toEqual({ error: 'has an empty or unclosed [ ]' });
+    expect(parseManualParagraph(`[went] [brief] ${'x'.repeat(700)}`)).toEqual({ error: 'is longer than 700 characters' });
   });
 });

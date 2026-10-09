@@ -12,6 +12,7 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 import {
   CompetitionGameMode,
@@ -42,6 +43,7 @@ export class CreateCompetitionRoomDto {
   @IsIn(['typed', 'voice-buzz', 'paragraph-race'])
   gameMode?: CompetitionGameMode;
 
+  @ValidateIf((dto: CreateCompetitionRoomDto) => dto.paragraphs === undefined)
   @IsArray()
   @ArrayMinSize(3)
   @ArrayMaxSize(90)
@@ -49,7 +51,16 @@ export class CreateCompetitionRoomDto {
   @IsString({ each: true })
   @MinLength(1, { each: true })
   @MaxLength(80, { each: true })
-  words: string[];
+  words?: string[];
+
+  /** Host-written Paragraph Race rounds with answers in [brackets]; skips AI generation. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(3)
+  @ArrayMaxSize(30)
+  @IsString({ each: true })
+  @MaxLength(700, { each: true })
+  paragraphs?: string[];
 }
 
 export class JoinCompetitionRoomDto {
