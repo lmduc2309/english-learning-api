@@ -431,6 +431,53 @@ describe('LlmService.generateRecallClues', () => {
     ]])).rejects.toMatchObject({ status: HttpStatus.UNPROCESSABLE_ENTITY });
     expect(mockCreate).toHaveBeenCalledTimes(2);
   });
+
+  const conjugatedPrompt = 'Last summer, Maya [[1]] to the coast with a [[2]] map. She had [[3]] the early train, yet the [[4]] driver still smiled and helped every tired traveller find a seat.';
+
+  function mockParagraphCard(forms: unknown, prompt = conjugatedPrompt) {
+    mockCreate.mockResolvedValue({
+      choices: [{ message: { content: JSON.stringify({ cards: [{ id: 0, prompt, forms }] }) } }],
+    });
+  }
+
+  it('lets verbs appear in past or past participle form and uses those forms as answers', async () => {
+    mockParagraphCard(['went', 'brief', 'taken', 'hesitant']);
+
+    await expect(svc.generateParagraphRaceCards([[
+      'go', 'brief', 'take', 'hesitant',
+    ]])).resolves.toEqual([{
+      prompt: conjugatedPrompt,
+      answers: ['went', 'brief', 'taken', 'hesitant'],
+    }]);
+    expect(mockCreate.mock.calls[0][0].messages[1].content).toContain('past participle');
+  });
+
+  it('rejects paragraph forms that are not the word or its past forms', async () => {
+    mockParagraphCard(['goed', 'brief', 'taken', 'hesitant']);
+
+    await expect(svc.generateParagraphRaceCards([[
+      'go', 'brief', 'take', 'hesitant',
+    ]])).rejects.toMatchObject({ status: HttpStatus.UNPROCESSABLE_ENTITY });
+  });
+
+  it('rejects paragraphs that reveal the base word of a conjugated answer', async () => {
+    mockParagraphCard(
+      ['went', 'brief', 'taken', 'hesitant'],
+      'Last summer, Maya [[1]] to the coast with a [[2]] map. She had [[3]] the early train because she wanted to go before the [[4]] driver closed the doors for the day.',
+    );
+
+    await expect(svc.generateParagraphRaceCards([[
+      'go', 'brief', 'take', 'hesitant',
+    ]])).rejects.toMatchObject({ status: HttpStatus.UNPROCESSABLE_ENTITY });
+  });
+
+  it('rejects paragraphs whose answer blocks would be identical', async () => {
+    mockParagraphCard(['lay', 'brief', 'lay', 'hesitant']);
+
+    await expect(svc.generateParagraphRaceCards([[
+      'lie', 'brief', 'lay', 'hesitant',
+    ]])).rejects.toMatchObject({ status: HttpStatus.UNPROCESSABLE_ENTITY });
+  });
 });
 
 describe('LlmService.lookupDictionaryWord', () => {
