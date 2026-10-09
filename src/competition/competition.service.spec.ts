@@ -74,4 +74,56 @@ describe('CompetitionService paragraph race rooms', () => {
     })).rejects.toBeInstanceOf(BadRequestException);
     expect(llm.generateParagraphRaceCards).not.toHaveBeenCalled();
   });
+
+  it('builds rounds from manually entered paragraphs without calling AI', async () => {
+    const { service, rooms, llm } = makeService();
+
+    await service.createRoom({
+      name: 'Offline Sprint',
+      hostName: 'Linh',
+      secondsPerQuestion: 30,
+      questionMode: 'fill-blank',
+      gameMode: 'paragraph-race',
+      paragraphs: [
+        'Maya [went] to the coast with a [brief] map.',
+        'The [experienced] guide offered a [practical] plan.',
+        'They [climbed] the hill and [admired] the view.',
+      ],
+    });
+
+    expect(llm.generateParagraphRaceCards).not.toHaveBeenCalled();
+    const roomInput = (rooms.create as jest.Mock).mock.calls[0][0] as CompetitionRoom;
+    expect(roomInput.questions).toHaveLength(3);
+    expect(roomInput.questions[0]).toMatchObject({
+      gameMode: 'paragraph-race',
+      prompt: 'Maya [[1]] to the coast with a [[2]] map.',
+      answers: ['went', 'brief'],
+      answer: '["went","brief"]',
+    });
+    expect(new Set(roomInput.questions[0].options)).toEqual(new Set(['went', 'brief']));
+  });
+
+  it('names the first invalid manual paragraph', async () => {
+    const { service } = makeService();
+
+    await expect(service.createRoom({
+      name: 'Offline Sprint',
+      hostName: 'Linh',
+      secondsPerQuestion: 30,
+      gameMode: 'paragraph-race',
+      paragraphs: ['A [b] and [c].', 'Only [one] blank.', 'A [d] and [e].'],
+    })).rejects.toThrow('Paragraph 2 needs 2 to 6 words in [brackets]');
+  });
+
+  it('accepts manual paragraphs only for Paragraph Race', async () => {
+    const { service } = makeService();
+
+    await expect(service.createRoom({
+      name: 'Typed',
+      hostName: 'Linh',
+      secondsPerQuestion: 30,
+      gameMode: 'typed',
+      paragraphs: ['A [b] and [c].', 'A [d] and [e].', 'A [f] and [g].'],
+    })).rejects.toBeInstanceOf(BadRequestException);
+  });
 });

@@ -30,6 +30,7 @@ import {
   makeParagraphWordSets,
   makeCompetitionQuestionRequests,
   paragraphAnswersMatch,
+  parseManualParagraph,
 } from './competition-questions';
 
 const ROOM_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -55,12 +56,15 @@ export class CompetitionService {
   async createRoom(dto: CreateCompetitionRoomDto) {
     const hostToken = this.makeToken();
     const playerToken = this.makeToken();
-    const words = [...new Set(dto.words
+    const words = [...new Set((dto.words ?? [])
       .map((word) => word.trim().toLocaleLowerCase())
       .filter(Boolean))];
     const questionMode = dto.questionMode ?? 'recall';
     const gameMode = dto.gameMode ?? 'typed';
-    if (gameMode === 'paragraph-race' && (words.length < 60 || words.length > 90)) {
+    if (dto.paragraphs && gameMode !== 'paragraph-race') {
+      throw new BadRequestException('Only Paragraph Race accepts written paragraphs.');
+    }
+    if (gameMode === 'paragraph-race' && !dto.paragraphs && (words.length < 60 || words.length > 90)) {
       throw new BadRequestException('Paragraph Race requires 60 to 90 unique words.');
     }
     if (gameMode !== 'paragraph-race' && words.length > 30) {
@@ -69,9 +73,9 @@ export class CompetitionService {
 
     let questions: CompetitionQuestion[];
     if (gameMode === 'paragraph-race') {
-      const generated = await this.llm.generateParagraphRaceCards(
-        makeParagraphWordSets(words),
-      );
+      const generated = dto.paragraphs
+        ? this.parseManualParagraphs(dto.paragraphs)
+        : await this.llm.generateParagraphRaceCards(makeParagraphWordSets(words));
       questions = generated.map((card) => ({
         type: 'fill-blank',
         gameMode,
@@ -494,6 +498,16 @@ export class CompetitionService {
   private isCorrect(given: string, expected: string) {
     const normalized = this.normalize(given);
     return expected.split(/[|/]/).some((answer) => this.normalize(answer) === normalized);
+  }
+
+  private parseManualParagraphs(paragraphs: string[]) {
+    return paragraphs.map((text, index) => {
+      const parsed = parseManualParagraph(text);
+      if ('error' in parsed) {
+        throw new BadRequestException(`Paragraph ${index + 1} ${parsed.error}.`);
+      }
+      return parsed;
+    });
   }
 
   private shuffle(words: string[]) {

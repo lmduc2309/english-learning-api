@@ -39,6 +39,27 @@ export function makeParagraphWordSets(words: string[], count = 30): string[][] {
   });
 }
 
+/** Parses a host-written paragraph where each answer is wrapped in [brackets]. */
+export function parseManualParagraph(
+  text: string,
+): { prompt: string; answers: string[] } | { error: string } {
+  const source = text.trim();
+  if (source.length > 700) return { error: 'is longer than 700 characters' };
+  const answers: string[] = [];
+  const prompt = source.replace(/\[([^[\]]*)\]/g, (_, word: string) => {
+    answers.push(word.trim());
+    return `[[${answers.length}]]`;
+  });
+  if (answers.some((answer) => !answer) || /[[\]]/.test(prompt.replace(/\[\[\d+\]\]/g, ''))) {
+    return { error: 'has an empty or unclosed [ ]' };
+  }
+  if (answers.length < 2 || answers.length > 6) return { error: 'needs 2 to 6 words in [brackets]' };
+  if (new Set(answers.map((answer) => answer.toLocaleLowerCase())).size !== answers.length) {
+    return { error: 'uses the same word twice' };
+  }
+  return { prompt, answers };
+}
+
 export function parseParagraphAnswer(value: string): string[] | null {
   try {
     const parsed = JSON.parse(value) as unknown;
