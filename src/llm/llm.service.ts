@@ -16,6 +16,7 @@ import {
   TranslateDto,
   TranslateResponseDto,
 } from '../dictionary/dto/translate.dto';
+import { isAllowedVerbForm } from '../competition/verb-forms';
 
 type ChatMessage = OpenAI.Chat.Completions.ChatCompletionMessageParam;
 
@@ -255,11 +256,13 @@ Rules:
 - [[1]] represents the first answer in the item, [[2]] the second, and so on.
 - Do not write any supplied answer anywhere else in that paragraph.
 - Context and grammar must make the placement of each answer clear.
-- Do not change the spelling or form of an answer.
+- When an answer is a verb, you may write it in its base form, past simple, or past participle (for a phrasal verb, change only the first word). Vary the tenses across paragraphs.
+- Do not change nouns, adjectives, or any other answers; never add -s or -ing.
+- Report the exact form written in each blank in "forms", in marker order.
 - Keep the subject safe and suitable for language learners.
 
 Return exactly this JSON shape and no commentary:
-{"cards":[{"id":0,"prompt":"A short paragraph with [[1]] markers."}]}
+{"cards":[{"id":0,"prompt":"A short paragraph with [[1]] markers.","forms":["went"]}]}
 
 Items: ${JSON.stringify(batch)}`,
         },
@@ -606,7 +609,7 @@ Grade the learner. Return ONLY valid JSON in this exact format:
   ): ParagraphRaceCard[] | null {
     const json = text.match(/\{[\s\S]*\}/)?.[0];
     if (!json) return null;
-    let parsed: { cards?: Array<{ id?: unknown; prompt?: unknown }> };
+    let parsed: { cards?: Array<{ id?: unknown; prompt?: unknown; forms?: unknown }> };
     try {
       parsed = JSON.parse(json) as typeof parsed;
     } catch {
@@ -617,16 +620,30 @@ Grade the learner. Return ONLY valid JSON in this exact format:
     const byId = new Map<number, ParagraphRaceCard>();
     for (const card of parsed.cards ?? []) {
       if (typeof card.id !== 'number' || typeof card.prompt !== 'string') continue;
-      const answers = requested.get(card.id);
+      const words = requested.get(card.id);
       const prompt = card.prompt.trim();
-      if (!answers || !this.isSafeParagraphPrompt(prompt, answers)) continue;
+      const answers = this.parseParagraphForms(card.forms, words);
+      if (!words || !answers || !this.isSafeParagraphPrompt(prompt, answers, words)) continue;
       byId.set(card.id, { prompt, answers });
     }
     if (byId.size !== wordSets.length) return null;
     return wordSets.map(({ id }) => byId.get(id)!);
   }
 
-  private isSafeParagraphPrompt(prompt: string, answers: string[]): boolean {
+  /** The forms written in each blank; the supplied words when the model omits them. */
+  private parseParagraphForms(forms: unknown, words: string[] | undefined): string[] | null {
+    if (!words) return null;
+    if (forms === undefined) return words;
+    if (!Array.isArray(forms) || forms.length !== words.length) return null;
+    if (!forms.every((form, index) => typeof form === 'string' && isAllowedVerbForm(words[index], form))) {
+      return null;
+    }
+    const answers = (forms as string[]).map((form) => form.trim());
+    if (new Set(answers.map((answer) => answer.toLowerCase())).size !== answers.length) return null;
+    return answers;
+  }
+
+  private isSafeParagraphPrompt(prompt: string, answers: string[], words: string[]): boolean {
     if (!prompt || prompt.length > 700 || ![4, 5].includes(answers.length)) return false;
     const markers = prompt.match(/\[\[\d+\]\]/g) ?? [];
     if (markers.length !== answers.length) return false;
@@ -640,7 +657,8 @@ Grade the learner. Return ONLY valid JSON in this exact format:
     const visibleText = prompt.replace(/\[\[\d+\]\]/g, ' ');
     const wordCount = visibleText.split(/\s+/).filter(Boolean).length;
     if (wordCount < 20 || wordCount > 70) return false;
-    return answers.every((answer) => {
+    // Neither the blank's form nor the supplied word may appear outside the blanks.
+    return [...answers, ...words].every((answer) => {
       const escaped = answer.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       return !new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}([^\\p{L}\\p{N}]|$)`, 'iu').test(visibleText);
     });
