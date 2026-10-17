@@ -33,6 +33,9 @@ export class CompetitionPlayer {
   @Column({ type: 'integer', default: 0 })
   score: number;
 
+  @Column({ name: 'hope_star_question_index', type: 'smallint', nullable: true })
+  hopeStarQuestionIndex: number | null;
+
   @Column({ name: 'last_seen_at', type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
   lastSeenAt: Date;
 
