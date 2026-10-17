@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { createHash, randomBytes } from 'crypto';
 import { DataSource, Repository } from 'typeorm';
 import {
+  ActivateHopeStarDto,
   CreateCompetitionRoomDto,
   ClaimCompetitionTurnDto,
   JoinCompetitionRoomDto,
@@ -238,10 +239,21 @@ export class CompetitionService {
         id: player.id,
         name: player.name,
         score: player.score,
+        hopeStar: {
+          available: player.hopeStarQuestionIndex == null,
+          active: player.hopeStarQuestionIndex === questionIndex,
+          questionIndex: player.hopeStarQuestionIndex ?? null,
+        },
         answer: currentAnswer?.isCorrect == null ? null : {
           text: currentAnswer.answer,
           correct: currentAnswer.isCorrect,
           points: currentAnswer.points,
+          basePoints: currentAnswer.points - (
+            currentAnswer.isCorrect && player.hopeStarQuestionIndex === questionIndex ? 1000 : 0
+          ),
+          hopeStarBonus: currentAnswer.isCorrect && player.hopeStarQuestionIndex === questionIndex
+            ? 1000
+            : 0,
           usedHint: currentAnswer.usedHint,
         },
       },
@@ -310,6 +322,38 @@ export class CompetitionService {
     }
     await this.answers.save(answer);
     return { hint: room.questions[dto.questionIndex].hint, pointMultiplier: 0.5 };
+  }
+
+  async activateHopeStar(rawCode: string, dto: ActivateHopeStarDto) {
+    const room = await this.getRoom(rawCode);
+    if (inferCompetitionGameMode(room.questions) !== 'paragraph-race') {
+      throw new ConflictException('Hope Star is only available in Paragraph Race.');
+    }
+    this.assertActiveQuestion(room, dto.questionIndex);
+
+    return this.dataSource.transaction(async (manager) => {
+      const player = await manager.findOne(CompetitionPlayer, {
+        where: { id: dto.playerId, roomId: room.id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!player || player.tokenHash !== this.hash(dto.playerToken)) {
+        throw new UnauthorizedException('Your player session is invalid.');
+      }
+      if (player.hopeStarQuestionIndex != null) {
+        throw new ConflictException('You already used your Hope Star.');
+      }
+      const answer = await manager.findOne(CompetitionAnswer, {
+        where: { playerId: player.id, questionIndex: dto.questionIndex },
+      });
+      if (answer?.isCorrect != null) {
+        throw new ConflictException('Choose your Hope Star before answering.');
+      }
+
+      player.hopeStarQuestionIndex = dto.questionIndex;
+      player.lastSeenAt = new Date();
+      await manager.save(player);
+      return { questionIndex: dto.questionIndex, bonusPoints: 1000 };
+    });
   }
 
   async claimTurn(rawCode: string, dto: ClaimCompetitionTurnDto) {
@@ -415,7 +459,9 @@ export class CompetitionService {
         dto.questionIndex,
         room.questions.length,
       );
-      const points = attempt?.usedHint ? Math.round(rawPoints * 0.5) : rawPoints;
+      const basePoints = attempt?.usedHint ? Math.round(rawPoints * 0.5) : rawPoints;
+      const hopeStarBonus = correct && player.hopeStarQuestionIndex === dto.questionIndex ? 1000 : 0;
+      const points = basePoints + hopeStarBonus;
 
       if (!attempt) {
         attempt = manager.create(CompetitionAnswer, {
@@ -437,6 +483,8 @@ export class CompetitionService {
       return {
         correct,
         points,
+        basePoints,
+        hopeStarBonus,
         score: player.score,
         answer: inferCompetitionGameMode(room.questions) === 'paragraph-race'
           ? null

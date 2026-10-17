@@ -101,6 +101,12 @@ export class UseCompetitionHintDto extends PlayerCredentialsDto {
   questionIndex: number;
 }
 
+export class ActivateHopeStarDto extends PlayerCredentialsDto {
+  @IsInt()
+  @Min(0)
+  questionIndex: number;
+}
+
 export class ClaimCompetitionTurnDto extends PlayerCredentialsDto {
   @IsInt()
   @Min(0)

@@ -12,6 +12,7 @@ import { AddLearnerDefinitionProvenance1721401400000 } from '../src/migrations/1
 import { AddVietnameseGlossSearch1721401500000 } from '../src/migrations/1721401500000-AddVietnameseGlossSearch';
 import { AddPrimaryVietnameseSearch1721403500000 } from '../src/migrations/1721403500000-AddPrimaryVietnameseSearch';
 import { AddCompetitionRooms1721404000000 } from '../src/migrations/1721404000000-AddCompetitionRooms';
+import { AddCompetitionHopeStar1721404100000 } from '../src/migrations/1721404100000-AddCompetitionHopeStar';
 
 dotenv.config();
 
@@ -35,6 +36,7 @@ const ds = new DataSource({
     AddVietnameseGlossSearch1721401500000,
     AddPrimaryVietnameseSearch1721403500000,
     AddCompetitionRooms1721404000000,
+    AddCompetitionHopeStar1721404100000,
   ],
   migrationsTableName: 'app_migrations',
   migrationsTransactionMode: 'each',

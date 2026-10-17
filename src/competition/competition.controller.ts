@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import {
+  ActivateHopeStarDto,
   CreateCompetitionRoomDto,
   ClaimCompetitionTurnDto,
   JoinCompetitionRoomDto,
@@ -41,6 +42,11 @@ export class CompetitionController {
   @Post('rooms/:code/hint')
   hint(@Param('code') code: string, @Body() dto: UseCompetitionHintDto) {
     return this.competition.useHint(code, dto);
+  }
+
+  @Post('rooms/:code/hope-star')
+  hopeStar(@Param('code') code: string, @Body() dto: ActivateHopeStarDto) {
+    return this.competition.activateHopeStar(code, dto);
   }
 
   @Post('rooms/:code/claim')
