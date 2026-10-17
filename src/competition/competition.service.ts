@@ -408,7 +408,13 @@ export class CompetitionService {
         - room.startedAt!.getTime()
         - dto.questionIndex * room.secondsPerQuestion * 1000;
       const remainingRatio = Math.max(0, 1 - responseMs / (room.secondsPerQuestion * 1000));
-      const rawPoints = competitionPoints(inferCompetitionGameMode(room.questions), correct, remainingRatio);
+      const rawPoints = competitionPoints(
+        inferCompetitionGameMode(room.questions),
+        correct,
+        remainingRatio,
+        dto.questionIndex,
+        room.questions.length,
+      );
       const points = attempt?.usedHint ? Math.round(rawPoints * 0.5) : rawPoints;
 
       if (!attempt) {

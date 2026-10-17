@@ -5,6 +5,7 @@ import {
   makeParagraphWordSets,
   makeCompetitionQuestionRequests,
   paragraphAnswersMatch,
+  paragraphRaceMaxPoints,
   parseManualParagraph,
   parseParagraphAnswer,
 } from './competition-questions';
@@ -99,9 +100,20 @@ describe('parseManualParagraph', () => {
 
 describe('competitionPoints', () => {
   it('scores Paragraph Race from 500 to 1000 by time left', () => {
-    expect(competitionPoints('paragraph-race', true, 1)).toBe(1000);
-    expect(competitionPoints('paragraph-race', true, 0.5)).toBe(750);
-    expect(competitionPoints('paragraph-race', true, 0)).toBe(500);
+    expect(competitionPoints('paragraph-race', true, 1, 5, 20)).toBe(1000);
+    expect(competitionPoints('paragraph-race', true, 0.5, 5, 20)).toBe(750);
+    expect(competitionPoints('paragraph-race', true, 0, 5, 20)).toBe(500);
+  });
+
+  it('raises the maximum for the final three Paragraph Race rounds', () => {
+    expect(paragraphRaceMaxPoints(16, 20)).toBe(1000);
+    expect(paragraphRaceMaxPoints(17, 20)).toBe(2000);
+    expect(paragraphRaceMaxPoints(18, 20)).toBe(2000);
+    expect(paragraphRaceMaxPoints(19, 20)).toBe(3000);
+    expect(competitionPoints('paragraph-race', true, 1, 17, 20)).toBe(2000);
+    expect(competitionPoints('paragraph-race', true, 0.5, 18, 20)).toBe(1250);
+    expect(competitionPoints('paragraph-race', true, 1, 19, 20)).toBe(3000);
+    expect(competitionPoints('paragraph-race', true, 0, 19, 20)).toBe(500);
   });
 
   it('keeps 700 to 1000 for the other modes', () => {
