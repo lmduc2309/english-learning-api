@@ -29,15 +29,33 @@ export function inferCompetitionGameMode(questions: CompetitionQuestion[]): Comp
 
 export const PARAGRAPH_RACE_SECONDS = 45;
 
+export function paragraphRaceMaxPoints(
+  questionIndex: number,
+  questionCount: number,
+): number {
+  if (questionCount <= 0 || questionIndex < 0 || questionIndex >= questionCount) {
+    return 1000;
+  }
+  if (questionIndex === questionCount - 1) return 3000;
+  if (questionIndex >= questionCount - 3) return 2000;
+  return 1000;
+}
+
 /** Points for an answer; `remainingRatio` is the share of the round's time still left (0–1). */
 export function competitionPoints(
   gameMode: CompetitionGameMode,
   correct: boolean,
   remainingRatio: number,
+  questionIndex = 0,
+  questionCount = 0,
 ): number {
   if (!correct) return 0;
-  const [base, speedBonus] = gameMode === 'paragraph-race' ? [500, 500] : [700, 300];
-  return base + Math.round(speedBonus * remainingRatio);
+  const timeLeft = Math.max(0, Math.min(1, remainingRatio));
+  if (gameMode === 'paragraph-race') {
+    const maxPoints = paragraphRaceMaxPoints(questionIndex, questionCount);
+    return 500 + Math.round((maxPoints - 500) * timeLeft);
+  }
+  return 700 + Math.round(300 * timeLeft);
 }
 
 export function makeParagraphWordSets(words: string[], count = 30): string[][] {
