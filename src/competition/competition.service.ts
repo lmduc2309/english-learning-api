@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash, randomBytes } from 'crypto';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, IsNull, Not, Repository } from 'typeorm';
 import {
   ActivateHopeStarDto,
   CreateCompetitionRoomDto,
@@ -42,6 +42,7 @@ const MAX_VOICE_ATTEMPTS = 3;
 const VOICE_COUNTDOWN_MS = 3000;
 const VOICE_SPEAKING_MS = 6000;
 const VOICE_CLAIM_WINDOW_MS = VOICE_COUNTDOWN_MS + VOICE_SPEAKING_MS;
+const COMPLETED_ROUND_DELAY_MS = 5000;
 
 @Injectable()
 export class CompetitionService {
@@ -189,6 +190,14 @@ export class CompetitionService {
     const currentAnswer = questionIndex >= 0
       ? playerAnswers.find((answer) => answer.questionIndex === questionIndex)
       : undefined;
+    const completedAnswerCount = gameMode !== 'voice-buzz' && questionIndex >= 0
+      ? await this.answers.count({
+        where: { roomId: room.id, questionIndex, isCorrect: Not(IsNull()) },
+      })
+      : 0;
+    const allPlayersAnswered = gameMode !== 'voice-buzz'
+      && roomPlayers.length > 0
+      && completedAnswerCount >= roomPlayers.length;
     const question = questionIndex >= 0 && questionIndex < room.questions.length
       ? room.questions[questionIndex]
       : undefined;
@@ -235,6 +244,7 @@ export class CompetitionService {
           : null,
       } : null,
       questionEndsAt: questionEnd == null ? null : new Date(questionEnd).toISOString(),
+      allPlayersAnswered,
       me: {
         id: player.id,
         name: player.name,
@@ -332,6 +342,13 @@ export class CompetitionService {
     this.assertActiveQuestion(room, dto.questionIndex);
 
     return this.dataSource.transaction(async (manager) => {
+      const lockedRoom = await manager.findOne(CompetitionRoom, {
+        where: { id: room.id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedRoom) throw new NotFoundException('Room not found.');
+      this.assertActiveQuestion(lockedRoom, dto.questionIndex);
+
       const player = await manager.findOne(CompetitionPlayer, {
         where: { id: dto.playerId, roomId: room.id },
         lock: { mode: 'pessimistic_write' },
@@ -413,6 +430,13 @@ export class CompetitionService {
     this.assertActiveQuestion(room, dto.questionIndex);
 
     return this.dataSource.transaction(async (manager) => {
+      const lockedRoom = await manager.findOne(CompetitionRoom, {
+        where: { id: room.id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedRoom) throw new NotFoundException('Room not found.');
+      this.assertActiveQuestion(lockedRoom, dto.questionIndex);
+
       const player = await manager.findOne(CompetitionPlayer, {
         where: { id: dto.playerId, roomId: room.id },
         lock: { mode: 'pessimistic_write' },
@@ -428,8 +452,9 @@ export class CompetitionService {
         throw new ConflictException('You already answered this question.');
       }
 
-      const question = room.questions[dto.questionIndex];
-      const isVoiceBuzz = inferCompetitionGameMode(room.questions) === 'voice-buzz';
+      const question = lockedRoom.questions[dto.questionIndex];
+      const gameMode = inferCompetitionGameMode(lockedRoom.questions);
+      const isVoiceBuzz = gameMode === 'voice-buzz';
       if (isVoiceBuzz) {
         if (!attempt) throw new ConflictException('Claim the speaking turn first.');
         const claimAge = Date.now() - attempt.createdAt.getTime();
@@ -445,19 +470,19 @@ export class CompetitionService {
           return { correct: false, points: 0, score: player.score, answer: question.answer };
         }
       }
-      const correct = isVoiceBuzz || inferCompetitionGameMode(room.questions) !== 'paragraph-race'
+      const correct = isVoiceBuzz || gameMode !== 'paragraph-race'
         ? this.isCorrect(dto.answer, question.answer)
         : paragraphAnswersMatch(dto.answer, question.answers ?? []);
       const responseMs = Date.now()
-        - room.startedAt!.getTime()
-        - dto.questionIndex * room.secondsPerQuestion * 1000;
-      const remainingRatio = Math.max(0, 1 - responseMs / (room.secondsPerQuestion * 1000));
+        - lockedRoom.startedAt!.getTime()
+        - dto.questionIndex * lockedRoom.secondsPerQuestion * 1000;
+      const remainingRatio = Math.max(0, 1 - responseMs / (lockedRoom.secondsPerQuestion * 1000));
       const rawPoints = competitionPoints(
-        inferCompetitionGameMode(room.questions),
+        gameMode,
         correct,
         remainingRatio,
         dto.questionIndex,
-        room.questions.length,
+        lockedRoom.questions.length,
       );
       const basePoints = attempt?.usedHint ? Math.round(rawPoints * 0.5) : rawPoints;
       const hopeStarBonus = correct && player.hopeStarQuestionIndex === dto.questionIndex ? 1000 : 0;
@@ -480,16 +505,39 @@ export class CompetitionService {
       player.score += points;
       player.lastSeenAt = new Date();
       await manager.save(player);
+
+      if (!isVoiceBuzz) {
+        const playerCount = await manager.count(CompetitionPlayer, {
+          where: { roomId: lockedRoom.id },
+        });
+        const completedCount = await manager.count(CompetitionAnswer, {
+          where: {
+            roomId: lockedRoom.id,
+            questionIndex: dto.questionIndex,
+            isCorrect: Not(IsNull()),
+          },
+        });
+        if (playerCount > 0 && completedCount >= playerCount) {
+          const durationMs = lockedRoom.secondsPerQuestion * 1000;
+          const acceleratedEnd = Date.now() + COMPLETED_ROUND_DELAY_MS;
+          const shiftedStart = acceleratedEnd - (dto.questionIndex + 1) * durationMs;
+          if (shiftedStart !== lockedRoom.startedAt!.getTime()) {
+            lockedRoom.startedAt = new Date(shiftedStart);
+            await manager.save(lockedRoom);
+          }
+        }
+      }
+
       return {
         correct,
         points,
         basePoints,
         hopeStarBonus,
         score: player.score,
-        answer: inferCompetitionGameMode(room.questions) === 'paragraph-race'
+        answer: gameMode === 'paragraph-race'
           ? null
           : question.answer,
-        answers: inferCompetitionGameMode(room.questions) === 'paragraph-race'
+        answers: gameMode === 'paragraph-race'
           ? question.answers ?? []
           : undefined,
       };

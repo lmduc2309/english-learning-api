@@ -10,20 +10,28 @@ import { CompetitionRoom } from './entities/competition-room.entity';
 describe('CompetitionService Hope Star', () => {
   const token = 't'.repeat(48);
 
-  function setup(options: { selectedQuestion?: number | null; existingAnswer?: CompetitionAnswer } = {}) {
+  function setup(options: {
+    selectedQuestion?: number | null;
+    existingAnswer?: CompetitionAnswer;
+    playerCount?: number;
+    completedAnswerCount?: number;
+    gameMode?: 'typed' | 'paragraph-race';
+    elapsedMs?: number;
+  } = {}) {
+    const gameMode = options.gameMode ?? 'paragraph-race';
     const room = {
       id: 'room-1',
       code: 'ABC123',
       status: 'playing',
-      startedAt: new Date(Date.now() - 1000),
+      startedAt: new Date(Date.now() - (options.elapsedMs ?? 1000)),
       secondsPerQuestion: 45,
       questions: [{
         type: 'fill-blank',
-        gameMode: 'paragraph-race',
+        gameMode,
         prompt: 'A [[1]] and [[2]] sentence.',
-        answer: '["clear","short"]',
-        answers: ['clear', 'short'],
-        options: ['short', 'clear'],
+        answer: gameMode === 'paragraph-race' ? '["clear","short"]' : 'clear',
+        answers: gameMode === 'paragraph-race' ? ['clear', 'short'] : undefined,
+        options: gameMode === 'paragraph-race' ? ['short', 'clear'] : undefined,
         hint: '',
       }],
     } as CompetitionRoom;
@@ -37,10 +45,14 @@ describe('CompetitionService Hope Star', () => {
     } as CompetitionPlayer;
     const manager = {
       findOne: jest.fn(async (entity: unknown) => {
+        if (entity === CompetitionRoom) return room;
         if (entity === CompetitionPlayer) return player;
         if (entity === CompetitionAnswer) return options.existingAnswer ?? null;
         return null;
       }),
+      count: jest.fn(async (entity: unknown) => entity === CompetitionPlayer
+        ? options.playerCount ?? 1
+        : options.completedAnswerCount ?? 1),
       create: jest.fn((_entity: unknown, input: object) => input),
       save: jest.fn(async (input: object) => input),
     };
@@ -61,7 +73,7 @@ describe('CompetitionService Hope Star', () => {
       {} as LlmService,
     );
     const credentials = { playerId: player.id, playerToken: token, questionIndex: 0 };
-    return { service, player, manager, credentials };
+    return { service, room, player, manager, credentials };
   }
 
   it('locks the one-time star to the active paragraph', async () => {
@@ -99,5 +111,43 @@ describe('CompetitionService Hope Star', () => {
     expect(result).toMatchObject({ correct: false, points: 0, basePoints: 0, hopeStarBonus: 0 });
     expect(player.score).toBe(0);
     expect(player.hopeStarQuestionIndex).toBe(0);
+  });
+
+  it.each([
+    ['Paragraph Race', 'paragraph-race', '["clear","short"]'],
+    ['Flashcard Race', 'typed', 'clear'],
+  ] as const)('starts a five-second transition when everyone finishes %s', async (_label, gameMode, answer) => {
+    const { service, room, credentials } = setup({ gameMode });
+    const originalStart = room.startedAt!.getTime();
+
+    await service.submitAnswer('ABC123', { ...credentials, answer });
+
+    const remainingMs = room.startedAt!.getTime() + 45_000 - Date.now();
+    expect(room.startedAt!.getTime()).toBeLessThan(originalStart);
+    expect(remainingMs).toBeGreaterThanOrEqual(4900);
+    expect(remainingMs).toBeLessThanOrEqual(5000);
+  });
+
+  it('keeps the normal deadline while another player is still answering', async () => {
+    const { service, room, credentials } = setup({
+      gameMode: 'typed',
+      playerCount: 2,
+      completedAnswerCount: 1,
+    });
+    const originalStart = room.startedAt!.getTime();
+
+    await service.submitAnswer('ABC123', { ...credentials, answer: 'clear' });
+
+    expect(room.startedAt!.getTime()).toBe(originalStart);
+  });
+
+  it('still gives a full five-second transition when the original timer is nearly over', async () => {
+    const { service, room, credentials } = setup({ gameMode: 'typed', elapsedMs: 44_000 });
+
+    await service.submitAnswer('ABC123', { ...credentials, answer: 'clear' });
+
+    const remainingMs = room.startedAt!.getTime() + 45_000 - Date.now();
+    expect(remainingMs).toBeGreaterThanOrEqual(4900);
+    expect(remainingMs).toBeLessThanOrEqual(5000);
   });
 });
