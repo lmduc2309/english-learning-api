@@ -70,6 +70,17 @@ export function makeParagraphWordSets(words: string[], count = 30): string[][] {
   });
 }
 
+/** Answers from the other rounds that don't clash with this round's own blocks. */
+export function paragraphDecoyPool(answerSets: string[][], index: number): string[] {
+  const taken = new Set(answerSets[index].map((word) => word.toLocaleLowerCase()));
+  return answerSets.flat().filter((word) => {
+    const key = word.toLocaleLowerCase();
+    if (taken.has(key)) return false;
+    taken.add(key);
+    return true;
+  });
+}
+
 /** Parses a host-written paragraph where each answer is wrapped in [brackets]. */
 export function parseManualParagraph(
   text: string,

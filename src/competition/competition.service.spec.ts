@@ -103,6 +103,26 @@ describe('CompetitionService paragraph race rooms', () => {
     expect(new Set(roomInput.questions[0].options)).toEqual(new Set(['went', 'brief']));
   });
 
+  it('mixes the requested number of decoy blocks from other rounds into each paragraph', async () => {
+    const { service, rooms } = makeService();
+
+    await service.createRoom({
+      name: 'Offline Sprint',
+      hostName: 'Linh',
+      secondsPerQuestion: 30,
+      gameMode: 'paragraph-race',
+      decoys: 2,
+      paragraphs: ['A [b] and [c].', 'A [d] and [e].', 'A [f] and [g].'],
+    });
+
+    const [first] = ((rooms.create as jest.Mock).mock.calls[0][0] as CompetitionRoom).questions;
+    expect(first.answers).toEqual(['b', 'c']);
+    expect(first.options).toHaveLength(4);
+    expect(first.options).toEqual(expect.arrayContaining(['b', 'c']));
+    expect(first.options!.filter((word) => !['b', 'c'].includes(word))
+      .every((word) => ['d', 'e', 'f', 'g'].includes(word))).toBe(true);
+  });
+
   it('names the first invalid manual paragraph', async () => {
     const { service } = makeService();
 

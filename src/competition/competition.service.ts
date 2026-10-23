@@ -30,6 +30,7 @@ import {
   inferCompetitionQuestionMode,
   inferCompetitionGameMode,
   makeParagraphWordSets,
+  paragraphDecoyPool,
   makeCompetitionQuestionRequests,
   paragraphAnswersMatch,
   parseManualParagraph,
@@ -80,13 +81,17 @@ export class CompetitionService {
       const generated = dto.paragraphs
         ? this.parseManualParagraphs(dto.paragraphs)
         : await this.llm.generateParagraphRaceCards(makeParagraphWordSets(words));
-      questions = generated.map((card) => ({
+      const answerSets = generated.map((card) => card.answers);
+      questions = generated.map((card, index) => ({
         type: 'fill-blank',
         gameMode,
         prompt: card.prompt,
         answer: JSON.stringify(card.answers),
         answers: card.answers,
-        options: this.shuffle(card.answers),
+        options: this.shuffle([
+          ...card.answers,
+          ...this.shuffle(paragraphDecoyPool(answerSets, index)).slice(0, dto.decoys ?? 0),
+        ]),
         hint: '',
       }));
     } else {
