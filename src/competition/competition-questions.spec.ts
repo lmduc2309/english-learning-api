@@ -4,6 +4,7 @@ import {
   inferCompetitionQuestionMode,
   makeParagraphWordSets,
   makeCompetitionQuestionRequests,
+  paragraphDecoyPool,
   paragraphAnswersMatch,
   paragraphRaceMaxPoints,
   parseManualParagraph,
@@ -95,6 +96,16 @@ describe('parseManualParagraph', () => {
     expect(parseManualParagraph('[went] and [] here.')).toEqual({ error: 'has an empty or unclosed [ ]' });
     expect(parseManualParagraph('[went] and [brief here.')).toEqual({ error: 'has an empty or unclosed [ ]' });
     expect(parseManualParagraph(`[went] [brief] ${'x'.repeat(700)}`)).toEqual({ error: 'is longer than 700 characters' });
+  });
+});
+
+describe('paragraphDecoyPool', () => {
+  it('offers answers from the other rounds that do not clash with this round', () => {
+    expect(paragraphDecoyPool([
+      ['went', 'brief'],
+      ['Brief', 'guide', 'went'],
+      ['climbed', 'guide'],
+    ], 0)).toEqual(['guide', 'climbed']);
   });
 });
 

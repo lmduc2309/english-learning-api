@@ -61,6 +61,13 @@ export class CreateCompetitionRoomDto {
   @IsString({ each: true })
   @MaxLength(700, { each: true })
   paragraphs?: string[];
+
+  /** Paragraph Race only: extra blocks per round, taken from other rounds' answers. */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(3)
+  decoys?: number;
 }
 
 export class JoinCompetitionRoomDto {

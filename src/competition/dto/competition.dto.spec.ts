@@ -21,4 +21,12 @@ describe('CreateCompetitionRoomDto', () => {
     expect(invalidFields({ paragraphs: ['A [b] [c]', 'A [d] [e]'] })).toEqual(['paragraphs']);
     expect(invalidFields({ paragraphs: Array(31).fill('A [b] [c]') })).toEqual(['paragraphs']);
   });
+
+  it('accepts 0 to 3 decoy blocks per paragraph', () => {
+    const paragraphs = ['A [b] [c]', 'A [d] [e]', 'A [f] [g]'];
+    expect(invalidFields({ paragraphs, decoys: 0 })).toEqual([]);
+    expect(invalidFields({ paragraphs, decoys: 3 })).toEqual([]);
+    expect(invalidFields({ paragraphs, decoys: 4 })).toEqual(['decoys']);
+    expect(invalidFields({ paragraphs, decoys: 1.5 })).toEqual(['decoys']);
+  });
 });
