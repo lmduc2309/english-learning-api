@@ -6,13 +6,15 @@ import { CompetitionRoom } from './entities/competition-room.entity';
 import { CompetitionController } from './competition.controller';
 import { CompetitionService } from './competition.service';
 import { LlmModule } from '../llm/llm.module';
+import { WordsfallController } from './wordsfall.controller';
+import { WordsfallService } from './wordsfall.service';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([CompetitionRoom, CompetitionPlayer, CompetitionAnswer]),
     LlmModule,
   ],
-  controllers: [CompetitionController],
-  providers: [CompetitionService],
+  controllers: [CompetitionController, WordsfallController],
+  providers: [CompetitionService, WordsfallService],
 })
 export class CompetitionModule {}
