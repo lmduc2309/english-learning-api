@@ -22,6 +22,7 @@ import { ClassifyVietnameseEchoes1721403200000 } from '../src/migrations/1721403
 import { EnforceLearnerProvenance1721403300000 } from '../src/migrations/1721403300000-EnforceLearnerProvenance';
 import { StrengthenCommercialPublication1721403400000 } from '../src/migrations/1721403400000-StrengthenCommercialPublication';
 import { AddPrimaryVietnameseSearch1721403500000 } from '../src/migrations/1721403500000-AddPrimaryVietnameseSearch';
+import { AddPolishMyEnglish1721403600000 } from '../src/migrations/1721403600000-AddPolishMyEnglish';
 
 dotenv.config();
 
@@ -55,6 +56,7 @@ const ds = new DataSource({
     EnforceLearnerProvenance1721403300000,
     StrengthenCommercialPublication1721403400000,
     AddPrimaryVietnameseSearch1721403500000,
+    AddPolishMyEnglish1721403600000,
   ],
   migrationsTableName: 'app_migrations',
   migrationsTransactionMode: 'each',

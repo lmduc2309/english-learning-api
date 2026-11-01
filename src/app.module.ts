@@ -9,6 +9,7 @@ import { CategoryModule } from './category/category.module';
 import { VerbalMappingModule } from './verbal-mapping/verbal-mapping.module';
 import { TtsModule } from './shared/tts/tts.module';
 import { LearningModule } from './learning/learning.module';
+import { PolishModule } from './polish/polish.module';
 import configuration from './config/configuration';
 import { LEGACY_ENTITIES } from './config/legacy-entities';
 
@@ -39,6 +40,7 @@ import { LEGACY_ENTITIES } from './config/legacy-entities';
     VerbalMappingModule,
     TtsModule,
     LearningModule,
+    PolishModule,
   ],
 })
 export class AppModule {}

@@ -14,6 +14,9 @@ import { Word } from '../dictionary/entities/word.entity';
 import { WordForm } from '../dictionary/entities/word-form.entity';
 import { LookupHistory } from '../learning/entities/lookup-history.entity';
 import { WordFolder } from '../learning/entities/word-folder.entity';
+import { PolishCorrectionEntity } from '../polish/entities/polish-correction.entity';
+import { PolishPhrase } from '../polish/entities/polish-phrase.entity';
+import { PolishSession } from '../polish/entities/polish-session.entity';
 import { VerbalMappingAttempt } from '../verbal-mapping/entities/verbal-mapping-attempt.entity';
 import { VerbalMappingSession } from '../verbal-mapping/entities/verbal-mapping-session.entity';
 import { WordList } from '../word-list/entities/word-list.entity';
@@ -41,6 +44,9 @@ export const LEGACY_ENTITIES = [
   WordForm,
   LookupHistory,
   WordFolder,
+  PolishSession,
+  PolishCorrectionEntity,
+  PolishPhrase,
   VerbalMappingAttempt,
   VerbalMappingSession,
   WordList,
