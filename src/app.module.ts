@@ -11,6 +11,7 @@ import { TtsModule } from './shared/tts/tts.module';
 import { LearningModule } from './learning/learning.module';
 import configuration from './config/configuration';
 import { CompetitionModule } from './competition/competition.module';
+import { PolishModule } from './polish/polish.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { CompetitionModule } from './competition/competition.module';
     TtsModule,
     LearningModule,
     CompetitionModule,
+    PolishModule,
   ],
 })
 export class AppModule {}
