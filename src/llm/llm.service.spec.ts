@@ -724,3 +724,74 @@ describe('LlmService.gradeSpokenAnswer', () => {
     });
   });
 });
+
+describe('LlmService.completeOwnerTool', () => {
+  it('requests JSON output with the caller options', async () => {
+    const mockCreate = jest.fn().mockResolvedValue({
+      choices: [{ message: { content: ' {"ok":true} ' } }],
+    });
+    const svc = makeServiceWithMock(mockCreate);
+
+    await expect(
+      svc.completeOwnerTool([{ role: 'user', content: 'hi' }], {
+        temperature: 0.3,
+        timeoutMs: 25000,
+      }),
+    ).resolves.toBe('{"ok":true}');
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        temperature: 0.3,
+        response_format: { type: 'json_object' },
+      }),
+      { timeout: 25000, maxRetries: 0 },
+    );
+  });
+
+  it('returns 503 when the LLM is disabled', async () => {
+    const svc = new LlmService(
+      makeConfig({ 'llm.enableFallback': false }),
+    );
+    await expect(
+      svc.completeOwnerTool([{ role: 'user', content: 'hi' }]),
+    ).rejects.toMatchObject({ status: HttpStatus.SERVICE_UNAVAILABLE });
+  });
+
+  it('does not log the message text on failure', async () => {
+    const mockCreate = jest.fn().mockRejectedValue(new Error('boom'));
+    const svc = makeServiceWithMock(mockCreate);
+    const errorSpy = jest
+      .spyOn((svc as any).logger, 'error')
+      .mockImplementation(() => undefined);
+    await expect(
+      svc.completeOwnerTool([{ role: 'user', content: 'SECRET DRAFT' }]),
+    ).rejects.toBeDefined();
+    const logged = errorSpy.mock.calls[0][0] as string;
+    expect(logged).toContain('preview=[redacted]');
+    expect(logged).not.toContain('SECRET');
+  });
+
+  it('logs only the error class and status, never the provider message', async () => {
+    const err = makeSdkError(RateLimitError, 'quota hit for draft: SECRET DRAFT');
+    Object.assign(err, { status: 429 });
+    const mockCreate = jest.fn().mockRejectedValue(err);
+    const svc = makeServiceWithMock(mockCreate);
+    const errorSpy = jest
+      .spyOn((svc as any).logger, 'error')
+      .mockImplementation(() => undefined);
+    await expect(
+      svc.completeOwnerTool([{ role: 'user', content: 'hi' }]),
+    ).rejects.toMatchObject({ status: HttpStatus.TOO_MANY_REQUESTS });
+    const logged = errorSpy.mock.calls[0][0] as string;
+    expect(logged).toContain('RateLimitError');
+    expect(logged).toContain('status=429');
+    expect(logged).not.toContain('SECRET');
+    expect(logged).not.toContain('quota');
+  });
+
+  it('disables SDK retries so one attempt stays within its timeout', async () => {
+    const mockCreate = jest.fn().mockResolvedValue({ choices: [{ message: { content: '{}' } }] });
+    const svc = makeServiceWithMock(mockCreate);
+    await svc.completeOwnerTool([{ role: 'user', content: 'hi' }]);
+    expect(mockCreate).toHaveBeenCalledWith(expect.any(Object), { maxRetries: 0 });
+  });
+});

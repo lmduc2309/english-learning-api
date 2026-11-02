@@ -18,13 +18,15 @@ import {
 } from '../dictionary/dto/translate.dto';
 import { isAllowedVerbForm } from '../competition/verb-forms';
 
-type ChatMessage = OpenAI.Chat.Completions.ChatCompletionMessageParam;
+export type ChatMessage = OpenAI.Chat.Completions.ChatCompletionMessageParam;
 
 interface ChatOpts {
   temperature?: number;
   maxTokens?: number;
   responseFormat?: { type: 'json_object' };
   timeoutMs?: number;
+  maxRetries?: number;
+  redactLogs?: boolean;
 }
 
 export interface RecallClue {
@@ -521,6 +523,18 @@ Grade the learner. Return ONLY valid JSON in this exact format:
     };
   }
 
+  async completeOwnerTool(
+    messages: ChatMessage[],
+    opts: { temperature?: number; maxTokens?: number; timeoutMs?: number } = {},
+  ): Promise<string> {
+    return this.chat(messages, {
+      ...opts,
+      responseFormat: { type: 'json_object' },
+      maxRetries: 0,
+      redactLogs: true,
+    });
+  }
+
   async healthCheck() {
     return {
       status: this.openai ? 'healthy' : 'disabled',
@@ -673,8 +687,13 @@ Grade the learner. Return ONLY valid JSON in this exact format:
     }
 
     const lastUser = [...messages].reverse().find((m) => m.role === 'user');
-    const preview =
-      typeof lastUser?.content === 'string' ? lastUser.content.slice(0, 200) : '';
+    const preview = opts.redactLogs
+      ? '[redacted]'
+      : typeof lastUser?.content === 'string' ? lastUser.content.slice(0, 200) : '';
+    const requestOptions = {
+      ...(opts.timeoutMs !== undefined ? { timeout: opts.timeoutMs } : {}),
+      ...(opts.maxRetries !== undefined ? { maxRetries: opts.maxRetries } : {}),
+    };
     try {
       const response = await this.openai.chat.completions.create(
         {
@@ -684,11 +703,17 @@ Grade the learner. Return ONLY valid JSON in this exact format:
           ...(opts.maxTokens !== undefined ? { max_tokens: opts.maxTokens } : {}),
           ...(opts.responseFormat ? { response_format: opts.responseFormat } : {}),
         },
-        opts.timeoutMs !== undefined ? { timeout: opts.timeoutMs } : undefined,
+        Object.keys(requestOptions).length > 0 ? requestOptions : undefined,
       );
       return response.choices[0]?.message?.content?.trim() ?? '';
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = opts.redactLogs
+        ? `${err instanceof Error ? err.constructor.name : typeof err}${
+            (err as { status?: number })?.status !== undefined
+              ? ` status=${(err as { status?: number }).status}`
+              : ''
+          }`
+        : err instanceof Error ? err.message : String(err);
       this.logger.error(
         `LLM call failed (model=${this.model}, messages=${messages.length}, preview=${preview}): ${message}`,
       );
